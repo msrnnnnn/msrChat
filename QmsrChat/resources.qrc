@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>image/mainwidow.ico</file>
+        <file>image/login.ico</file>
+        <file>image/login1.ico</file>
+    </qresource>
+</RCC>
