@@ -18,7 +18,11 @@ public:
 signals:
     void switchLogin();
 
+private slots:
+    void on_confirm_CAPTCHA_Button_clicked();
+
 private:
+    void showTip(QString str, bool isCorrect);
     Ui::RegisterDialog *ui;
 };
 

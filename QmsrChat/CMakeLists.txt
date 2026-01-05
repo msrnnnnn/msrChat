@@ -26,6 +26,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         resources.qrc
         logindialog.h logindialog.cpp logindialog.ui
         registerdialog.h registerdialog.cpp registerdialog.ui
+        global.h
+        global.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET QmsrChat APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
