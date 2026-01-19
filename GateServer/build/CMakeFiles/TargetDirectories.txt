@@ -1,3 +1,0 @@
-/home/msr/msrChar/GateServer/build/CMakeFiles/GateServer.dir
-/home/msr/msrChar/GateServer/build/CMakeFiles/edit_cache.dir
-/home/msr/msrChar/GateServer/build/CMakeFiles/rebuild_cache.dir
