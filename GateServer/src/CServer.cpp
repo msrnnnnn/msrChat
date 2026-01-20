@@ -8,7 +8,7 @@ CServer::CServer(net::io_context &ioc, unsigned short &port)
 {
 }
 
-void CServer::Start()
+void CServer::HandleAccept()
 {
     auto self = shared_from_this();
     _acceptor.async_accept(
@@ -19,16 +19,16 @@ void CServer::Start()
             {
                 if (ec)
                 {
-                    self->Start();
+                    self->HandleAccept();
                     return;
                 }
-                std::make_shared<HttpConnection>(std::move(_socket))->Start();
-                self->Start();
+                std::make_shared<HttpConnection>(std::move(_socket))->HandleAccept();
+                self->HandleAccept();
             }
             catch (std::exception &exp)
             {
                 std::cout << "exception is" << exp.what() << std::endl;
-                self->Start();
+                self->HandleAccept();
             }
         });
 }
