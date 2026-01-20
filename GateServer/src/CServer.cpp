@@ -13,11 +13,11 @@ void CServer::Start()
     auto self = shared_from_this();
     _acceptor.async_accept(
         _socket,
-        [self](beast::error_code error)
+        [self](beast::error_code ec)
         {
             try
             {
-                if (error)
+                if (ec)
                 {
                     self->Start();
                     return;
