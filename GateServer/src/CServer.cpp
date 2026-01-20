@@ -1,4 +1,5 @@
 #include "CServer.h"
+#include "HttpConnection.h"
 #include <iostream>
 
 CServer::CServer(net::io_context &ioc, unsigned short &port)
@@ -22,7 +23,7 @@ void CServer::HandleAccept()
                     self->HandleAccept();
                     return;
                 }
-                std::make_shared<HttpConnection>(std::move(_socket))->HandleAccept();
+                std::make_shared<HttpConnection>(std::move(self->_socket))->ReadRequest();
                 self->HandleAccept();
             }
             catch (std::exception &exp)
