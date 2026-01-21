@@ -19,12 +19,15 @@ int main()
                 }
                 ioc.stop();
             });
-        std::make_shared<CServer>(ioc, port)->HandleAccept();
+        auto server = std::make_shared<CServer>(ioc, port);
+
+        // 启动监听
+        server->HandleAccept();
         ioc.run();
     }
-    catch (std::exception const &e)
+    catch (std::exception const &exp)
     {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Error: " << exp.what() << std::endl;
         return EXIT_FAILURE;
     }
 }
