@@ -1,5 +1,5 @@
 #pragma once
-#include <iostream>、
+#include <iostream>
 #include <memory>
 template <typename T>
 class Singleton
