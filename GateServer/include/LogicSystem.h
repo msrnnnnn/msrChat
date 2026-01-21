@@ -12,8 +12,10 @@ class LogicSystem : public Singleton<LogicSystem>
 
 public:
     ~LogicSystem() = default;
-    bool HandleGet(std::string path, std::shared_ptr<HttpConnection> conn);
+    bool HandleGet(std::string path, std::shared_ptr<HttpConnection> connection);
     void RegisterGet(std::string url, HttpHandler handler);
+    bool HandlePost(std::string path, std::shared_ptr<HttpConnection> connection);
+    void RegisterPost(std::string url, HttpHandler handler);
 
 private:
     LogicSystem();

@@ -22,7 +22,7 @@ public:
 
 private:
     void CheckDeadline();
-    void WriteRespose();
+    void WriteResponse();
     void HandleRequest();
     void PreParseGetParam();
     tcp::socket _socket;
