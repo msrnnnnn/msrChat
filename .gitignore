@@ -1,38 +1,49 @@
-# --- 通用 ---
-.git/
-.DS_Store
-README.md.backup
-
-# --- VS Code / IDE ---
-.vscode/
-.idea/
+# ========================
+# Windows / Qt / VS 垃圾文件
+# ========================
+build/
+*.build
+*.Debug
+*.Release
+x64/
+x86/
+debug/
+release/
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.users
 *.user
+*.suo
+*.sln.docstates
+.vs/
+*.stash
+Makefile*
+*.qmake.stash
 
-# --- C++ Build (Linux Backend) ---
-GateServer/build/
-GateServer/bin/
+# ========================
+# Linux / C++ / CMake 垃圾文件
+# ========================
 *.o
 *.a
 *.so
+*.dylib
 CMakeCache.txt
 CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+core
+core.*
 
-# --- Qt Build (Windows Client) ---
-# 忽略 Qt Creator 自动生成的构建目录 (如 build-QmsrChat-Desktop-Debug)
-build-*/
-*.pro.user
-*.moc
-*.ui
-qrc_*.cpp
-ui_*.h
-*.obj
-*.exe
-*.dll
-*.pdb
-*.ilk
-debug/
-release/
-
-# --- 保护特定文件 ---
-# 只有可执行文件要忽略，但不要忽略源代码文件夹
-GateServer/GateServer
+# ========================
+# 通用忽略
+# ========================
+.vscode/
+.idea/
+.DS_Store
+*.log
+*.tmp
