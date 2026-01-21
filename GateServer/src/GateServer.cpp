@@ -1,4 +1,5 @@
 #include "CServer.h"
+#include <iostream>
 #include <json/json.h>
 #include <json/reader.h>
 #include <json/value.h>
