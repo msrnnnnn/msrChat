@@ -21,6 +21,6 @@ protected:
     Singleton &operator=(const Singleton &) = delete;
     virtual ~Singleton()
     {
-        std::cout << "this is ~Singleton() " << std::endl;
+        std::cout << " this is ~Singleton() " << std::endl;
     }
 };

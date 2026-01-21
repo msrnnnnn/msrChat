@@ -3,12 +3,22 @@
 
 LogicSystem::LogicSystem()
 {
-    RegiterGet(
-        "/get_test", [](std::shared_ptr<HttpConnection> conn)
-        { beast::ostream(conn->_response.body()) << "receive get_test request"; });
+    RegisterGet(
+        "/get_test",
+        [](std::shared_ptr<HttpConnection> connection)
+        {
+            beast::ostream(connection->_response.body()) << "receive get_test req " << std::endl;
+            int i = 0;
+            for (auto &elem : connection->_get_params)
+            {
+                i++;
+                beast::ostream(connection->_response.body()) << "param" << i << " key is " << elem.first;
+                beast::ostream(connection->_response.body()) << ", " << " value is " << elem.second << std::endl;
+            }
+        });
 }
 
-void LogicSystem::RegiterGet(std::string url, HttpHandler handler)
+void LogicSystem::RegisterGet(std::string url, HttpHandler handler)
 {
     _registerGet.emplace(url, handler);
 }
