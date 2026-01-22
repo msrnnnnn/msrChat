@@ -24,6 +24,8 @@ RegisterDialog::RegisterDialog(QWidget *parent)
 
     // 初始化注册表 (填充 _handlers)
     initHttpHandlers();
+
+    connect(ui->confirm_verifycode_Button, &QPushButton::clicked, this, &RegisterDialog::on_confirm_verifycode_Button_clicked);
 }
 
 RegisterDialog::~RegisterDialog()
@@ -31,11 +33,11 @@ RegisterDialog::~RegisterDialog()
     delete ui;
 }
 
-void RegisterDialog::on_confirm_CAPTCHA_Button_clicked()
+void RegisterDialog::on_confirm_verifycode_Button_clicked()
 {
     // 1. 获取输入并清洗数据
     // trimmed() 去除首尾空格，防止用户不小心复制了空格导致校验失败
-    const QString email = ui->CAPTCHA_Edit->text().trimmed();
+    const QString email = ui->email_Edit->text().trimmed();
 
     // 2. 邮箱格式校验 (工业级正则)
     // 规则：支持字母数字、常见符号，域名至少包含一个点号
@@ -46,9 +48,10 @@ void RegisterDialog::on_confirm_CAPTCHA_Button_clicked()
 
     bool match = emailRegex.match(email).hasMatch();
     if(match){
-        // TODO: 这里需要调用 HttpManagement 发送验证码请求
-        // 例如: HttpManagement::getPtr()->PostHttpRequest(..., RequestType::ID_GET_VARIFY_CODE, ...);
-        // 目前逻辑缺失
+        QJsonObject Json_object;
+        Json_object["email"] = email;
+        HttpManagement::GetInstance()->PostHttpRequest(QUrl("http://localhost:8080/get_varifycode"),
+                                                       Json_object, RequestType::ID_GET_VARIFY_CODE, Modules::REGISTER_MOD);
     }else{
         showTip(tr("邮箱地址不正确"), false);
     }
