@@ -7,6 +7,7 @@
 
 LogicSystem::LogicSystem()
 {
+    // 注册 /get_test 路由
     RegisterGet(
         "/get_test",
         [](std::shared_ptr<HttpConnection> connection)
@@ -21,16 +22,30 @@ LogicSystem::LogicSystem()
             }
         });
 
+    // 注册 /get_varifycode 路由
     RegisterPost(
         "/get_varifycode",
         [](std::shared_ptr<HttpConnection> connection)
         {
+            /**
+             * @note [Memory Copy]
+             * buffers_to_string 会将分散在 buffer 中的数据拷贝并拼接成一个 std::string。
+             */
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
             std::cout << "receive body is " << body_str << std::endl;
+
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value response_json;
             Json::Value request_json;
             Json::Reader reader;
+
+            /**
+             * @warning [PERFORMANCE BOTTLENECK] (性能瓶颈)
+             * 此处的 JSON 解析是在主 IO 线程 (Reactor Thread) 中同步执行的。
+             * 1. 这是一个 CPU 密集型操作。
+             * 2. 如果 JSON 数据很大，或者并发很高，会阻塞 io_context，导致无法处理其他 socket 的 accept/read。
+             * 3. 架构建议：将此类业务逻辑投递 (post) 到 Worker 线程池中处理。
+             */
             bool parse_success = reader.parse(body_str, request_json);
             if (!parse_success)
             {
@@ -40,8 +55,12 @@ LogicSystem::LogicSystem()
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;
             }
+
+            // 提取 email 字段
             auto email = request_json["email"].asString();
             std::cout << "email is " << email << std::endl;
+
+            // 构造回包
             response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
             response_json["email"] = request_json["email"];
             std::string jsonstr = response_json.toStyledString();
