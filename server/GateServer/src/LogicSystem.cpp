@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
+#include "VerifyGrpcClient.h"
 #include "const.h"
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
@@ -59,10 +60,13 @@ LogicSystem::LogicSystem()
             // 提取 email 字段
             auto email = request_json["email"].asString();
             std::cout << "email is " << email << std::endl;
-
+            // [RPC Call] 调用我们的 Mock 客户端
+            GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
             // 构造回包
-            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
-            response_json["email"] = request_json["email"];
+            response_json["error"] = rsp.error();
+            response_json["email"] = email;
+            // 调试用：把验证码也发回去方便看
+            response_json["code"] = rsp.code();
             std::string jsonstr = response_json.toStyledString();
             beast::ostream(connection->_response.body()) << jsonstr;
             return true;
