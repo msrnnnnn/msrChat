@@ -34,7 +34,7 @@ private slots:
      * @brief 获取验证码按钮点击槽函数
      * @details 执行邮箱正则校验，通过后请求验证码
      */
-    void on_confirm_CAPTCHA_Button_clicked();
+    void on_confirm_verifycode_Button_clicked();
 
     /**
      * @brief HTTP 请求完成回调槽
