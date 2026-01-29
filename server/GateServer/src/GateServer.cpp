@@ -7,6 +7,10 @@
  */
 
 #include "CServer.h"
+<<<<<<< HEAD
+=======
+#include "ConfigManagement.h"
+>>>>>>> d4bdb55d943f6b6232f392fe15188f9e5cb730f4
 #include <iostream>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>

@@ -202,6 +202,10 @@ void HttpConnection::WriteResponse()
             {
                 // 发送失败，关闭连接
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
+<<<<<<< HEAD
+=======
+                std::cout << "socket shutdown" << std::endl;
+>>>>>>> d4bdb55d943f6b6232f392fe15188f9e5cb730f4
                 return;
             }
 
@@ -217,6 +221,10 @@ void HttpConnection::WriteResponse()
             else
             {
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
+<<<<<<< HEAD
+=======
+                std::cout << "socket shutdown" << std::endl;
+>>>>>>> d4bdb55d943f6b6232f392fe15188f9e5cb730f4
                 self->deadline_.cancel();
             }
         });
@@ -240,6 +248,10 @@ void HttpConnection::CheckDeadline()
             {
                 // 真正的超时发生了，硬关闭 Socket
                 // 这会导致任何正在进行的 read/write 操作立即返回 error，从而中断连接
+<<<<<<< HEAD
+=======
+                std::cout << "socket close" << std::endl;
+>>>>>>> d4bdb55d943f6b6232f392fe15188f9e5cb730f4
                 self->_socket.close();
             }
         });
