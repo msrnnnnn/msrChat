@@ -30,7 +30,8 @@ set(PROJECT_SOURCES
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
-        ${PROJECT_SOURCES} # 直接使用上面定义好的集合
+        ${PROJECT_SOURCES}
+        .gitignore # 直接使用上面定义好的集合
     )
 # [Qt5 / Android Build Path]
 else()

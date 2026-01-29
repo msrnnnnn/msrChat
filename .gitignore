@@ -1,0 +1,32 @@
+# .gitignore
+
+# 1. 忽略编译生成目录
+build/
+bin/
+out/
+
+# 2. 忽略编译中间件
+*.o
+*.a
+*.so
+*.exe
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# 3. 忽略编辑器配置 (个人配置不上传)
+.vscode/
+.idea/
+
+# 4. 忽略特定可执行文件
+GateServer
+
+# 5. 忽略系统文件
+.DS_Store
+
+# 6. gRPC & Protobuf 生成文件
+*.pb.cc
+*.pb.h
+*.grpc.pb.cc
+*.grpc.pb.h
