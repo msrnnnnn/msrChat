@@ -43,7 +43,7 @@ class HttpManagement : public QObject,
     Q_OBJECT
 
 public:
-    // 允许 Singleton 模板访问私有构造函数
+    // 允许(父类)Singleton 模板访问HttpManagement私有构造函数
     friend class Singleton<HttpManagement>;
 
     ~HttpManagement();

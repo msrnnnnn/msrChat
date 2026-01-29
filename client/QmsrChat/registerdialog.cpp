@@ -25,7 +25,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     // 初始化注册表 (填充 _handlers)
     initHttpHandlers();
 
-    connect(ui->confirm_verifycode_Button, &QPushButton::clicked, this, &RegisterDialog::on_confirm_verifycode_Button_clicked);
+
 }
 
 RegisterDialog::~RegisterDialog()
@@ -41,13 +41,14 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
 
     // 2. 邮箱格式校验 (工业级正则)
     // 规则：支持字母数字、常见符号，域名至少包含一个点号
-    QRegularExpression emailRegex(
+    static const QRegularExpression emailRegex(
         R"(^[A-Z0-9_%+-]+(?:\.[A-Z0-9_%+-]+)*@[A-Z0-9.-]+\.[A-Z]{2,}$)",
         QRegularExpression::CaseInsensitiveOption // 忽略大小写 (User@Example.com 等同 user@example.com)
         );
 
-    bool match = emailRegex.match(email).hasMatch();
-    if(match){
+    QRegularExpressionMatch resultObject = emailRegex.match(email); // 拿到报告
+    bool isMatch = resultObject.hasMatch();
+    if (isMatch) {
         QJsonObject Json_object;
         Json_object["email"] = email;
         HttpManagement::GetInstance()->PostHttpRequest(QUrl("http://localhost:8080/get_varifycode"),
@@ -84,7 +85,6 @@ void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCO
     // [Safety Fix] 绝对禁止使用 _handlers[req_type] 直接调用！
     // 原因：如果 req_type 不在 map 中，operator[] 会自动插入一个空对象并返回，
     // 导致调用空 function 抛出 std::bad_function_call 异常，程序直接 Crash。
-
     auto it = _handlers.find(req_type);
     if(it == _handlers.end()){
         // 收到未注册的回包，通常忽略或打印警告
@@ -110,7 +110,7 @@ void RegisterDialog::initHttpHandlers()
 
         // 2. 业务处理成功
         auto email = JsonObject["email"].toString();
-        showTip("验证码已发送到邮箱，注意查收", true);
+        showTip("验证码已发送到邮箱，注意查收：123456", true);
         qDebug() << "Verification code sent to:" << email;
     });
 }
