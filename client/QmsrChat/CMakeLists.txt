@@ -12,36 +12,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
 
+# [Architect Refactor] 统一管理所有源文件
+# 无论是在 Qt5 还是 Qt6 下编译，都使用这份清单
 set(PROJECT_SOURCES
         main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+        mainwindow.cpp mainwindow.h mainwindow.ui
+        logindialog.cpp logindialog.h logindialog.ui
+        registerdialog.cpp registerdialog.h registerdialog.ui
+        httpmanagement.cpp httpmanagement.h
+        global.cpp global.h
+        singleton.h
+        resources.qrc
+        config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑
 )
 
+# [Qt6 Build Path]
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
-        ${PROJECT_SOURCES}
-        resources.qrc
-        logindialog.h logindialog.cpp logindialog.ui
-        registerdialog.h registerdialog.cpp registerdialog.ui
-        global.h
-        global.cpp
-        singleton.h
-        httpmanagement.h httpmanagement.cpp
+        ${PROJECT_SOURCES} # 直接使用上面定义好的集合
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET QmsrChat APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
+# [Qt5 / Android Build Path]
 else()
     if(ANDROID)
         add_library(QmsrChat SHARED
             ${PROJECT_SOURCES}
         )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
         add_executable(QmsrChat
             ${PROJECT_SOURCES}
@@ -51,12 +47,29 @@ endif()
 
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
 
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
+# ================= [Architect Add] 配置管理自动化核心逻辑 =================
+# 定义配置文件源路径 (源码目录下的 config.ini)
+set(CONFIG_FILE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")
+
+# 添加构建后钩子 (Post-Build Event)
+# 作用：每次编译成功后，自动检测 config.ini 是否有变化，有则拷贝到 .exe 所在目录
+if(EXISTS "${CONFIG_FILE_SRC}")
+    add_custom_command(TARGET QmsrChat POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CONFIG_FILE_SRC}"
+        "$<TARGET_FILE_DIR:QmsrChat>/config.ini"
+        COMMENT "Auto-deploying config.ini to output binary directory..."
+    )
+else()
+    message(WARNING "config.ini not found in ${CMAKE_CURRENT_SOURCE_DIR}. Run will fail if config is missing.")
+endif()
+# ==========================================================================
+
+# macOS/iOS Bundle Identifier 设置
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.QmsrChat)
 endif()
+
 set_target_properties(QmsrChat PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}

@@ -7,6 +7,8 @@
 #include <mutex>
 #include <memory>
 
+// [Configuration] 声明全局配置变量
+extern QString gate_url_prefix;
 
 /**
  * @brief repolish 用来刷新qss
