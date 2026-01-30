@@ -1,82 +1,34 @@
-# This file is used to ignore files which are generated
-# ----------------------------------------------------------------------------
+# .gitignore
 
-*~
-*.autosave
-*.a
-*.core
-*.moc
+# 1. 忽略编译生成目录
+build/
+bin/
+out/
+
+# 2. 忽略编译中间文件
 *.o
-*.obj
-*.orig
-*.rej
+*.a
 *.so
-*.so.*
-*_pch.h.cpp
-*_resource.rc
-*.qm
-.#*
-*.*#
-core
-!core/
-tags
-.DS_Store
-.directory
-*.debug
-Makefile*
-*.prl
-*.app
-moc_*.cpp
-ui_*.h
-qrc_*.cpp
-Thumbs.db
-*.res
-*.rc
-/.qmake.cache
-/.qmake.stash
-
-# qtcreator generated files
-*.pro.user*
-*.qbs.user*
-CMakeLists.txt.user*
-
-# xemacs temporary files
-*.flc
-
-# Vim temporary files
-.*.swp
-
-# Visual Studio generated files
-*.ib_pdb_index
-*.idb
-*.ilk
-*.pdb
-*.sln
-*.suo
-*.vcproj
-*vcproj.*.*.user
-*.ncb
-*.sdf
-*.opensdf
-*.vcxproj
-*vcxproj.*
-
-# MinGW generated files
-*.Debug
-*.Release
-
-# Python byte code
-*.pyc
-
-# Binaries
-# --------
-*.dll
 *.exe
+*.obj
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
 
-# Directories with generated files
-.moc/
-.obj/
-.pch/
-.rcc/
-.uic/
-/build*/
+# 3. 忽略 IDE 配置
+.vscode/
+.idea/
+*.user
+*.suo
+
+# 4. 忽略特定可执行文件 (已删除 GateServer 防止误伤源码目录)
+
+# 5. 忽略系统文件
+.DS_Store
+
+# 6. gRPC & Protobuf 生成文件 (如果你不想提交自动生成的代码，保留这些；如果想提交，就把下面几行删掉)
+*.pb.cc
+*.pb.h
+*.grpc.pb.cc
+*.grpc.pb.h
