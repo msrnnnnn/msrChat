@@ -30,7 +30,7 @@ public:
      * @brief 构造函数
      * @param socket 已连接的套接字 (Connected Socket)，所有权被转移至此。
      */
-    HttpConnection(tcp::socket socket);
+    HttpConnection(tcp::socket&& socket);
 
     /**
      * @brief 启动异步读取流程
@@ -62,9 +62,9 @@ private:
     /**
      * @brief HTTP 请求对象
      * @tparam dynamic_body 表示 Body 可以是字符串、文件等动态内容。
-     */
+     */ 
     http::request<http::dynamic_body> _request;
-
+    
     /**
      * @brief HTTP 响应对象
      */

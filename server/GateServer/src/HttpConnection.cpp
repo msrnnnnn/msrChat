@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-HttpConnection::HttpConnection(tcp::socket socket)
+HttpConnection::HttpConnection(tcp::socket&& socket)
     : _socket(std::move(socket))
 {
 }
