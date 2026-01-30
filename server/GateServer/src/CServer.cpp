@@ -5,7 +5,7 @@
 /**
  * @brief 初始化服务器并绑定端口
  * @details
- * 执行序列:
+ * _acceptor执行序列:
  * 1. socket(AF_INET, SOCK_STREAM, 0) -> 创建文件描述符
  * 2. setsockopt(SO_REUSEADDR) -> 允许地址复用 (Beast 默认开启)
  * 3. bind(port) -> 绑定端口
@@ -13,7 +13,7 @@
  */
 CServer::CServer(net::io_context &ioc, unsigned short &port)
     : _ioc(ioc),
-      _acceptor(ioc, tcp::endpoint(tcp::v4(), port)),
+      _acceptor(ioc, tcp::endpoint(tcp::v4(), port)), // endpoint相当于填充了 C 语言中的 struct sockaddr_in 结构体
       _socket(ioc)
 {
 }

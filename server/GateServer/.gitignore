@@ -23,9 +23,6 @@ Makefile
 GateServer
 
 # 5. 忽略系统文件
-<<<<<<< HEAD
-.DS_Store
-=======
 .DS_Store
 
 # 6. gRPC & Protobuf 生成文件
@@ -33,4 +30,3 @@ GateServer
 *.pb.h
 *.grpc.pb.cc
 *.grpc.pb.h
->>>>>>> d4bdb55d943f6b6232f392fe15188f9e5cb730f4
