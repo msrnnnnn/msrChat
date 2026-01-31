@@ -2,6 +2,7 @@
 #include "LogicSystem.h"
 #include <iostream>
 #include <string>
+#include <string_view>
 
 HttpConnection::HttpConnection(tcp::socket&& socket)
     : _socket(std::move(socket))
@@ -12,7 +13,7 @@ void HttpConnection::ReadRequest()
 {
     auto self = shared_from_this();
 
-    // [Heartbeat] 更新超时时间：当前时间 + 60秒
+    // [Heartbeat] 更新超时时间：倒计时60秒(此时还没开始计时)
     deadline_.expires_after(std::chrono::seconds(60));
 
     // 启动/检测超时定时器
@@ -30,7 +31,7 @@ void HttpConnection::ReadRequest()
      */
     http::async_read(
         _socket, _buffer, _request,
-        [self](beast::error_code ec, std::size_t bytes_transferred)
+        [self](beast::error_code ec, std::size_t)
         {
             try
             {
@@ -40,7 +41,6 @@ void HttpConnection::ReadRequest()
                     std::cout << "http read is" << ec.what() << std::endl;
                     return;
                 }
-                boost::ignore_unused(bytes_transferred);
                 self->HandleRequest();
             }
             catch (std::exception &exp)
@@ -49,92 +49,6 @@ void HttpConnection::ReadRequest()
                 return;
             }
         });
-}
-
-// 这是一个标准的 URL 解码函数，能处理 %20 和 + 号
-unsigned char ToHex(unsigned char x)
-{
-    return x > 9 ? x + 55 : x + 48;
-}
-
-unsigned char FromHex(unsigned char x)
-{
-    unsigned char y;
-    if (x >= 'A' && x <= 'Z')
-        y = x - 'A' + 10;
-    else if (x >= 'a' && x <= 'z')
-        y = x - 'a' + 10;
-    else if (x >= '0' && x <= '9')
-        y = x - '0';
-    else
-        assert(0);
-    return y;
-}
-
-std::string UrlDecode(const std::string &str)
-{
-    std::string strTemp = "";
-    size_t length = str.length();
-    for (size_t i = 0; i < length; i++)
-    {
-        // 处理 + 号为空格的情况（视标准而定，有时候需要，有时候不需要，通常保留比较安全）
-        if (str[i] == '+')
-            strTemp += ' ';
-        // 处理 %xx 格式
-        else if (str[i] == '%')
-        {
-            assert(i + 2 < length);
-            unsigned char high = FromHex((unsigned char)str[++i]);
-            unsigned char low = FromHex((unsigned char)str[++i]);
-            strTemp += high * 16 + low;
-        }
-        else
-            strTemp += str[i];
-    }
-    return strTemp;
-}
-
-void HttpConnection::PreParseGetParam()
-{
-    // 提取 URI
-    auto uri = _request.target();
-    // 查找查询字符串的开始位置（即 '?' 的位置）
-    auto query_pos = uri.find('?');
-    if (query_pos == std::string::npos)
-    {
-        _get_url = uri;
-        return;
-    }
-
-    _get_url = uri.substr(0, query_pos);
-    std::string query_string = uri.substr(query_pos + 1);
-    std::string key;
-    std::string value;
-    size_t pos = 0;
-    // 手动状态机解析 key=value&key2=value2
-    while ((pos = query_string.find('&')) != std::string::npos)
-    {
-        auto pair = query_string.substr(0, pos);
-        size_t eq_pos = pair.find('=');
-        if (eq_pos != std::string::npos)
-        {
-            key = UrlDecode(pair.substr(0, eq_pos));
-            value = UrlDecode(pair.substr(eq_pos + 1));
-            _get_params[key] = value;
-        }
-        query_string.erase(0, pos + 1);
-    }
-    // 处理最后一个参数对（如果没有 & 分隔符）
-    if (!query_string.empty())
-    {
-        size_t eq_pos = query_string.find('=');
-        if (eq_pos != std::string::npos)
-        {
-            key = UrlDecode(query_string.substr(0, eq_pos));
-            value = UrlDecode(query_string.substr(eq_pos + 1));
-            _get_params[key] = value;
-        }
-    }
 }
 
 void HttpConnection::HandleRequest()
@@ -246,4 +160,101 @@ void HttpConnection::CheckDeadline()
                 self->_socket.close();
             }
         });
+}
+
+// 这是一个标准的 URL 解码函数，能处理 %20 和 + 号
+unsigned char ToHex(unsigned char x)
+{
+    return x > 9 ? x + 55 : x + 48;
+}
+
+unsigned char FromHex(unsigned char x)
+{
+    unsigned char y;
+    if (x >= 'A' && x <= 'Z')
+        y = x - 'A' + 10;
+    else if (x >= 'a' && x <= 'z')
+        y = x - 'a' + 10;
+    else if (x >= '0' && x <= '9')
+        y = x - '0';
+    else
+        assert(0);
+    return y;
+}
+
+std::string UrlDecode(const std::string &str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        // 处理 + 号为空格的情况（视标准而定，有时候需要，有时候不需要，通常保留比较安全）
+        if (str[i] == '+')
+            strTemp += ' ';
+        // 处理 %xx 格式
+        else if (str[i] == '%')
+        {
+            assert(i + 2 < length);
+            unsigned char high = FromHex((unsigned char)str[++i]);
+            unsigned char low = FromHex((unsigned char)str[++i]);
+            strTemp += high * 16 + low;
+        }
+        else
+            strTemp += str[i];
+    }
+    return strTemp;
+}
+
+void HttpConnection::PreParseGetParam()
+{
+    // 1. 使用 string_view 避免拷贝
+    std::string_view uri = _request.target(); // Beast 也是返回 string_view
+
+    // 2. 查找 ?
+    auto query_pos = uri.find('?');
+    if (query_pos == std::string_view::npos)
+    {
+        _get_url = std::string(uri); // 这里必须拷贝，因为 _get_url 拥有所有权
+        return;
+    }
+
+    _get_url = std::string(uri.substr(0, query_pos));
+
+    // 获取参数部分视图
+    std::string_view query_string = uri.substr(query_pos + 1);
+
+    // 3. 零拷贝切割 loop
+    while (!query_string.empty())
+    {
+        // 找 &
+        auto amp_pos = query_string.find('&');
+
+        // 拿到当前的 kv 段 (例如 "id=1")
+        // 如果找不到 &，说明是最后一段
+        auto segment = (amp_pos == std::string_view::npos) ? query_string : query_string.substr(0, amp_pos);
+
+        // 找 =
+        auto eq_pos = segment.find('=');
+        if (eq_pos != std::string_view::npos)
+        {
+            // 拿到 key 和 value 的视图 (还在原始 buffer 里，没发生拷贝)
+            auto key_view = segment.substr(0, eq_pos);
+            auto val_view = segment.substr(eq_pos + 1);
+
+            // 只有在最后存入 Map 且需要解码时，才真正发生拷贝和内存分配
+            // 假设 UrlDecode 接收 string_view 返回 string
+            _get_params[UrlDecode(std::string(key_view))] = UrlDecode(std::string(val_view));
+        }
+
+        // 移动视图窗口，而不是移动内存 (erase)
+        if (amp_pos == std::string_view::npos)
+        {
+            break;
+        }
+        else
+        {
+            // 指针向后跳，O(1) 操作
+            query_string.remove_prefix(amp_pos + 1);
+        }
+    }
 }

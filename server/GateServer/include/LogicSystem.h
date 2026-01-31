@@ -7,7 +7,7 @@
 
 class HttpConnection;
 // 定义 HTTP 处理函数签名：接受一个 HttpConnection 的智能指针
-typedef std::function<void(std::shared_ptr<HttpConnection>)> HttpHandler;
+using HttpHandler = std::function<void(std::shared_ptr<HttpConnection>)>;
 
 /**
  * @class LogicSystem
@@ -17,7 +17,7 @@ typedef std::function<void(std::shared_ptr<HttpConnection>)> HttpHandler;
 class LogicSystem : public Singleton<LogicSystem>
 {
     friend class Singleton<LogicSystem>;
-
+    
 public:
     ~LogicSystem() = default;
 
