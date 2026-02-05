@@ -1,0 +1,69 @@
+# .gitignore
+
+# 1. 编译输出目录
+build/
+bin/
+out/
+debug/
+release/
+x64/
+x86/
+cmake-build-*/
+
+# 2. 编译中间文件
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.pdb
+*.ilk
+*.exp
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.manifest
+*.spec
+
+# 3. IDE 与编辑器配置
+.vscode/
+.idea/
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.ntvs*
+*.njsproj
+*.user
+*.swp
+*.~*
+
+# 4. 系统文件
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# 5. Qt 相关文件
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+.qmake.stash
+*.qmlc
+*.jsc
+Makefile*
+
+# 6. gRPC 与 Protobuf 生成文件
+*.pb.cc
+*.pb.h
+*.grpc.pb.cc
+*.grpc.pb.h
+
+# 7. 项目特定文件
+/GateServer
