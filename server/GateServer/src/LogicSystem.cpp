@@ -9,6 +9,7 @@
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
 #include "VerifyGrpcClient.h"
+#include "StatusGrpcClient.h"
 #include "const.h"
 #include <iostream>
 #include <jsoncpp/json/json.h>
@@ -79,6 +80,68 @@ LogicSystem::LogicSystem()
             // 调试用：把验证码也发回去方便看
             response_json["code"] = rsp.code();
             std::string jsonstr = response_json.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        });
+
+    // 用户登录逻辑
+    RegisterPost(
+        "/user_login",
+        [](std::shared_ptr<HttpConnection> connection)
+        {
+            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+            std::cout << "receive body is " << body_str << std::endl;
+
+            connection->_response.set(http::field::content_type, "text/json");
+            Json::Value root;
+            Json::Reader reader;
+            Json::Value src_root;
+
+            bool parse_success = reader.parse(body_str, src_root);
+            if (!parse_success)
+            {
+                std::cout << "Failed to parse JSON data!" << std::endl;
+                root["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
+                std::string jsonstr = root.toStyledString();
+                beast::ostream(connection->_response.body()) << jsonstr;
+                return true;
+            }
+
+            auto name = src_root["user"].asString();
+            auto pwd = src_root["passwd"].asString();
+            UserInfo userInfo;
+
+            // 查询数据库判断用户名和密码是否匹配
+            bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(name, pwd, userInfo);
+            if (!pwd_valid)
+            {
+                std::cout << " user pwd not match" << std::endl;
+                root["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdInvalid);
+                std::string jsonstr = root.toStyledString();
+                beast::ostream(connection->_response.body()) << jsonstr;
+                return true;
+            }
+
+            // 查询StatusServer找到合适的连接
+            auto reply = StatusGrpcClient::GetInstance()->GetChatServer(userInfo.uid);
+            if (reply.error())
+            {
+                std::cout << " grpc get chat server failed, error is " << reply.error() << std::endl;
+                root["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
+                std::string jsonstr = root.toStyledString();
+                beast::ostream(connection->_response.body()) << jsonstr;
+                return true;
+            }
+
+            std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
+            root["error"] = 0;
+            root["user"] = name;
+            root["uid"] = userInfo.uid;
+            root["token"] = reply.token();
+            root["host"] = reply.host();
+            root["port"] = reply.port(); // Don't forget port
+
+            std::string jsonstr = root.toStyledString();
             beast::ostream(connection->_response.body()) << jsonstr;
             return true;
         });

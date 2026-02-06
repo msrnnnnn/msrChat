@@ -65,6 +65,7 @@ set(SERVER_SOURCES
     src/LogicSystem.cpp
     src/ConfigMgr.cpp
     src/VerifyGrpcClient.cpp
+    src/StatusGrpcClient.cpp
     src/AsioIOServicePool.cpp
     src/RedisMgr.cpp        
     src/MysqlMgr.cpp        # <--- 已取消注释
