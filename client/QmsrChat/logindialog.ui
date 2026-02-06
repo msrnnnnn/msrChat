@@ -157,7 +157,7 @@ selection-color: rgb(0, 85, 255);</string>
         </spacer>
        </item>
        <item>
-        <widget class="QLabel" name="forget_password_label">
+        <widget class="ClickedLabel" name="forget_password_label">
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -352,6 +352,13 @@ selection-color: rgb(0, 85, 255);</string>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ClickedLabel</class>
+   <extends>QLabel</extends>
+   <header>clickedlabel.h</header>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="resources.qrc"/>
  </resources>

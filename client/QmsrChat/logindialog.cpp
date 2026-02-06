@@ -6,6 +6,7 @@
 
 #include "logindialog.h"
 #include "ui_logindialog.h"
+#include "clickedlabel.h"
 
 /**
  * @brief 构造函数
@@ -16,6 +17,11 @@ LoginDialog::LoginDialog(QWidget *parent)
 {
     ui->setupUi(this);
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
+
+    // 初始化忘记密码标签状态
+    ui->forget_password_label->SetState("normal", "hover", "", "selected", "selected_hover", "");
+    ui->forget_password_label->setCursor(Qt::PointingHandCursor);
+    connect(ui->forget_password_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
 }
 
 /**
@@ -24,4 +30,10 @@ LoginDialog::LoginDialog(QWidget *parent)
 LoginDialog::~LoginDialog()
 {
     delete ui;
+}
+
+void LoginDialog::slot_forget_pwd()
+{
+    qDebug() << "slot forget pwd";
+    emit switchReset();
 }

@@ -19,6 +19,7 @@ set(PROJECT_SOURCES
         mainwindow.cpp mainwindow.h mainwindow.ui
         logindialog.cpp logindialog.h logindialog.ui
         registerdialog.cpp registerdialog.h registerdialog.ui
+        resetdialog.cpp resetdialog.h resetdialog.ui
         httpmanagement.cpp httpmanagement.h
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h

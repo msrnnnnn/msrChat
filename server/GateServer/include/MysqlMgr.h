@@ -32,6 +32,22 @@ public:
      */
     int RegUser(const std::string &name, const std::string &email, const std::string &pwd, const std::string &icon);
 
+    /**
+     * @brief   检查邮箱与用户名是否匹配
+     * @param   name  用户名
+     * @param   email 邮箱地址
+     * @return  bool  匹配返回 true，否则 false
+     */
+    bool CheckEmail(const std::string &name, const std::string &email);
+
+    /**
+     * @brief   更新用户密码
+     * @param   name  用户名
+     * @param   pwd   新密码
+     * @return  bool  更新成功返回 true，否则 false
+     */
+    bool UpdatePwd(const std::string &name, const std::string &pwd);
+
 private:
     MysqlMgr();
     MysqlDao _dao; ///< MySQL DAO 对象

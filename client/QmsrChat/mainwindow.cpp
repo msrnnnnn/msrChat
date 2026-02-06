@@ -13,7 +13,8 @@
  * @details 初始化窗口、子对话框及信号连接。
  */
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow)
+    : QMainWindow(parent),
+      ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
@@ -41,9 +42,13 @@ MainWindow::MainWindow(QWidget *parent)
     _register_dialog->move(this->pos());
     _register_dialog->hide();
 
+    _reset_dialog = nullptr;
+
     // 4. 绑定切换信号槽
     connect(_login_dialog, &LoginDialog::switchRegister, this, &MainWindow::slotSwitchRegister);
     connect(_register_dialog, &RegisterDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
+    // 连接登录界面忘记密码信号
+    connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
 }
 
 /**
@@ -71,3 +76,32 @@ void MainWindow::slotSwitchLogin()
     _register_dialog->hide();
     _login_dialog->show();
 }
+
+void MainWindow::slotSwitchReset()
+{
+    // 创建 ResetDialog (如果尚未创建)
+    if (!_reset_dialog)
+    {
+        _reset_dialog = new ResetDialog(this);
+        _reset_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
+        _reset_dialog->setFixedSize(this->size());
+        _reset_dialog->move(this->pos());
+
+        // 注册返回登录信号和槽函数
+        connect(_reset_dialog, &ResetDialog::switchLogin, this, &MainWindow::slotSwitchLogin2);
+    }
+
+    _reset_dialog->show();
+    _login_dialog->hide();
+    _register_dialog->hide();
+}
+
+/**
+ * @brief 从重置密码界面切换回登录界面
+ */
+void MainWindow::slotSwitchLogin2()
+{
+    _reset_dialog->hide();
+    _login_dialog->show();
+}
+

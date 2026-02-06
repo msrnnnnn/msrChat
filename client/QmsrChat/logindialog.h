@@ -43,6 +43,14 @@ signals:
      * @brief 切换到注册界面信号
      */
     void switchRegister();
+
+    /**
+     * @brief 切换到重置密码界面信号
+     */
+    void switchReset();
+
+private slots:
+    void slot_forget_pwd();
 };
 
 #endif // LOGINDIALOG_H

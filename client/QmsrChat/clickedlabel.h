@@ -1,3 +1,9 @@
+/**
+ * @file clickedlabel.h
+ * @brief 可点击标签控件
+ * @author msr
+ */
+
 #ifndef CLICKEDLABEL_H
 #define CLICKEDLABEL_H
 
@@ -15,6 +21,10 @@ class ClickedLabel : public QLabel
 {
     Q_OBJECT
 public:
+    /**
+     * @brief 构造函数
+     * @param parent 父窗口指针
+     */
     explicit ClickedLabel(QWidget *parent = nullptr);
 
     /**

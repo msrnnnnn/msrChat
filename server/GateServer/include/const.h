@@ -22,6 +22,8 @@ namespace ChatApp
         VarifyExpired = 1003, ///< 验证码已过期
         VarifyCodeErr = 1004, ///< 验证码不匹配
         UserExist = 1005,     ///< 用户已注册
-        PasswdErr = 1006      ///< 密码错误
+        PasswdErr = 1006,     ///< 密码错误
+        EmailNotMatch = 1007, ///< 邮箱不匹配
+        PasswdUpFailed = 1008 ///< 密码更新失败
     };
 }

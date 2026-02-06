@@ -1,16 +1,29 @@
+/**
+ * @file clickedlabel.cpp
+ * @brief 可点击标签控件实现
+ * @author msr
+ */
+
 #include "clickedlabel.h"
 #include <QDebug>
 #include <QMouseEvent>
 
+/**
+ * @brief 构造函数
+ * @details 初始化标签，开启鼠标追踪以支持悬浮事件。
+ */
 ClickedLabel::ClickedLabel(QWidget *parent)
     : QLabel(parent),
       _curstate(ClickLbState::Normal)
 {
-    // 设置鼠标追踪，以便接收 enter/leave 事件（虽然 enter/leave 不需要 mouseTracking，但如果需要 hover 移动检测则需要）
-    // 这里为了保险起见，或者如果将来需要 hover 坐标
+    // 设置鼠标追踪，以便接收 enter/leave 事件
     this->setMouseTracking(true);
 }
 
+/**
+ * @brief 鼠标点击事件处理
+ * @details 处理左键点击，切换选中状态 (Normal <-> Selected)，并更新样式属性 state。
+ */
 void ClickedLabel::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
@@ -18,8 +31,6 @@ void ClickedLabel::mousePressEvent(QMouseEvent *event)
         if (_curstate == ClickLbState::Normal)
         {
             // 当前是 Normal，点击后变为 Selected
-            // 点击的一瞬间，通常保持 hover 状态或者切换到 selected_hover
-            // 逻辑：点击 -> 切换状态。如果鼠标还在上面，应该是 selected_hover
             qDebug() << "clicked , change to selected hover: " << _selected_hover;
             _curstate = ClickLbState::Selected;
             setProperty("state", _selected_hover);
@@ -41,6 +52,10 @@ void ClickedLabel::mousePressEvent(QMouseEvent *event)
     QLabel::mousePressEvent(event);
 }
 
+/**
+ * @brief 鼠标进入事件处理
+ * @details 鼠标移入时，根据当前状态切换到对应的悬浮样式 (Normal Hover / Selected Hover)。
+ */
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 void ClickedLabel::enterEvent(QEnterEvent *event)
 #else
@@ -63,6 +78,10 @@ void ClickedLabel::enterEvent(QEvent *event)
     QLabel::enterEvent(event);
 }
 
+/**
+ * @brief 鼠标离开事件处理
+ * @details 鼠标移出时，恢复到对应的基础状态样式 (Normal / Selected)。
+ */
 void ClickedLabel::leaveEvent(QEvent *event)
 {
     if (_curstate == ClickLbState::Normal)
@@ -72,7 +91,7 @@ void ClickedLabel::leaveEvent(QEvent *event)
     }
     else
     {
-        qDebug() << "leave , change to normal hover: " << _selected;
+        qDebug() << "leave , change to selected : " << _selected;
         setProperty("state", _selected);
     }
 
@@ -81,6 +100,10 @@ void ClickedLabel::leaveEvent(QEvent *event)
     QLabel::leaveEvent(event);
 }
 
+/**
+ * @brief 设置各个状态下的 QSS 属性值
+ * @details 初始化控件在不同交互状态下的 QSS 属性字符串，并设置默认状态为 normal。
+ */
 void ClickedLabel::SetState(
     QString normal, QString hover, QString press, QString select, QString select_hover, QString select_press)
 {
@@ -95,6 +118,9 @@ void ClickedLabel::SetState(
     repolish(this);
 }
 
+/**
+ * @brief 获取当前状态
+ */
 ClickLbState ClickedLabel::GetCurState()
 {
     return _curstate;

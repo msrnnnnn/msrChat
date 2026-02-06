@@ -35,7 +35,8 @@ extern std::function<void(QWidget *)> repolish;
 enum class RequestType
 {
     ID_GET_VARIFY_CODE = 1001, ///< 获取验证码请求
-    ID_REGISTER_USER = 1002    ///< 注册用户请求
+    ID_REGISTER_USER = 1002,   ///< 注册用户请求
+    ID_RESET_PWD = 1003        ///< 重置密码请求
 };
 
 /**
@@ -45,7 +46,8 @@ enum class RequestType
 enum class Modules
 {
     REGISTER_MOD = 0, ///< 注册模块
-    LOGIN_MOD = 1     ///< 登录模块
+    LOGIN_MOD = 1,    ///< 登录模块
+    RESET_MOD = 2     ///< 重置密码模块
 };
 
 /**
