@@ -36,7 +36,8 @@ enum class RequestType
 {
     ID_GET_VARIFY_CODE = 1001, ///< 获取验证码请求
     ID_REGISTER_USER = 1002,   ///< 注册用户请求
-    ID_RESET_PWD = 1003        ///< 重置密码请求
+    ID_RESET_PWD = 1003,       ///< 重置密码请求
+    ID_USER_LOGIN = 1004       ///< 用户登录请求
 };
 
 /**
