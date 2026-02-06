@@ -55,11 +55,25 @@ void HttpManagement::PostHttpRequest(const QUrl &url, const QJsonObject &json, R
             {
                 qWarning() << "Network Error:" << reply->errorString();
                 emit self->signal_http_finish(req_type, "", ERRORCODES::ERROR_NETWORK, mod);
+
+                // [Legacy Support] 分发旧模块信号
+                if (mod == Modules::REGISTER_MOD)
+                    emit self->signal_register_mod_finish(req_type, "", ERRORCODES::ERROR_NETWORK);
+                if (mod == Modules::LOGIN_MOD)
+                    emit self->sig_login_mod_finish(req_type, "", ERRORCODES::ERROR_NETWORK);
+
                 reply->deleteLater();
                 return;
             }
             QString res = QString::fromUtf8(reply->readAll());
             emit self->signal_http_finish(req_type, res, ERRORCODES::SUCCESS, mod);
+
+            // [Legacy Support] 分发旧模块信号
+            if (mod == Modules::REGISTER_MOD)
+                emit self->signal_register_mod_finish(req_type, res, ERRORCODES::SUCCESS);
+            if (mod == Modules::LOGIN_MOD)
+                emit self->sig_login_mod_finish(req_type, res, ERRORCODES::SUCCESS);
+
             reply->deleteLater();
         });
 }

@@ -29,15 +29,27 @@ extern QString gate_url_prefix;
 extern std::function<void(QWidget *)> repolish;
 
 /**
- * @brief 请求类型枚举
+ * @brief 简单的服务器信息结构体
+ */
+struct ServerInfo
+{
+    QString Uid;
+    QString Host;
+    QString Port;
+    QString Token;
+};
+
+/**
+ * @brief 请求ID类型定义 (枚举类)
  * @details 定义客户端发送给服务器的请求类型 ID。
  */
-enum class RequestType
+enum class ReqId
 {
     ID_GET_VARIFY_CODE = 1001, ///< 获取验证码请求
     ID_REGISTER_USER = 1002,   ///< 注册用户请求
     ID_RESET_PWD = 1003,       ///< 重置密码请求
-    ID_USER_LOGIN = 1004       ///< 用户登录请求
+    ID_USER_LOGIN = 1004,      ///< 用户登录请求
+    ID_CHAT_LOGIN = 1005       ///< 聊天登录请求
 };
 
 /**
@@ -61,6 +73,10 @@ enum class ERRORCODES
     ERROR_JSON = 1,   ///< JSON 解析失败
     ERROR_NETWORK = 2 ///< 网络通信错误
 };
+
+// 兼容别名
+using ErrorCodes = ERRORCODES;
+using RequestType = ReqId; // 暂时兼容，逐步替换
 
 /**
  * @brief 输入校验错误类型枚举

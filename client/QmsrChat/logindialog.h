@@ -58,6 +58,23 @@ private:
      */
     void showTip(QString str, bool b_ok);
 
+    /**
+     * @brief 设置登录按钮是否可用
+     * @param enabled true:可用, false:不可用
+     */
+    void enableBtn(bool enabled);
+
+    /**
+     * @brief 初始化 HTTP 处理器
+     */
+    void initHttpHandlers();
+
+    // HTTP 处理器注册表
+    QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
+
+    int _uid;
+    QString _token;
+
 signals:
     /**
      * @brief 切换到注册界面信号
@@ -69,9 +86,16 @@ signals:
      */
     void switchReset();
 
+    /**
+     * @brief 连接 TCP 服务器信号
+     */
+    void sig_connect_tcp(ServerInfo si);
+
 private slots:
     void slot_forget_pwd();
     void on_login_Button_clicked();
+    void slot_login_mod_finish(ReqId id, QString res, ErrorCodes err);
+    void slot_tcp_con_finish(bool bsuccess);
 };
 
 #endif // LOGINDIALOG_H

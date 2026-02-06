@@ -32,14 +32,14 @@ MainWindow::MainWindow(QWidget *parent)
     _login_dialog = new LoginDialog(this); // 设父对象，依附主窗口
     _login_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     _login_dialog->setFixedSize(this->size());
-    _login_dialog->move(this->pos());
+    _login_dialog->move(0, 0);
     _login_dialog->show();
 
     // 3. 初始化注册对话框
     _register_dialog = new RegisterDialog(this);
     _register_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     _register_dialog->setFixedSize(this->size());
-    _register_dialog->move(this->pos());
+    _register_dialog->move(0, 0);
     _register_dialog->hide();
 
     _reset_dialog = nullptr;
@@ -85,7 +85,7 @@ void MainWindow::slotSwitchReset()
         _reset_dialog = new ResetDialog(this);
         _reset_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
         _reset_dialog->setFixedSize(this->size());
-        _reset_dialog->move(this->pos());
+        _reset_dialog->move(0, 0);
 
         // 注册返回登录信号和槽函数
         connect(_reset_dialog, &ResetDialog::switchLogin, this, &MainWindow::slotSwitchLogin2);
@@ -104,4 +104,3 @@ void MainWindow::slotSwitchLogin2()
     _reset_dialog->hide();
     _login_dialog->show();
 }
-

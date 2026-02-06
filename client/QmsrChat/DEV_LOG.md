@@ -115,4 +115,25 @@
   - 使用 RAII (`std::unique_ptr`) 管理数据库连接，替代教程中的手动 `returnConnection`，防止资源泄漏。
 - **错误码扩展**: 在 `const.h` 中补充 `EmailNotMatch`, `PasswdUpFailed` 等错误码。
 
+## 8. TCP 连接管理与登录集成 (TcpMgr & LoginDialog)
 
+### 8.1 TcpMgr 单例实现
+- **单例模式**: 继承自 `Singleton<TcpMgr>` 和 `std::enable_shared_from_this`，确保全局唯一且生命周期安全。
+- **信号槽机制**:
+  - 使用 Qt 5.15+ 兼容的 `errorOccurred` 信号替代已弃用的 `error` 信号。
+  - 实现 `slot_tcp_connect` 连接服务器。
+  - 实现 `slot_send_data` 发送数据，采用 BigEndian 网络字节序，并增加消息头（ID + Length）解决粘包问题。
+  - 实现 `readyRead` 处理逻辑，解析消息头和消息体。
+- **线程安全**: 通过 `sig_send_data` 信号中转发送请求，支持多线程调用。
+
+### 8.2 LoginDialog 集成
+- **HTTP 登录回调**:
+  - 实现 `initHttpHandlers` 注册登录成功后的回调逻辑。
+  - 登录成功后解析服务器返回的 `ServerInfo` (uid, host, port, token)。
+  - 发送 `sig_connect_tcp` 信号触发 TCP 连接。
+- **TCP 连接处理**:
+  - 连接成功后 (`slot_tcp_con_finish`)，自动构造 ChatLogin 请求并通过 TcpMgr 发送。
+  - 界面交互优化：登录过程中禁用按钮 (`enableBtn(false)`)，失败或完成时恢复。
+- **代码修正**:
+  - 修正了 `ReqId` 枚举值不匹配问题 (`ID_LOGIN_USER` -> `ID_USER_LOGIN`)。
+  - 修正了 TCP 错误处理的信号连接语法。

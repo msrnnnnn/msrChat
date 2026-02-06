@@ -18,10 +18,10 @@
 #include <QUrl>
 #include <functional>
 
-// 前置声明枚举类型(减少头文件依赖，减少编译时间)
-enum class RequestType;
-enum class ERRORCODES;
-enum class Modules;
+// 前置声明枚举类型 (已在 global.h 定义，此处保留或移除皆可，建议移除避免冲突)
+// enum class RequestType;
+// enum class ERRORCODES;
+// enum class Modules;
 
 // 回调函数类型定义
 // 成功回调：传入解析后的 JSON 对象
@@ -95,6 +95,12 @@ signals:
      * @deprecated 建议未来统一使用 signal_http_finish 分发
      */
     void signal_register_mod_finish(RequestType req_type, QString res, ERRORCODES err);
+
+    /**
+     * @brief 信号：(遗留接口) 登录模块专用完成信号
+     * @deprecated 建议未来统一使用 signal_http_finish 分发
+     */
+    void sig_login_mod_finish(ReqId id, QString res, ErrorCodes err);
 };
 
 #endif // HTTPMANAGEMENT_H

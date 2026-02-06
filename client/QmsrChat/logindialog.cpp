@@ -7,6 +7,7 @@
 #include "logindialog.h"
 #include "clickedlabel.h"
 #include "httpmanagement.h"
+#include "tcpmgr.h"
 #include "ui_logindialog.h"
 #include <QDebug>
 #include <QJsonObject>
@@ -47,6 +48,19 @@ LoginDialog::LoginDialog(QWidget *parent)
             qDebug() << "Label state changed to " << (int)state;
         });
 
+    // 初始化 HTTP 处理器
+    initHttpHandlers();
+
+    // 连接登录回包信号
+    connect(
+        HttpManagement::GetInstance().get(), &HttpManagement::sig_login_mod_finish, this,
+        &LoginDialog::slot_login_mod_finish);
+
+    // 连接tcp连接请求的信号和槽函数
+    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
+    // 连接tcp管理者发出的连接成功信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+
     // 连接登录按钮
     connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::on_login_Button_clicked);
 }
@@ -85,26 +99,101 @@ void LoginDialog::on_login_Button_clicked()
     json_obj["user"] = user;
     json_obj["passwd"] = pwd;
 
+    enableBtn(false);
+
     HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/user_login"), json_obj, this,
-        [this](const QJsonObject &jsonObj)
+        QUrl(gate_url_prefix + "/user_login"), json_obj, ReqId::ID_USER_LOGIN, Modules::LOGIN_MOD);
+}
+
+void LoginDialog::initHttpHandlers()
+{
+    // 注册获取登录回包逻辑
+    _handlers.insert(
+        ReqId::ID_USER_LOGIN,
+        [this](QJsonObject jsonObj)
         {
             int error = jsonObj["error"].toInt();
-            if (error != static_cast<int>(ERRORCODES::SUCCESS))
+            if (error != static_cast<int>(ErrorCodes::SUCCESS))
             {
-                showTip(tr("登录失败: 参数错误"), false);
+                showTip(tr("参数错误"), false);
+                enableBtn(true);
                 return;
             }
             auto user = jsonObj["user"].toString();
-            showTip(tr("登录成功"), true);
-            qDebug() << "Login success, user is " << user;
-            // TODO: 这里可以添加跳转到主聊天界面的逻辑
-        },
-        [this](ERRORCODES err)
-        {
-            showTip(tr("网络请求错误"), false);
-            qDebug() << "Login failed with error code: " << (int)err;
+            // 发送信号通知tcpMgr发送长链接
+            ServerInfo si;
+            si.Uid = QString::number(jsonObj["uid"].toInt());
+            si.Host = jsonObj["host"].toString();
+            si.Port = jsonObj["port"].toString();
+            si.Token = jsonObj["token"].toString();
+            _uid = jsonObj["uid"].toInt();
+            _token = si.Token;
+            qDebug() << "user is " << user << " uid is " << si.Uid << " host is " << si.Host
+                     << " Port is " << si.Port << " Token is " << si.Token;
+            emit sig_connect_tcp(si);
         });
+}
+
+void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
+{
+    if (err != ErrorCodes::SUCCESS)
+    {
+        showTip(tr("网络请求错误"), false);
+        enableBtn(true);
+        return;
+    }
+    // 解析 JSON 字符串,res需转化为QByteArray
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
+    // json解析错误
+    if (jsonDoc.isNull())
+    {
+        showTip(tr("json解析错误"), false);
+        enableBtn(true);
+        return;
+    }
+    // json解析错误
+    if (!jsonDoc.isObject())
+    {
+        showTip(tr("json解析错误"), false);
+        enableBtn(true);
+        return;
+    }
+    // 调用对应的逻辑,根据id回调。
+    if (_handlers.contains(id))
+    {
+        _handlers[id](jsonDoc.object());
+    }
+    else
+    {
+        // 也可以打印警告
+        qDebug() << "No handler for ReqId:" << (int)id;
+        enableBtn(true);
+    }
+}
+
+void LoginDialog::slot_tcp_con_finish(bool bsuccess)
+{
+    if (bsuccess)
+    {
+        showTip(tr("聊天服务连接成功，正在登录..."), true);
+        QJsonObject jsonObj;
+        jsonObj["uid"] = _uid;
+        jsonObj["token"] = _token;
+        QJsonDocument doc(jsonObj);
+        QString jsonString = doc.toJson(QJsonDocument::Indented);
+        // 发送tcp请求给chat server
+        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
+    }
+    else
+    {
+        showTip(tr("网络异常"), false);
+        enableBtn(true);
+    }
+}
+
+void LoginDialog::enableBtn(bool enabled)
+{
+    ui->login_Button->setEnabled(enabled);
 }
 
 bool LoginDialog::checkUserValid()

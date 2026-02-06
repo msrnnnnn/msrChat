@@ -24,6 +24,7 @@ set(PROJECT_SOURCES
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h
         global.cpp global.h
+        tcpmgr.cpp tcpmgr.h
         singleton.h
         resources.qrc
         config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑
