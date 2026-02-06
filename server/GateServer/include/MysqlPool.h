@@ -85,9 +85,10 @@ public:
     /**
      * @brief   获取一个数据库连接
      * @details 如果连接池为空，则阻塞等待，直到有连接可用或连接池关闭。
-     * @return  std::unique_ptr<sql::Connection> 如果连接池关闭则返回 nullptr
+     *          返回的 connection 使用 shared_ptr 管理，析构时自动归还到连接池。
+     * @return  std::shared_ptr<sql::Connection> 如果连接池关闭则返回 nullptr
      */
-    std::unique_ptr<sql::Connection> getConnection()
+    std::shared_ptr<sql::Connection> getConnection()
     {
         std::unique_lock<std::mutex> lock(mutex_);
         cond_.wait(
@@ -106,7 +107,32 @@ public:
         }
         std::unique_ptr<sql::Connection> con(std::move(pool_.front()));
         pool_.pop();
-        return con;
+
+        // 检查连接有效性，失效则重连
+        if (con == nullptr || !con->isValid()) 
+        {
+             try 
+             {
+                 // 如果旧连接不为空，先销毁（unique_ptr 会自动做，但这里显式一点也好，或者让它自动销毁）
+                 // 其实 con.reset() 会销毁旧的
+                 sql::mysql::MySQL_Driver *driver = sql::mysql::get_mysql_driver_instance();
+                 con.reset(driver->connect(url_, user_, pass_));
+                 con->setSchema(schema_);
+             }
+             catch (sql::SQLException &e)
+             {
+                 std::cout << "mysql reconnect failed: " << e.what() << std::endl;
+                 return nullptr;
+             }
+        }
+
+        // 自定义删除器，当 shared_ptr 引用计数为 0 时，将连接归还到池中
+        std::shared_ptr<sql::Connection> ret(con.release(), [this](sql::Connection* pConn) {
+             std::unique_ptr<sql::Connection> p(pConn);
+             this->returnConnection(std::move(p));
+        });
+
+        return ret;
     }
 
     /**

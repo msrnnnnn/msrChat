@@ -19,6 +19,11 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
     {
         ioServices_.emplace_back(std::make_shared<IOService>());
         works_.emplace_back(boost::asio::make_work_guard(ioServices_[i]->get_executor()));
+    }
+
+    // 启动线程
+    for (std::size_t i = 0; i < size; ++i)
+    {
         threads_.emplace_back([this, i]() { ioServices_[i]->run(); });
     }
 }

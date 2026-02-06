@@ -110,6 +110,12 @@ void HttpConnection::HandleRequest()
         WriteResponse();
         return;
     }
+
+    // Default handler for other methods
+    _response.result(http::status::method_not_allowed);
+    _response.set(http::field::content_type, "text/plain");
+    beast::ostream(_response.body()) << "Method not allowed\r\n";
+    WriteResponse();
 }
 
 void HttpConnection::WriteResponse()
@@ -192,7 +198,7 @@ unsigned char FromHex(unsigned char x)
     else if (x >= '0' && x <= '9')
         y = x - '0';
     else
-        assert(0);
+        y = 0;
     return y;
 }
 
@@ -208,10 +214,16 @@ std::string UrlDecode(const std::string &str)
         // 处理 %xx 格式
         else if (str[i] == '%')
         {
-            assert(i + 2 < length);
-            unsigned char high = FromHex((unsigned char)str[++i]);
-            unsigned char low = FromHex((unsigned char)str[++i]);
-            strTemp += high * 16 + low;
+            if (i + 2 < length)
+            {
+                unsigned char high = FromHex((unsigned char)str[++i]);
+                unsigned char low = FromHex((unsigned char)str[++i]);
+                strTemp += high * 16 + low;
+            }
+            else
+            {
+                strTemp += str[i];
+            }
         }
         else
             strTemp += str[i];

@@ -20,7 +20,6 @@ struct SectionInfo
     SectionInfo() = default;
     ~SectionInfo()
     {
-        _section_datas.clear();
     }
 
     SectionInfo(const SectionInfo &src)
