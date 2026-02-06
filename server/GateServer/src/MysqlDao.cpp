@@ -48,16 +48,13 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         {
             int result = res->getInt("result");
             std::cout << "RegUser Result: " << result << std::endl;
-            pool_->returnConnection(std::move(con));
             return result;
         }
 
-        pool_->returnConnection(std::move(con));
         return -1;
     }
     catch (sql::SQLException &e)
     {
-        pool_->returnConnection(std::move(con));
         std::cerr << "SQLException: " << e.what() << std::endl;
         return -1;
     }

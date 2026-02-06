@@ -1,0 +1,7 @@
+build/
+bin/
+*.log
+*.o
+*.obj
+third_party/  (如果你不希望它去读第三方库源码)
+*.pb.cc
