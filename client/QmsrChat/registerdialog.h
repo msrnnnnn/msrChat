@@ -14,7 +14,7 @@
 
 namespace Ui
 {
-    class RegisterDialog;
+class RegisterDialog;
 }
 
 /**
@@ -58,22 +58,7 @@ private slots:
      */
     void on_confirm_verifycode_Button_clicked();
 
-    /**
-     * @brief HTTP 请求完成回调槽
-     * @param req_type 请求类型 (Key)
-     * @param res      服务器回包数据 (JSON String)
-     * @param err      网络错误码
-     * @param mod      模块标识
-     */
-    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
-
 private:
-    /**
-     * @brief 初始化 HTTP 处理器注册表
-     * @note  在此函数中绑定 RequestType 与对应的 Lambda 处理逻辑
-     */
-    void initHttpHandlers();
-
     /**
      * @brief 显示提示信息 (错误/成功)
      * @param str 提示文本
@@ -82,13 +67,6 @@ private:
     void showTip(QString str, bool isCorrect);
 
     Ui::RegisterDialog *ui; ///< UI 界面指针
-
-    /**
-     * @brief 业务逻辑分发器 (Registry Pattern)
-     * @note Key: 请求类型 -> Value: 处理函数 (Lambda)
-     * 这种设计符合开闭原则，新增请求类型无需修改核心分发逻辑
-     */
-    QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
 };
 
 #endif // REGISTERDIALOG_H

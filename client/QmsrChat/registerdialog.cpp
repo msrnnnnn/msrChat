@@ -16,7 +16,8 @@
  * @details 初始化 UI、连接信号槽、初始化 HTTP 处理器。
  */
 RegisterDialog::RegisterDialog(QWidget *parent)
-    : QDialog(parent), ui(new Ui::RegisterDialog)
+    : QDialog(parent),
+      ui(new Ui::RegisterDialog)
 {
     ui->setupUi(this);
 
@@ -26,13 +27,6 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     // 初始化错误提示标签状态 (基于 QSS 动态属性)
     ui->error_label->setProperty("state", "normal");
     repolish(ui->error_label); // 强制刷新样式，确保 state 属性生效
-
-    // [核心] 连接全局网络单例的信号
-    // 当 HttpManagement 收到网络回包时，会触发此信号，进而调用本类的分发槽函数
-    connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &RegisterDialog::slot_http_finish);
-
-    // 初始化注册表 (填充 _handlers)
-    initHttpHandlers();
 }
 
 /**
@@ -88,7 +82,27 @@ void RegisterDialog::on_Confirm_Button_clicked()
     json_obj["varifycode"] = ui->verifycode_Edit->text();
 
     HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/user_register"), json_obj, RequestType::ID_REGISTER_USER, Modules::REGISTER_MOD);
+        QUrl(gate_url_prefix + "/user_register"), json_obj,
+        this, // 生命周期绑定
+        [this](const QJsonObject &jsonObj)
+        {
+            // 成功回调
+            int error = jsonObj["error"].toInt();
+            if (error != static_cast<int>(ERRORCODES::SUCCESS))
+            {
+                showTip(tr("注册失败: 参数错误"), false);
+                return;
+            }
+            showTip(tr("用户注册成功"), true);
+            qDebug() << "User registered successfully.";
+            // 可以选择切换到登录页
+            // emit switchLogin();
+        },
+        [this](ERRORCODES err)
+        {
+            // 失败回调
+            showTip(tr("注册请求失败，请检查网络"), false);
+        });
 }
 
 /**
@@ -115,8 +129,19 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
         QJsonObject Json_object;
         Json_object["email"] = email;
         HttpManagement::GetInstance()->PostHttpRequest(
-            QUrl(gate_url_prefix + "/get_varifycode"), Json_object, RequestType::ID_GET_VARIFY_CODE,
-            Modules::REGISTER_MOD);
+            QUrl(gate_url_prefix + "/get_varifycode"), Json_object, this,
+            [this, email](const QJsonObject &jsonObj)
+            {
+                int error = jsonObj["error"].toInt();
+                if (error != static_cast<int>(ERRORCODES::SUCCESS))
+                {
+                    showTip("参数错误", false);
+                    return;
+                }
+                showTip("验证码已发送到邮箱，注意查收", true);
+                qDebug() << "Verification code sent to:" << email;
+            },
+            [this](ERRORCODES) { showTip("获取验证码失败", false); });
     }
     else
     {
@@ -124,92 +149,7 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
     }
 }
 
-/**
- * @brief HTTP 完成回调分发
- */
-void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
-{
-    // 1. 网络层错误拦截
-    if (err != ERRORCODES::SUCCESS)
-    {
-        showTip(tr("网络请求错误"), false);
-        return;
-    }
-
-    // 2. JSON 解析与校验
-    // res.toUtf8() 防止不同平台编码问题
-    QJsonDocument jsonDocument = QJsonDocument::fromJson(res.toUtf8());
-
-    // 校验 JSON 格式是否合法
-    if (jsonDocument.isNull())
-    {
-        showTip("JSON解析失败", false);
-        return;
-    }
-    // 校验最外层是否为 Object (防止数组或其他类型导致的逻辑错误)
-    if (!jsonDocument.isObject())
-    {
-        showTip("JSON解析失败", false);
-        return;
-    }
-
-    // 3. 业务逻辑分发 (Registry Pattern)
-    // [Safety Fix] 绝对禁止使用 _handlers[req_type] 直接调用！
-    // 原因：如果 req_type 不在 map 中，operator[] 会自动插入一个空对象并返回，
-    // 导致调用空 function 抛出 std::bad_function_call 异常，程序直接 Crash。
-    auto it = _handlers.find(req_type);
-    if (it == _handlers.end())
-    {
-        // 收到未注册的回包，通常忽略或打印警告
-        qWarning() << "Received unhandled request type:" << static_cast<int>(req_type);
-        return;
-    }
-
-    // 安全调用对应的 Lambda
-    it.value()(jsonDocument.object());
-}
-
-/**
- * @brief 初始化 HTTP 处理器
- */
-void RegisterDialog::initHttpHandlers()
-{
-    // [注册] 获取验证码回包逻辑
-    _handlers.insert(
-        RequestType::ID_GET_VARIFY_CODE,
-        [this](const QJsonObject &JsonObject)
-        {
-            // 1. 检查业务层错误码 (区分于网络层错误)
-            // 注意：使用 static_cast 转换枚举，防止编译器警告
-            int error = JsonObject["error"].toInt();
-            if (error != static_cast<int>(ERRORCODES::SUCCESS))
-            {
-                showTip("参数错误", false); // 建议后续根据具体 error code 显示不同提示
-                return;
-            }
-
-            // 2. 业务处理成功
-            auto email = JsonObject["email"].toString();
-            showTip("验证码已发送到邮箱，注意查收：123456", true);
-            qDebug() << "Verification code sent to:" << email;
-        });
-
-    // 注册注册用户回包逻辑
-    _handlers.insert(
-        RequestType::ID_REGISTER_USER,
-        [this](QJsonObject jsonObj)
-        {
-            int error = jsonObj["error"].toInt();
-            if (error != static_cast<int>(ERRORCODES::SUCCESS))
-            {
-                showTip(tr("参数错误"), false);
-                return;
-            }
-            auto email = jsonObj["email"].toString();
-            showTip(tr("用户注册成功"), true);
-            qDebug() << "email is " << email;
-        });
-}
+// 移除废弃的 slot_http_finish 和 initHttpHandlers
 
 /**
  * @brief 显示提示信息

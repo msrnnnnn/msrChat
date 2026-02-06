@@ -11,21 +11,23 @@
 #include "global.h"
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMap>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QObject>
 #include <QString>
 #include <QUrl>
 #include <functional>
-#include <memory>
 
 // 前置声明枚举类型(减少头文件依赖，减少编译时间)
 enum class RequestType;
 enum class ERRORCODES;
 enum class Modules;
 
-using HttpHandler = std::function<void(RequestType, QString, ERRORCODES)>;
+// 回调函数类型定义
+// 成功回调：传入解析后的 JSON 对象
+using HttpSuccessCallback = std::function<void(const QJsonObject &)>;
+// 失败回调：传入错误码
+using HttpFailureCallback = std::function<void(ERRORCODES)>;
 
 /**
  * @class   HttpManagement
@@ -49,22 +51,22 @@ public:
     ~HttpManagement();
 
     /**
-     * @brief 发送 HTTP POST 请求
-     * @param url       目标 URL 地址
-     * @param json      请求体数据 (JSON 格式)
-     * @param req_type  请求类型 ID (用于回调时区分是哪个请求，如 ID_GET_VARIFY_CODE)
-     * @param mod       发起请求的模块 ID (用于将回包分发给 Login/Register 等不同模块)
-     * * @note 已优化为 const reference 传递，避免拷贝开销。
+     * @brief 发送 HTTP POST 请求 (Callback 模式)
+     * @param url       目标 URL
+     * @param json      请求体数据
+     * @param receiver  上下文对象 (用于生命周期管理，通常是 this)
+     * @param success   成功回调
+     * @param failure   失败回调 (可选)
      */
-    void PostHttpRequest(const QUrl &url, const QJsonObject &json, RequestType req_type, Modules mod);
+    void PostHttpRequest(
+        const QUrl &url, const QJsonObject &json, QObject *receiver, HttpSuccessCallback success,
+        HttpFailureCallback failure = nullptr);
 
     /**
-     * @brief 注册业务模块处理器
-     * @param mod      业务模块 ID (Key)
-     * @param handler  对应的回调函数 (Value)
-     * @note  各业务模块 (Dialog) 初始化时调用此接口，订阅属于自己的网络回包。
+     * @brief 发送 HTTP POST 请求 (Signal-Slot 遗留模式)
+     * @deprecated 请使用 Callback 模式
      */
-    void registerHttpHandler(Modules mod, HttpHandler handler);
+    void PostHttpRequest(const QUrl &url, const QJsonObject &json, RequestType req_type, Modules mod);
 
 private:
     /**
@@ -77,25 +79,6 @@ private:
      * @note  这是异步网络的核心，依赖 Qt 事件循环。
      */
     QNetworkAccessManager _manager;
-
-    /**
-     * @brief 业务处理器注册表
-     * @note  Key: 模块ID -> Value: 回调函数。替代了传统的 switch-case 分发。
-     */
-    QMap<Modules, HttpHandler> _handlers;
-
-private slots:
-    /**
-     * @brief 内部槽函数：处理网络请求完成信号
-     * @details
-     * 连接到 QNetworkReply::finished 信号。
-     * 负责读取服务器响应数据、解析 JSON、检查网络层错误，并转发信号给业务层。
-     * @param req_type 请求类型
-     * @param res      响应数据
-     * @param err      错误码
-     * @param mod      模块 ID
-     */
-    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
 
 signals:
     /**
