@@ -2,6 +2,7 @@
 
 # 1. 编译输出目录
 build/
+**/build/
 bin/
 out/
 debug/
@@ -9,6 +10,7 @@ release/
 x64/
 x86/
 cmake-build-*/
+**/cmake-build-*/
 
 # 2. 编译中间文件
 *.o
@@ -26,6 +28,13 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+install_manifest.txt
 *.manifest
 *.spec
 
@@ -33,6 +42,7 @@ Makefile
 .vscode/
 .idea/
 .vs/
+.qtcreator/
 *.sln
 *.vcxproj
 *.vcxproj.filters
@@ -41,6 +51,9 @@ Makefile
 *.ntvs*
 *.njsproj
 *.user
+*.user.*
+.qtc_clangd/
+.qtc/
 *.swp
 *.~*
 
@@ -54,6 +67,7 @@ desktop.ini
 moc_*.cpp
 ui_*.h
 qrc_*.cpp
+*_autogen/
 .qmake.stash
 *.qmlc
 *.jsc
