@@ -10,7 +10,6 @@
 #include "global.h"
 #include <QDialog>
 #include <QMap>
-#include <functional>
 
 namespace Ui
 {
@@ -58,7 +57,31 @@ private slots:
      */
     void on_confirm_verifycode_Button_clicked();
 
+    /**
+     * @brief 返回登录按钮点击槽函数
+     */
+    void on_return_btn_clicked();
+
+    /**
+     * @brief 取消按钮点击槽函数
+     */
+    void on_Cancel_Button_clicked();
+
 private:
+    void AddTipErr(TipErr te, QString tips);
+    void DelTipErr(TipErr te);
+
+    /**
+     * @brief 切换到提示页面
+     */
+    void ChangeTipPage();
+
+    bool checkUserValid();
+    bool checkPassValid();
+    bool checkEmailValid();
+    bool checkVarifyValid();
+    bool checkConfirmValid();
+
     /**
      * @brief 显示提示信息 (错误/成功)
      * @param str 提示文本
@@ -67,6 +90,10 @@ private:
     void showTip(QString str, bool isCorrect);
 
     Ui::RegisterDialog *ui; ///< UI 界面指针
+    QMap<TipErr, QString> _tip_errs;
+
+    QTimer *_countdown_timer; ///< 倒计时定时器
+    int _countdown;           ///< 倒计时秒数
 };
 
 #endif // REGISTERDIALOG_H

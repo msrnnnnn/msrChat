@@ -20,6 +20,8 @@ set(PROJECT_SOURCES
         logindialog.cpp logindialog.h logindialog.ui
         registerdialog.cpp registerdialog.h registerdialog.ui
         httpmanagement.cpp httpmanagement.h
+        timerbtn.cpp timerbtn.h
+        clickedlabel.cpp clickedlabel.h
         global.cpp global.h
         singleton.h
         resources.qrc

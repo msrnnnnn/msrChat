@@ -59,4 +59,27 @@ enum class ERRORCODES
     ERROR_NETWORK = 2 ///< 网络通信错误
 };
 
+/**
+ * @brief 输入校验错误类型枚举
+ */
+enum class TipErr
+{
+    TIP_SUCCESS = 0,
+    TIP_EMAIL_ERR = 1,
+    TIP_PWD_ERR = 2,
+    TIP_CONFIRM_ERR = 3,
+    TIP_PWD_CONFIRM = 4,
+    TIP_VARIFY_ERR = 5,
+    TIP_USER_ERR = 6
+};
+
+/**
+ * @brief 点击标签状态枚举
+ */
+enum class ClickLbState
+{
+    Normal = 0,  ///< 普通状态
+    Selected = 1 ///< 选中状态
+};
+
 #endif // GLOBAL_H
