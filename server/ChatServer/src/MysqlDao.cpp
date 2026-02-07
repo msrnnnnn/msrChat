@@ -73,7 +73,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
              auto user_ptr = std::make_shared<UserInfo>();
              user_ptr->uid = res->getInt("uid");
              user_ptr->name = res->getString("name");
-             user_ptr->pwd = res->getString("pwd");
+             user_ptr->pwd = res->getString("password");
              user_ptr->email = res->getString("email");
              return user_ptr;
         }
@@ -106,7 +106,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
         // 遍历结果集
         if (res->next())
         {
-            origin_pwd = res->getString("pwd");
+            origin_pwd = res->getString("password");
             // spdlog::info("Password: {}", origin_pwd); // Security: Do not log passwords
             
             if (pwd != origin_pwd)
