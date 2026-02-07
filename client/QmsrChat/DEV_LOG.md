@@ -164,3 +164,15 @@
 - 更新 `CMakeLists.txt`:
   - 添加 `chatbubble.cpp/h`。
   - 移除 `chatdialog.ui`。
+
+## Bug Fixes
+
+- **TcpMgr 编译错误**:
+  - 修复 `static_cast` 转换错误：`QAbstractSocket::SocketError` 函数指针类型不匹配，改为使用 Lambda 表达式直接连接 `errorOccurred` 信号。
+  - 修复 `connect` 参数个数错误：Qt 5.15+ 的 `errorOccurred` 信号只有一个参数。
+  - 修复 `ReqId` 类型转换错误：增加 `static_cast<uint16_t>` 和 `static_cast<ReqId>`。
+  - **CMake 配置修复**：将 `usermgr.cpp/h` 添加到 `CMakeLists.txt` 源文件列表中，解决链接错误。
+  - **ErrorCodes 枚举修正**:
+    - 在 `global.h` 中添加 `ERR_NETWORK` (1002)。
+    - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_NETWORK` 统一修正为 `ERR_NETWORK`。
+    - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_JSON` 统一修正为 `ERR_JSON`。

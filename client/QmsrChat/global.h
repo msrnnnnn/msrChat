@@ -71,18 +71,19 @@ enum class Modules
 enum class ERRORCODES
 {
     SUCCESS = 0,
-    ERR_JSON = 1001,      ///< JSON 解析失败
-    RPC_FAILED = 1002,    ///< RPC 调用失败
-    VARIFY_EXPIRED = 1003,///< 验证码过期
-    VARIFY_CODE_ERR = 1004,///< 验证码错误
-    USER_EXIST = 1005,    ///< 用户已存在
-    PASSWD_ERR = 1006,    ///< 密码错误
-    EMAIL_NOT_MATCH = 1007,///< 邮箱不匹配
-    PASSWD_UP_FAILED = 1008,///< 密码更新失败
-    PASSWD_INVALID = 1009,///< 密码验证失败
-    RPC_GET_FAILED = 1010, ///< 获取RPC服务失败
-    UID_INVALID = 1011,   ///< uid无效
-    TOKEN_INVALID = 1012  ///< token无效
+    ERR_JSON = 1001,         ///< JSON 解析失败
+    ERR_NETWORK = 1002,      ///< 网络错误
+    RPC_FAILED = 1003,       ///< RPC 调用失败
+    VARIFY_EXPIRED = 1004,   ///< 验证码过期
+    VARIFY_CODE_ERR = 1005,  ///< 验证码错误
+    USER_EXIST = 1006,       ///< 用户已存在
+    PASSWD_ERR = 1007,       ///< 密码错误
+    EMAIL_NOT_MATCH = 1008,  ///< 邮箱不匹配
+    PASSWD_UP_FAILED = 1009, ///< 密码更新失败
+    PASSWD_INVALID = 1010,   ///< 密码验证失败
+    RPC_GET_FAILED = 1011,   ///< 获取RPC服务失败
+    UID_INVALID = 1012,      ///< uid无效
+    TOKEN_INVALID = 1013     ///< token无效
 };
 
 // 兼容别名

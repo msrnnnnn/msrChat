@@ -188,7 +188,7 @@ void TcpMgr::initHandlers()
 
             if (!jsonObj.contains("error"))
             {
-                int err = static_cast<int>(ErrorCodes::ERROR_JSON);
+                int err = static_cast<int>(ErrorCodes::ERR_JSON);
                 qDebug() << "Login Failed, err is Json Parse Err" << err;
                 emit sig_login_failed(err);
                 return;

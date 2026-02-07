@@ -54,13 +54,13 @@ void HttpManagement::PostHttpRequest(const QUrl &url, const QJsonObject &json, R
             if (reply->error() != QNetworkReply::NoError)
             {
                 qWarning() << "Network Error:" << reply->errorString();
-                emit self->signal_http_finish(req_type, "", ERRORCODES::ERROR_NETWORK, mod);
+                emit self->signal_http_finish(req_type, "", ERRORCODES::ERR_NETWORK, mod);
 
                 // [Legacy Support] 分发旧模块信号
                 if (mod == Modules::REGISTER_MOD)
-                    emit self->signal_register_mod_finish(req_type, "", ERRORCODES::ERROR_NETWORK);
+                    emit self->signal_register_mod_finish(req_type, "", ERRORCODES::ERR_NETWORK);
                 if (mod == Modules::LOGIN_MOD)
-                    emit self->sig_login_mod_finish(req_type, "", ERRORCODES::ERROR_NETWORK);
+                    emit self->sig_login_mod_finish(req_type, "", ERRORCODES::ERR_NETWORK);
 
                 reply->deleteLater();
                 return;
@@ -125,7 +125,7 @@ void HttpManagement::PostHttpRequest(
                 qWarning() << "Network Error:" << reply->errorString();
                 if (failure)
                 {
-                    failure(ERRORCODES::ERROR_NETWORK);
+                    failure(ERRORCODES::ERR_NETWORK);
                 }
                 return;
             }
@@ -142,7 +142,7 @@ void HttpManagement::PostHttpRequest(
                 qWarning() << "JSON Parse Error:" << jsonError.errorString();
                 if (failure)
                 {
-                    failure(ERRORCODES::ERROR_JSON);
+                    failure(ERRORCODES::ERR_JSON);
                 }
                 return;
             }
