@@ -75,54 +75,29 @@
 ### 7.1 界面实现 (ResetDialog)
 - **新建 UI**: 创建了 `resetdialog.ui`，包含用户名、邮箱、验证码、新密码输入框及确认/取消按钮。
 - **自定义控件**:
-  - 集成了 `TimerBtn` (verify_btn) 用于获取验证码倒计时。
-  - 使用 `QLineEdit` 并设置 `PasswordEchoOnEdit` 模式用于新密码输入。
+  - `ClickedLabel`: 用于实现可点击的密码可见性切换图标。
+  - `TimerBtn`: 用于获取验证码的倒计时按钮。
+- **布局优化**: 使用 `QHBoxLayout` 和 `QVBoxLayout` 组合，确保界面在不同分辨率下的整洁性。
 
-### 7.2 登录界面更新 (LoginDialog)
-- **标签升级**: 将“忘记密码”标签 (`forget_password_label`) 升级为自定义的 `ClickedLabel`。
-- **交互增强**:
-  - 设置了标签的正常、悬浮、点击等状态样式。
-  - 添加了鼠标手势 (`PointingHandCursor`)。
-  - 绑定了点击信号 `ClickedLabel::clicked` 到 `slot_forget_pwd` 槽函数。
-- **信号转发**: 在 `slot_forget_pwd` 中发射 `switchReset` 信号，通知主窗口切换界面。
-
-### 7.3 主窗口逻辑 (MainWindow)
-- **界面切换**:
-  - 实现了 `slotSwitchReset` 槽函数，用于隐藏登录界面并显示重置密码界面。
-  - 实现了 `slotSwitchLogin2` 槽函数，用于从重置密码界面返回登录界面。
-- **动态加载**: `ResetDialog` 采用懒加载模式，在首次点击“忘记密码”时才进行实例化，节省资源。
-
-### 7.4 业务逻辑实现 (ResetDialog Logic)
-- **架构适配**: 将教程中的 `HttpMgr` 替换为项目现有的 `HttpManagement` 单例，并使用 Lambda 回调替代旧的 `initHandlers` 映射表模式，代码更简洁。
-- **输入校验**: 实现了用户名、邮箱、密码格式（正则）、验证码的即时校验 (`editingFinished`)。
+### 7.2 逻辑交互
 - **验证码获取**:
-  - 集成 `TimerBtn`，点击获取后自动倒计时。
-  - 优化体验：若校验失败或网络请求失败，自动停止倒计时并恢复按钮状态，允许用户立即重试。
-- **接口对接**:
-  - 新增 `ID_RESET_PWD` (1003) 请求类型。
-  - 实现 `/get_varifycode` 和 `/reset_pwd` 接口调用。
-- **统一规范**: 
-  - 移除教程中的 `xorString`，保持与 `RegisterDialog` 一致的明文传输（或由 HTTPS 保证安全）。
-  - 统一使用 `ui->error_label` 显示错误提示，并支持 `repolish` 刷新样式。
+  - 点击获取按钮后触发邮箱正则校验。
+  - 校验通过后发送 HTTP 请求 `/get_varifycode`。
+  - 按钮进入倒计时状态，防止重复点击。
+- **重置流程**:
+  - 校验用户名、邮箱、验证码、新密码格式。
+  - 发送 HTTP 请求 `/user_reset_pwd`。
+  - 成功后跳转回登录界面 (`switchLogin` 信号)。
+- **信号槽连接**:
+  - `MainWindow` 连接 `ResetDialog::switchLogin` 信号，实现界面切换。
+  - `LoginDialog` 连接 `ClickedLabel::clicked` (忘记密码) 信号，跳转至 `ResetDialog`。
 
-### 7.5 服务端密码重置支持 (Server Side)
-- **路由注册**: 在 `LogicSystem` 中注册 `/reset_pwd` POST 路由。
-- **流程实现**:
-  - 校验 Redis 中的验证码是否有效及匹配。
-  - 校验 MySQL 中用户名与邮箱是否匹配 (`CheckEmail`)。
-  - 更新用户密码 (`UpdatePwd`)。
-- **数据库优化**:
-  - 在 `MysqlDao` 中实现 `CheckEmail` 和 `UpdatePwd`。
-  - 使用 RAII (`std::unique_ptr`) 管理数据库连接，替代教程中的手动 `returnConnection`，防止资源泄漏。
-- **错误码扩展**: 在 `const.h` 中补充 `EmailNotMatch`, `PasswdUpFailed` 等错误码。
+## 8. TCP 连接管理 (TcpMgr)
 
-## 8. TCP 连接管理与登录集成 (TcpMgr & LoginDialog)
-
-### 8.1 TcpMgr 单例实现
-- **单例模式**: 继承自 `Singleton<TcpMgr>` 和 `std::enable_shared_from_this`，确保全局唯一且生命周期安全。
+### 8.1 基础架构
+- **单例模式**: 继承 `Singleton` 模板类，确保全局唯一实例。
 - **信号槽机制**:
-  - 使用 Qt 5.15+ 兼容的 `errorOccurred` 信号替代已弃用的 `error` 信号。
-  - 实现 `slot_tcp_connect` 连接服务器。
+  - 实现了 `sig_con_success` (连接成功/失败) 信号。
   - 实现 `slot_send_data` 发送数据，采用 BigEndian 网络字节序，并增加消息头（ID + Length）解决粘包问题。
   - 实现 `readyRead` 处理逻辑，解析消息头和消息体。
 - **线程安全**: 通过 `sig_send_data` 信号中转发送请求，支持多线程调用。
@@ -161,3 +136,24 @@
 
 ### 9.4 协议更新
 - `global.h` 新增 `ID_CHAT_LOGIN_RSP` (1006) 枚举值。
+
+## 10. 聊天界面 (ChatDialog) 开发
+
+### 10.1 界面布局 (UI Design)
+- 创建 `ChatDialog` 设计师类，采用仿微信布局。
+- **三栏式结构**:
+  - **侧边栏 (Side Bar)**: 宽度固定 56px，深色背景 (`rgb(46,46,46)`). 包含头像、聊天、联系人等图标容器。
+  - **列表栏 (Chat List)**: 宽度固定 250px，浅灰色背景 (`rgb(247,247,247)`). 包含搜索框、添加按钮和聊天列表 (`QListWidget`)。
+  - **聊天窗口 (Chat Window)**: 自适应宽度，背景色 `rgb(245,245,245)`。包含标题栏、聊天记录区域、工具栏、输入框和底部发送按钮栏。
+- **样式美化**:
+  - 更新 `stylesheet.qss`，定义 `#side_bar` 背景色。
+
+### 10.2 界面切换逻辑
+- **MainWindow 集成**:
+  - 新增 `SlotSwitchChat` 槽函数：初始化 `ChatDialog`，设置为中心窗口，隐藏登录界面，并调整主窗口尺寸 (1050x900)。
+  - 连接 `TcpMgr::sig_swich_chatdlg` 信号至 `SlotSwitchChat`。
+- **测试支持**:
+  - 在 `MainWindow` 构造函数中预留了直接触发跳转的测试代码 (注释状态)。
+
+### 10.3 构建配置
+- 更新 `CMakeLists.txt`，添加 `chatdialog.cpp/h/ui` 到编译列表。

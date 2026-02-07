@@ -6,6 +6,7 @@
 
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "tcpmgr.h"
 #include <QIcon>
 
 /**
@@ -43,12 +44,19 @@ MainWindow::MainWindow(QWidget *parent)
     _register_dialog->hide();
 
     _reset_dialog = nullptr;
+    _chat_dialog = nullptr;
 
     // 4. 绑定切换信号槽
     connect(_login_dialog, &LoginDialog::switchRegister, this, &MainWindow::slotSwitchRegister);
     connect(_register_dialog, &RegisterDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
     // 连接登录界面忘记密码信号
     connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
+
+    // 连接创建聊天界面信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this, &MainWindow::SlotSwitchChat);
+
+    // 测试：直接发送信号触发跳转
+    // emit TcpMgr::GetInstance()->sig_swich_chatdlg();
 }
 
 /**
@@ -103,4 +111,15 @@ void MainWindow::slotSwitchLogin2()
 {
     _reset_dialog->hide();
     _login_dialog->show();
+}
+
+void MainWindow::SlotSwitchChat()
+{
+    _chat_dialog = new ChatDialog(this);
+    _chat_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
+    setCentralWidget(_chat_dialog);
+    _chat_dialog->show();
+    _login_dialog->hide();
+    this->setMinimumSize(QSize(1050, 900));
+    this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 }

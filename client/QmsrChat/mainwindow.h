@@ -7,6 +7,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "chatdialog.h"
 #include "logindialog.h"
 #include "registerdialog.h"
 #include "resetdialog.h"
@@ -61,12 +62,18 @@ public slots:
      */
     void slotSwitchLogin2();
 
+    /**
+     * @brief 切换到聊天界面
+     */
+    void SlotSwitchChat();
+
 private:
     Ui::MainWindow *ui; ///< UI 指针
 
     LoginDialog *_login_dialog;       ///< 登录对话框实例
     RegisterDialog *_register_dialog; ///< 注册对话框实例
     ResetDialog *_reset_dialog;       ///< 重置密码对话框实例
+    ChatDialog *_chat_dialog;         ///< 聊天对话框实例
 };
 
 #endif // MAINWINDOW_H
