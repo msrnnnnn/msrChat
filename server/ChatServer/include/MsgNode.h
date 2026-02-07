@@ -11,7 +11,8 @@ const int HEAD_DATA_LEN = 2;
 const int MAX_LENGTH = 1024 * 2; // 2KB max message length
 
 // Message ID
-const short MSG_CHAT_LOGIN = 1001; // Example ID
+const short MSG_CHAT_LOGIN = 1005; 
+const short MSG_CHAT_LOGIN_RSP = 1006;
 
 class RecvNode {
 public:

@@ -26,6 +26,8 @@ namespace ChatApp
         EmailNotMatch = 1007, ///< 邮箱不匹配
         PasswdUpFailed = 1008, ///< 密码更新失败
         PasswdInvalid = 1009, ///< 密码不合法或错误
-        RPCGetFailed = 1010   ///< gRPC 获取服务失败
+        RPCGetFailed = 1010,   ///< gRPC 获取服务失败
+        UidInvalid = 1011,    ///< uid无效
+        TokenInvalid = 1012   ///< token无效
     };
 }

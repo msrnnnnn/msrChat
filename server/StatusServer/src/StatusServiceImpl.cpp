@@ -23,7 +23,34 @@ Status StatusServiceImpl::GetChatServer(ServerContext* context, const GetChatSer
     reply->set_port(server.port);
     reply->set_error((int)ChatApp::ErrorCode::Success);
     reply->set_token(generate_unique_string());
+    insertToken(request->uid(), reply->token());
     return Status::OK;
+}
+
+Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request, LoginRsp* reply)
+{
+    auto uid = request->uid();
+    auto token = request->token();
+    std::lock_guard<std::mutex> guard(_token_mtx);
+    auto iter = _tokens.find(uid);
+    if (iter == _tokens.end()) {
+        reply->set_error((int)ChatApp::ErrorCode::UidInvalid);
+        return Status::OK;
+    }
+    if (iter->second != token) {
+        reply->set_error((int)ChatApp::ErrorCode::TokenInvalid);
+        return Status::OK;
+    }
+    reply->set_error((int)ChatApp::ErrorCode::Success);
+    reply->set_uid(uid);
+    reply->set_token(token);
+    return Status::OK;
+}
+
+void StatusServiceImpl::insertToken(int uid, std::string token)
+{
+    std::lock_guard<std::mutex> guard(_token_mtx);
+    _tokens[uid] = token;
 }
 
 StatusServiceImpl::StatusServiceImpl() : _server_index(0)

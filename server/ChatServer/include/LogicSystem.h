@@ -8,6 +8,7 @@
 #include <functional>
 #include "CSession.h"
 #include "MsgNode.h"
+#include "MysqlMgr.h"
 
 class LogicNode {
 public:
@@ -37,4 +38,5 @@ private:
     bool _b_stop;
     std::thread _worker_thread;
     std::map<short, FunCallBack> _fun_callbacks;
+    std::map<int, std::shared_ptr<UserInfo>> _users;
 };
