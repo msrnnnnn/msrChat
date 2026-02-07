@@ -78,9 +78,39 @@
 ### 4.3 配置管理
 - **config.ini**：新增 `[StatusServer]`, `[ChatServer1]`, `[ChatServer2]` 配置段，支持灵活的服务地址配置。
 
+## 5. ChatServer 服务实现 (New Service)
+
+为了支持客户端的即时通讯功能，从零构建了 ChatServer 服务。
+
+### 5.1 服务架构
+- **TCP服务**：ChatServer 是一个高性能的 TCP 服务器，基于 Boost.Asio 实现。
+- **组件复用**：复用 `AsioIOServicePool` 进行多线程 IO 处理，复用 `ConfigMgr` 和 `Singleton`。
+- **会话管理**：
+  - `CServer`：负责监听端口，接受新连接，并管理所有活跃的 `CSession`。
+  - `CSession`：代表一个客户端连接，负责数据的收发。使用 `std::enable_shared_from_this` 保证异步操作期间对象的生命周期安全。
+
+### 5.2 核心逻辑
+- **异步接收**：`CServer::StartAccept` 使用异步 Accept 模式，将新连接分发给 `AsioIOServicePool` 中的 IO 线程。
+- **读写处理**：`CSession` 实现了异步读取逻辑，并在读取错误或连接关闭时自动清理会话。
+- **UUID标识**：每个 Session 在创建时生成唯一的 UUID，用于在 Server 中进行索引和管理。
+
+### 5.3 业务逻辑层实现 (LogicSystem & Session Layer)
+- **协议解析 (Session Layer)**：
+  - **TLV格式**：实现了 Tag-Length-Value 协议头解析（2字节ID + 2字节长度），解决 TCP 粘包/半包问题。
+  - **MsgNode/RecvNode**：设计了专门的消息节点类管理收发缓冲区，支持动态内存管理。
+  - **异步读写**：
+    - `AsyncReadHead` -> `AsyncReadBody` 状态机模式循环读取数据。
+    - 发送队列 `_send_que` 配合 `_send_lock` 保证多线程发送安全性，实现发送合并优化。
+- **逻辑分发 (LogicSystem)**：
+  - **生产者-消费者模型**：使用 `std::queue` + `std::condition_variable` 实现高效的消息解耦。
+    - Session 层作为生产者将解析好的 `LogicNode` 投递到队列。
+    - 逻辑线程作为消费者阻塞等待并处理消息。
+  - **回调机制**：基于 `std::map<short, FunCallBack>` 实现消息 ID 到处理函数的映射，支持灵活扩展业务逻辑。
+  - **JSON 交互**：集成了 `jsoncpp`，在 `LoginHandler` 中实现了基于 JSON 的登录请求解析与回显。
+
 ---
 
-## 5. 文件变更列表
+## 6. 文件变更列表
 
 | 文件 | 类型 | 描述 |
 | :--- | :--- | :--- |
@@ -96,8 +126,9 @@
 | `include/const.h` | 修改 | 新增登录相关错误码。 |
 | `CMakeLists.txt` | 修改 | 添加 `StatusGrpcClient.cpp` 到编译列表。 |
 | `server/StatusServer/` | **新增** | 新增 StatusServer 服务项目目录及其所有源码。 |
+| `server/ChatServer/` | **新增** | 新增 ChatServer 服务项目目录及其所有源码。 |
 
-## 6. 错误修复 (Bug Fixes)
+## 7. 错误修复 (Bug Fixes)
 
 - **编译错误修复**:
   - 修正了 `LogicSystem.cpp` 调用 `MysqlMgr::CheckEmail` 时提示 `is private` 的错误。

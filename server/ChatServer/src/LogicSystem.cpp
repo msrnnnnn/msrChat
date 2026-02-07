@@ -1,0 +1,75 @@
+#include "LogicSystem.h"
+#include <json/json.h>
+#include <json/reader.h>
+#include <json/value.h>
+#include <iostream>
+
+using namespace std;
+
+LogicSystem::LogicSystem() : _b_stop(false) {
+    RegisterCallBacks();
+    _worker_thread = std::thread(&LogicSystem::DealMsg, this);
+}
+
+LogicSystem::~LogicSystem() {
+    _b_stop = true;
+    _consume.notify_one();
+    _worker_thread.join();
+}
+
+void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg) {
+    std::unique_lock<std::mutex> unique_lk(_mutex);
+    _msg_que.push(msg);
+    // 由0变为1则发送通知
+    if (_msg_que.size() == 1) {
+        _consume.notify_one();
+    }
+}
+
+void LogicSystem::DealMsg() {
+    while (true) {
+        std::unique_lock<std::mutex> unique_lk(_mutex);
+        // 判断队列为空则阻塞
+        while (_msg_que.empty() && !_b_stop) {
+            _consume.wait(unique_lk);
+        }
+
+        // 判断是否为关闭状态
+        if (_b_stop) {
+            while (!_msg_que.empty()) {
+                auto msg_node = _msg_que.front();
+                // can do some resource release here
+                _msg_que.pop();
+            }
+            break;
+        }
+
+        // 如果没有关闭，则取出数据
+        auto msg_node = _msg_que.front();
+        _msg_que.pop();
+        unique_lk.unlock();
+
+        short msg_id = msg_node->_recvnode->_msg_id;
+        auto call_back_iter = _fun_callbacks.find(msg_id);
+        if (call_back_iter != _fun_callbacks.end()) {
+            call_back_iter->second(msg_node->_session, msg_id, std::string(msg_node->_recvnode->_data, msg_node->_recvnode->_cur_len));
+        }
+    }
+}
+
+void LogicSystem::RegisterCallBacks() {
+    _fun_callbacks[MSG_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
+        placeholders::_1, placeholders::_2, placeholders::_3);
+}
+
+void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id, const string& msg_data) {
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+    std::cout << "user login uid is  " << root["uid"].asInt() << " user token  is "
+        << root["token"].asString() << endl;
+
+    // 回显数据
+    std::string return_str = root.toStyledString();
+    session->Send(return_str, msg_id);
+}
