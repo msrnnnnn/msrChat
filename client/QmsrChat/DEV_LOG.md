@@ -139,21 +139,28 @@
 
 ## 10. 聊天界面 (ChatDialog) 开发
 
-### 10.1 界面布局 (UI Design)
-- 创建 `ChatDialog` 设计师类，采用仿微信布局。
-- **三栏式结构**:
-  - **侧边栏 (Side Bar)**: 宽度固定 56px，深色背景 (`rgb(46,46,46)`). 包含头像、聊天、联系人等图标容器。
-  - **列表栏 (Chat List)**: 宽度固定 250px，浅灰色背景 (`rgb(247,247,247)`). 包含搜索框、添加按钮和聊天列表 (`QListWidget`)。
-  - **聊天窗口 (Chat Window)**: 自适应宽度，背景色 `rgb(245,245,245)`。包含标题栏、聊天记录区域、工具栏、输入框和底部发送按钮栏。
-- **样式美化**:
-  - 更新 `stylesheet.qss`，定义 `#side_bar` 背景色。
+### 10.1 界面重构 (Pure C++ Implementation)
+- **移除 UI 文件**: 完全弃用 `chatdialog.ui`，改用纯 C++ 代码 (`chatdialog.cpp`) 实现布局。
+- **仿微信布局**:
+  - 主窗口尺寸设定为 1000x700。
+  - 左侧 `QListWidget` 联系人列表 (固定宽 250px)。
+  - 右侧聊天区域，包含顶部标题栏、中间消息滚动区 (`QScrollArea`)、底部输入区。
+- **交互优化**:
+  - **键盘监听**: 在 `QTextEdit` 上安装 `EventFilter`，实现 **Enter 发送**，**Ctrl+Enter 换行**。
+  - **自动吸底**: 连接滚动条的 `rangeChanged` 信号，确保新消息到达时自动滚动到底部。
+  - **布局细节**: 使用 `Stretch Factor` 控制左右比例，设置 `ContentsMargins` 为 0 以消除默认边距。
 
-### 10.2 界面切换逻辑
-- **MainWindow 集成**:
-  - 新增 `SlotSwitchChat` 槽函数：初始化 `ChatDialog`，设置为中心窗口，隐藏登录界面，并调整主窗口尺寸 (1050x900)。
-  - 连接 `TcpMgr::sig_swich_chatdlg` 信号至 `SlotSwitchChat`。
-- **测试支持**:
-  - 在 `MainWindow` 构造函数中预留了直接触发跳转的测试代码 (注释状态)。
+### 10.2 消息气泡 (ChatBubble)
+- **自定义控件**: 创建 `ChatBubble` 类 (继承自 `QWidget`)。
+- **自绘样式**:
+  - 重写 `paintEvent` 绘制圆角矩形背景。
+  - **发送者**: 绿色背景 (`#95ec69`)，右对齐。
+  - **接收者**: 白色背景 (`#ffffff`)，左对齐。
+- **兜底逻辑**:
+  - 实现 `generateDefaultAvatar`，当头像加载失败时，自动绘制纯色圆形背景及名字首字母，防止界面崩溃或显示异常。
+- **文本处理**: 支持自动换行 (`setWordWrap(true)`), 限制最大宽度为父窗口的 60%。
 
 ### 10.3 构建配置
-- 更新 `CMakeLists.txt`，添加 `chatdialog.cpp/h/ui` 到编译列表。
+- 更新 `CMakeLists.txt`:
+  - 添加 `chatbubble.cpp/h`。
+  - 移除 `chatdialog.ui`。

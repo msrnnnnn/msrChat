@@ -20,7 +20,8 @@ set(PROJECT_SOURCES
         logindialog.cpp logindialog.h logindialog.ui
         registerdialog.cpp registerdialog.h registerdialog.ui
         resetdialog.cpp resetdialog.h resetdialog.ui
-        chatdialog.cpp chatdialog.h chatdialog.ui
+        chatdialog.cpp chatdialog.h
+        chatbubble.cpp chatbubble.h
         httpmanagement.cpp httpmanagement.h
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h
