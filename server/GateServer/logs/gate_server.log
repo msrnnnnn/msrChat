@@ -1,0 +1,105 @@
+[2026-02-08 00:44:56.000] [GateServer] [info] ========================================
+[2026-02-08 00:44:56.000] [GateServer] [info] GateServer Starting...
+[2026-02-08 00:44:56.000] [GateServer] [info] ========================================
+[2026-02-08 00:44:56.000] [GateServer] [info] Loading Config from: /home/msr/msrChat/server/GateServer/config.ini
+[2026-02-08 00:44:56.001] [GateServer] [info] [Info] GateServer will listen on port: 8080
+[2026-02-08 00:44:56.001] [GateServer] [info] [Info] LogicSystem initialized, routes registered.
+[2026-02-08 00:44:56.001] [GateServer] [error] Error: bind: Address already in use [system:98 at /usr/include/boost/asio/detail/reactive_socket_service.hpp:161 in function 'bind']
+[2026-02-08 00:44:56.002] [GateServer] [info]  this is ~Singleton() 
+[2026-02-08 01:09:10.678] [GateServer] [info] ========================================
+[2026-02-08 01:09:10.678] [GateServer] [info] GateServer Starting...
+[2026-02-08 01:09:10.678] [GateServer] [info] ========================================
+[2026-02-08 01:09:10.678] [GateServer] [info] Loading Config from: /home/msr/msrChat/server/GateServer/config.ini
+[2026-02-08 01:09:10.679] [GateServer] [info] [Info] GateServer will listen on port: 8080
+[2026-02-08 01:09:10.679] [GateServer] [info] [Info] LogicSystem initialized, routes registered.
+[2026-02-08 01:09:10.679] [GateServer] [info] CServer initialized, listening on port: 8080
+[2026-02-08 01:09:10.680] [GateServer] [info] AsioIOServicePool initialized with 2 threads
+[2026-02-08 01:40:09.079] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:09.080] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:09.080] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:09.079] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:09.080] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:09.080] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:09.761] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:09.761] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:09.762] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:09.762] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:11.609] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:11.609] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:11.609] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:11.609] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:11.609] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:11.610] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:11.611] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:11.611] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:11.612] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:11.612] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:29.931] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:29.931] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:29.931] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:29.931] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:29.931] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:29.931] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:29.934] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:29.934] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:29.936] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:29.936] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:44.189] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:44.189] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:40:44.189] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:44.189] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:44.189] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:40:44.190] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:40:44.191] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:44.191] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:40:44.191] [GateServer] [info]  user pwd not match
+[2026-02-08 01:40:44.191] [GateServer] [info]  user pwd not match
+[2026-02-08 01:41:44.192] [GateServer] [warning] socket deadline reached, closing connection
+[2026-02-08 01:41:44.193] [GateServer] [warning] socket deadline reached, closing connection
+[2026-02-08 01:41:44.193] [GateServer] [warning] http read error: Operation canceled
+[2026-02-08 01:41:44.194] [GateServer] [warning] http read error: Operation canceled
+[2026-02-08 01:47:14.744] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:47:14.745] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:47:14.745] [GateServer] [info] receive body is {"user":"msr", "passwd":"wrongpassword"}
+[2026-02-08 01:47:14.748] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:47:14.748] [GateServer] [info]  user pwd not match
+[2026-02-08 01:47:14.749] [GateServer] [warning] http read error: end of stream
+[2026-02-08 01:48:14.748] [GateServer] [warning] socket deadline reached, closing connection
+[2026-02-08 01:52:00.099] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:00.100] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:00.099] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:00.100] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:00.100] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:00.100] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:00.102] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:00.102] [GateServer] [info]  user pwd not match
+[2026-02-08 01:52:00.102] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:00.102] [GateServer] [info]  user pwd not match
+[2026-02-08 01:52:02.434] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:02.434] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:02.435] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:02.435] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:02.435] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:02.435] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:02.437] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:02.438] [GateServer] [info]  user pwd not match
+[2026-02-08 01:52:02.438] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:02.438] [GateServer] [info]  user pwd not match
+[2026-02-08 01:52:02.821] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:02.821] [GateServer] [info] [HTTP Request] Method: POST, Target: /user_login
+[2026-02-08 01:52:02.821] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:02.821] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:02.821] [GateServer] [info] [Routing] POST request to: /user_login
+[2026-02-08 01:52:02.822] [GateServer] [info] receive body is {"passwd":"18277274635a","user":"msr"}
+[2026-02-08 01:52:02.823] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:02.824] [GateServer] [info]  user pwd not match
+[2026-02-08 01:52:02.823] [GateServer] [error] SQLException: MySQLPreparedResultSet::getString: invalid 'columnIndex', MySQL error code: 0, SQLState: 
+[2026-02-08 01:52:02.824] [GateServer] [info]  user pwd not match
+[2026-02-08 01:53:02.824] [GateServer] [warning] socket deadline reached, closing connection
+[2026-02-08 01:53:02.826] [GateServer] [warning] socket deadline reached, closing connection
+[2026-02-08 01:53:02.826] [GateServer] [warning] http read error: Operation canceled
+[2026-02-08 01:53:02.827] [GateServer] [warning] http read error: Operation canceled
+[2026-02-08 01:59:55.549] [GateServer] [info]  this is ~Singleton() 
+[2026-02-08 01:59:55.554] [GateServer] [info] AsioIOServicePool destruct
+[2026-02-08 01:59:55.555] [GateServer] [info]  this is ~Singleton() 
+[2026-02-08 01:59:55.555] [GateServer] [info]  this is ~Singleton() 

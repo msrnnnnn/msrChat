@@ -1,0 +1,7 @@
+[2026-02-08 01:09:03.268] [ChatServer] [info] ChatServer Starting...
+[2026-02-08 01:09:03.270] [ChatServer] [info] Loading Config from: /home/msr/msrChat/server/ChatServer/config.ini
+[2026-02-08 01:09:03.273] [ChatServer] [info] AsioIOServicePool initialized with 2 threads
+[2026-02-08 01:09:03.274] [ChatServer] [info] Server start success, listen on port : 8090
+[2026-02-08 01:09:03.274] [ChatServer] [info] ChatServer listening on port 8090
+[2026-02-08 01:59:55.597] [ChatServer] [info] Server destruct
+[2026-02-08 01:59:55.597] [ChatServer] [info] ~CSession destruct

@@ -1,0 +1,14 @@
+[2026-02-08 00:44:49.073] [StatusServer] [info] StatusServer Starting...
+[2026-02-08 00:44:49.073] [StatusServer] [info] Loading Config from: /home/msr/msrChat/server/StatusServer/config.ini
+[2026-02-08 00:44:49.074] [StatusServer] [info] Redis Connect Success: 127.0.0.1:6379
+[2026-02-08 00:44:49.076] [StatusServer] [info] Server listening on 0.0.0.0:50052
+[2026-02-08 00:56:05.577] [StatusServer] [info] Shutting down server...
+[2026-02-08 00:56:05.584] [StatusServer] [info] Redis connection closed
+[2026-02-08 00:56:05.584] [StatusServer] [info]  this is ~Singleton() 
+[2026-02-08 00:56:20.291] [StatusServer] [info] StatusServer Starting...
+[2026-02-08 00:56:20.291] [StatusServer] [info] Loading Config from: /home/msr/msrChat/server/StatusServer/config.ini
+[2026-02-08 00:56:20.291] [StatusServer] [info] Redis Connect Success: 127.0.0.1:6379
+[2026-02-08 00:56:20.293] [StatusServer] [info] Server listening on 0.0.0.0:50052
+[2026-02-08 01:59:55.629] [StatusServer] [info] Shutting down server...
+[2026-02-08 01:59:55.632] [StatusServer] [info] Redis connection closed
+[2026-02-08 01:59:55.632] [StatusServer] [info]  this is ~Singleton() 

@@ -120,7 +120,28 @@ void ResetDialog::on_sure_btn_clicked()
             int error = jsonObj["error"].toInt();
             if (error != static_cast<int>(ERRORCODES::SUCCESS))
             {
-                showTip(tr("参数错误"), false);
+                QString errStr = tr("未知错误");
+                switch (static_cast<ERRORCODES>(error)) {
+                case ERRORCODES::ERR_JSON:
+                    errStr = tr("JSON解析失败");
+                    break;
+                case ERRORCODES::VARIFY_EXPIRED:
+                    errStr = tr("验证码已过期");
+                    break;
+                case ERRORCODES::VARIFY_CODE_ERR:
+                    errStr = tr("验证码错误");
+                    break;
+                case ERRORCODES::EMAIL_NOT_MATCH:
+                    errStr = tr("邮箱不匹配");
+                    break;
+                case ERRORCODES::PASSWD_UP_FAILED:
+                    errStr = tr("密码更新失败");
+                    break;
+                default:
+                    errStr = tr("错误码: %1").arg(error);
+                    break;
+                }
+                showTip(errStr, false);
                 return;
             }
             auto email = jsonObj["email"].toString();

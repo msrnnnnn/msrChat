@@ -115,7 +115,32 @@ void LoginDialog::initHttpHandlers()
             int error = jsonObj["error"].toInt();
             if (error != static_cast<int>(ErrorCodes::SUCCESS))
             {
-                showTip(tr("参数错误"), false);
+                QString errStr = tr("未知错误");
+                switch (static_cast<ErrorCodes>(error)) {
+                case ErrorCodes::ERR_JSON:
+                    errStr = tr("JSON解析失败");
+                    break;
+                case ErrorCodes::RPC_FAILED:
+                    errStr = tr("系统服务不可用");
+                    break;
+                case ErrorCodes::USER_EXIST:
+                    errStr = tr("用户已存在");
+                    break;
+                case ErrorCodes::PASSWD_ERR:
+                case ErrorCodes::PASSWD_INVALID:
+                    errStr = tr("用户名或密码错误");
+                    break;
+                case ErrorCodes::RPC_GET_FAILED:
+                    errStr = tr("获取聊天服务失败");
+                    break;
+                case ErrorCodes::VARIFY_CODE_ERR:
+                    errStr = tr("验证码错误");
+                    break;
+                default:
+                    errStr = tr("错误码: %1").arg(error);
+                    break;
+                }
+                showTip(errStr, false);
                 enableBtn(true);
                 return;
             }
