@@ -38,6 +38,37 @@
    border-image: url(:/res/visible_hover.png);
 }
 
+/* 滚动条样式 */
+QScrollBar:vertical {
+    width: 6px;
+    background: transparent;
+}
+QScrollBar::handle:vertical {
+    background: #CCCCCC;
+    border-radius: 3px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #999999;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* 左侧会话列表 */
+QListWidget#sessionList {
+    outline: none; /* 移除选中虚线 */
+}
+QListWidget#sessionList::item {
+    padding: 0px; /* Delegate 内部处理边距 */
+}
+QListWidget#sessionList::item:selected {
+    background-color: #E5E6EB;
+    color: #333333;
+}
+QListWidget#sessionList::item:hover {
+    background-color: #F5F6F7;
+}
+
 QDialog#LoginDialog, #RegisterDialog, #ResetDialog {
     background-color:rgb(255,255,255)
 }

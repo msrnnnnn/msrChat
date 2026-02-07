@@ -165,6 +165,19 @@
   - 添加 `chatbubble.cpp/h`。
   - 移除 `chatdialog.ui`。
 
+### 10.5 仿微信界面深度重构
+- **模块化拆分**:
+  - `ChatSideBar`: 负责左侧会话列表、搜索栏和底部功能栏。
+  - `ChatArea`: 负责右侧聊天区域、标题栏和输入框。
+  - `SessionItemDelegate`: 自定义绘制会话列表项（圆形头像、消息预览、时间戳）。
+- **样式升级**:
+  - 更新 `stylesheet.qss`，增加了全局滚动条样式、按钮样式及列表项的交互样式。
+  - 消息气泡 (`ChatBubble`) 颜色和样式调整为仿微信风格（绿色/白色）。
+- **交互优化**:
+  - 主窗口固定 25:75 分栏比例。
+  - 搜索栏圆角设计。
+  - 聊天输入框支持表情、附件按钮（UI 占位）。
+
 ### 10.4 登录体验优化
 - **防抖动处理**:
   - 在 `on_login_Button_clicked` 中点击即调用 `enableBtn(false)` 禁用按钮。
@@ -181,3 +194,4 @@
     - 在 `global.h` 中添加 `ERR_NETWORK` (1002)。
     - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_NETWORK` 统一修正为 `ERR_NETWORK`。
     - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_JSON` 统一修正为 `ERR_JSON`。
+  - **头文件缺失修复**: `chatsidebar.cpp` 中缺少 `#include <QLabel>`，导致 `QLabel` 未声明错误。
