@@ -9,6 +9,9 @@
 #include "ConfigMgr.h"
 #include "LogicSystem.h"
 #include <iostream>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
@@ -23,9 +26,24 @@
  */
 int main()
 {
-    std::cout << "========================================" << std::endl;
-    std::cout << "GateServer Starting..." << std::endl;
-    std::cout << "========================================" << std::endl;
+    try {
+        // Initialize spdlog with console and file sinks
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/gate_server.log", 1024 * 1024 * 5, 3);
+        
+        std::vector<spdlog::sink_ptr> sinks {console_sink, file_sink};
+        auto logger = std::make_shared<spdlog::logger>("GateServer", sinks.begin(), sinks.end());
+        
+        spdlog::set_default_logger(logger);
+        spdlog::flush_on(spdlog::level::info); // Auto flush on info level
+    } catch (const spdlog::spdlog_ex &ex) {
+        std::cerr << "Log init failed: " << ex.what() << std::endl;
+        return 1;
+    }
+
+    spdlog::info("========================================");
+    spdlog::info("GateServer Starting...");
+    spdlog::info("========================================");
 
     auto &gCfgMgr = ConfigMgr::GetInstance();
     std::string gate_port_str = gCfgMgr["GateServer"]["Port"];
@@ -34,16 +52,16 @@ int main()
     if (gate_port == 0)
     {
         gate_port = 8080;
-        std::cout << "[Warning] Config load failed or port invalid. Using default port: 8080" << std::endl;
+        spdlog::warn("[Warning] Config load failed or port invalid. Using default port: 8080");
     }
     else
     {
-        std::cout << "[Info] GateServer will listen on port: " << gate_port << std::endl;
+        spdlog::info("[Info] GateServer will listen on port: {}", gate_port);
     }
 
     // 初始化 LogicSystem（触发路由注册）
     LogicSystem::GetInstance();
-    std::cout << "[Info] LogicSystem initialized, routes registered." << std::endl;
+    spdlog::info("[Info] LogicSystem initialized, routes registered.");
 
     try
     {
@@ -94,7 +112,7 @@ int main()
     }
     catch (std::exception const &exp)
     {
-        std::cerr << "Error: " << exp.what() << std::endl;
+        spdlog::error("Error: {}", exp.what());
         return EXIT_FAILURE;
     }
 }

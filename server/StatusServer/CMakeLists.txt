@@ -8,6 +8,7 @@ find_package(Threads REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system thread filesystem)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
+find_package(spdlog REQUIRED)
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -39,6 +40,7 @@ set(LIBRARIES
     mysqlcppconn
     hiredis
     jsoncpp
+    spdlog::spdlog
 )
 
 add_executable(StatusServer ${SOURCES})

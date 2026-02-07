@@ -34,7 +34,10 @@ find_package(gRPC REQUIRED)
 # 3.4 查找 Threads
 find_package(Threads REQUIRED)
 
-# 3.5 查找 Redis (hiredis)
+# 3.5 查找 spdlog
+find_package(spdlog REQUIRED)
+
+# 3.6 查找 Redis (hiredis)
 find_path(HIREDIS_INCLUDE_DIR hiredis.h PATH_SUFFIXES hiredis)
 find_library(HIREDIS_LIBRARY NAMES hiredis)
 
@@ -97,6 +100,7 @@ target_link_libraries(GateServer PRIVATE
     ${JSONCPP_LIBRARIES}
     ${HIREDIS_LIBRARY}
     ${MYSQL_LIBRARY}         # <--- 链接 Linux 下的 mysqlcppconn 动态库
+    spdlog::spdlog
 
     # Google 全家桶 (静态库)
     protobuf::libprotobuf

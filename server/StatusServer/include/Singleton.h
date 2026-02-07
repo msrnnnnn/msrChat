@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include <iostream>
 #include <memory>
 #include <mutex>
+#include <spdlog/spdlog.h>
 
 /**
  * @class   Singleton
@@ -45,7 +45,7 @@ public:
      */
     void PrintDestructor()
     {
-        std::cout << "this is singleton destruct" << std::endl;
+        spdlog::info("this is singleton destruct");
     }
 
 protected:
@@ -69,6 +69,6 @@ protected:
      */
     virtual ~Singleton()
     {
-        std::cout << " this is ~Singleton() " << std::endl;
+        spdlog::info(" this is ~Singleton() ");
     }
 };

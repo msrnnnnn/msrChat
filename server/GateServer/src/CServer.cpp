@@ -7,7 +7,7 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "HttpConnection.h"
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 /**
  * @brief   构造函数
@@ -23,6 +23,7 @@ CServer::CServer(net::io_context &ioc, unsigned short &port)
       _acceptor(ioc, tcp::endpoint(tcp::v4(), port)), // endpoint相当于填充了 C 语言中的 struct sockaddr_in 结构体
       _socket(ioc)
 {
+    spdlog::info("CServer initialized, listening on port: {}", port);
 }
 
 void CServer::HandleAccept()
@@ -49,6 +50,7 @@ void CServer::HandleAccept()
                 // [Error Handling] 即使 Accept 失败（如文件描述符耗尽 EMFILE），也要继续监听，否则服务器会停止服务。
                 if (ec)
                 {
+                    spdlog::error("Accept failed: {}", ec.message());
                     self->HandleAccept();
                     return;
                 }
@@ -60,7 +62,7 @@ void CServer::HandleAccept()
             }
             catch (std::exception &exp)
             {
-                std::cout << "exception is" << exp.what() << std::endl;
+                spdlog::error("CServer HandleAccept exception: {}", exp.what());
                 self->HandleAccept();
             }
         });

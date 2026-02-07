@@ -6,12 +6,27 @@
 #include "CServer.h" 
 #include "ConfigMgr.h" 
 #include <iostream>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 
 using namespace std; 
 
 int main() 
 { 
-    try { 
+    try {
+        // Initialize spdlog with console and file sinks
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/chat_server.log", 1024 * 1024 * 5, 3);
+        
+        std::vector<spdlog::sink_ptr> sinks {console_sink, file_sink};
+        auto logger = std::make_shared<spdlog::logger>("ChatServer", sinks.begin(), sinks.end());
+        
+        spdlog::set_default_logger(logger);
+        spdlog::flush_on(spdlog::level::info);
+        
+        spdlog::info("ChatServer Starting...");
+
         auto &cfg = ConfigMgr::Inst(); 
         auto pool = AsioIOServicePool::GetInstance(); 
         boost::asio::io_context  io_context; 
@@ -25,13 +40,14 @@ int main()
         std::string port_str = cfg["SelfServer"]["Port"]; 
         if (port_str.empty()) {
             port_str = "8090";
-            cout << "Config Port not found, using default: 8090" << endl;
+            spdlog::warn("Config Port not found, using default: 8090");
         }
 
         CServer s(io_context, atoi(port_str.c_str())); 
+        spdlog::info("ChatServer listening on port {}", port_str);
         io_context.run(); 
     } 
     catch (std::exception& e) { 
-        std::cerr << "Exception: " << e.what() << endl; 
+        spdlog::error("Exception: {}", e.what());
     } 
 }

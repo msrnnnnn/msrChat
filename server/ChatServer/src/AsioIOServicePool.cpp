@@ -1,6 +1,6 @@
 #include "AsioIOServicePool.h"
-#include <iostream>
 #include <memory>
+#include <spdlog/spdlog.h>
 
 AsioIOServicePool::AsioIOServicePool(std::size_t size)
     : nextIOService_(0)
@@ -9,6 +9,7 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
     {
         size = 2;
     }
+    spdlog::info("AsioIOServicePool initialized with {} threads", size);
     for (std::size_t i = 0; i < size; ++i)
     {
         ioServices_.emplace_back(std::make_shared<IOService>());
@@ -25,7 +26,7 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
 AsioIOServicePool::~AsioIOServicePool()
 {
     Stop();
-    std::cout << "AsioIOServicePool destruct" << std::endl;
+    spdlog::info("AsioIOServicePool destruct");
 }
 
 std::shared_ptr<AsioIOServicePool::IOService> AsioIOServicePool::GetIOService()

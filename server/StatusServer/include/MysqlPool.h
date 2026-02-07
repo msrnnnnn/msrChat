@@ -8,11 +8,11 @@
 
 #include <atomic>             // std::atomic
 #include <condition_variable> // std::condition_variable
-#include <iostream>           // std::cout, std::endl
 #include <memory>             // std::unique_ptr
 #include <mutex>              // std::mutex, std::unique_lock
 #include <queue>              // std::queue
 #include <string>
+#include <spdlog/spdlog.h>
 
 // MySQL Connector/C++ 库
 #include <cppconn/connection.h>
@@ -65,7 +65,7 @@ public:
         catch (sql::SQLException &e)
         {
             // 处理异常
-            std::cout << "mysql pool init failed" << std::endl;
+            spdlog::error("mysql pool init failed: {}", e.what());
         }
     }
 
@@ -85,7 +85,7 @@ public:
     /**
      * @brief   获取一个数据库连接
      * @details 如果连接池为空，则阻塞等待，直到有连接可用或连接池关闭。
-     *          返回的 connection 使用 shared_ptr 管理，析构时自动归还到连接池。
+     *          返回 of connection 使用 shared_ptr 管理，析构时自动归还到连接池。
      * @return  std::shared_ptr<sql::Connection> 如果连接池关闭则返回 nullptr
      */
     std::shared_ptr<sql::Connection> getConnection()
@@ -121,7 +121,7 @@ public:
              }
              catch (sql::SQLException &e)
              {
-                 std::cout << "mysql reconnect failed: " << e.what() << std::endl;
+                 spdlog::error("mysql reconnect failed: {}", e.what());
                  return nullptr;
              }
         }

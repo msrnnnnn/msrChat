@@ -7,18 +7,21 @@
 #pragma once
 
 #include "Singleton.h"
+#include <hiredis/hiredis.h>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
+#include <queue>
+#include <atomic>
 
 /**
  * @class   RedisMgr
- * @brief   Redis 管理器 (Singleton)
+ * @brief   Redis Manager (Real Implementation via hiredis)
  *
- * @details 封装 Redis 操作接口。当前为 Mock 实现，使用内存 map 模拟 Redis 行为。
- *          主要用于开发测试阶段，无需真实 Redis 服务。
+ * @details Thread-safe Redis client wrapper using hiredis.
+ *          Uses a mutex to protect the single redisContext (Simple Thread-Safe).
+ *          For higher concurrency, a connection pool should be implemented.
  */
 class RedisMgr : public Singleton<RedisMgr>, public std::enable_shared_from_this<RedisMgr>
 {
@@ -28,91 +31,101 @@ public:
     ~RedisMgr();
 
     /**
-     * @brief   连接 Redis
-     * @param   host 主机地址
-     * @param   port 端口号
-     * @return  bool 连接是否成功 (Mock 永远返回 true)
+     * @brief   Connect to Redis
+     * @param   host Hostname/IP
+     * @param   port Port
+     * @return  bool Success
      */
     bool Connect(const std::string &host, int port);
 
     /**
-     * @brief   认证
-     * @param   password 密码
-     * @return  bool 认证是否成功 (Mock 永远返回 true)
+     * @brief   Authenticate
+     * @param   password Password
+     * @return  bool Success
      */
     bool Auth(const std::string &password);
 
     /**
-     * @brief   获取 Key 对应的值
-     * @param   key   键
-     * @param   value 输出参数，存储获取到的值
-     * @return  bool  获取是否成功
+     * @brief   Get Value by Key
+     * @param   key   Key
+     * @param   value Output value
+     * @return  bool  Success (true if found, false if error or nil)
      */
     bool Get(const std::string &key, std::string &value);
 
     /**
-     * @brief   设置 Key-Value
-     * @param   key   键
-     * @param   value 值
-     * @return  bool  设置是否成功
+     * @brief   Set Key-Value
+     * @param   key   Key
+     * @param   value Value
+     * @return  bool  Success
      */
     bool Set(const std::string &key, const std::string &value);
 
     /**
-     * @brief   列表左推入
-     * @param   key   键
-     * @param   value 值
-     * @return  bool  操作是否成功
+     * @brief   Set Key-Value with Expiration
+     * @param   key     Key
+     * @param   value   Value
+     * @param   timeout Expiration in seconds
+     * @return  bool    Success
+     */
+    bool SetEx(const std::string &key, const std::string &value, int timeout);
+
+    /**
+     * @brief   Left Push to List
+     * @param   key   Key
+     * @param   value Value
+     * @return  bool  Success
      */
     bool LPush(const std::string &key, const std::string &value);
 
     /**
-     * @brief   列表左弹出
-     * @param   key   键
-     * @param   value 输出参数，存储弹出的值
-     * @return  bool  操作是否成功
+     * @brief   Left Pop from List
+     * @param   key   Key
+     * @param   value Output value
+     * @return  bool  Success
      */
     bool LPop(const std::string &key, std::string &value);
 
     /**
-     * @brief   哈希设置
-     * @param   key   键
-     * @param   hkey  哈希键
-     * @param   value 值
-     * @return  bool  操作是否成功
+     * @brief   Hash Set
+     * @param   key   Key
+     * @param   hkey  Hash Key
+     * @param   value Value
+     * @return  bool  Success
      */
     bool HSet(const std::string &key, const std::string &hkey, const std::string &value);
 
     /**
-     * @brief   哈希获取
-     * @param   key   键
-     * @param   hkey  哈希键
-     * @return  std::string 获取到的值
+     * @brief   Hash Get
+     * @param   key   Key
+     * @param   hkey  Hash Key
+     * @return  std::string Value
      */
     std::string HGet(const std::string &key, const std::string &hkey);
 
     /**
-     * @brief   删除 Key
-     * @param   key   键
-     * @return  bool  删除是否成功
+     * @brief   Delete Key
+     * @param   key   Key
+     * @return  bool  Success
      */
     bool Del(const std::string &key);
 
     /**
-     * @brief   判断 Key 是否存在
-     * @param   key   键
-     * @return  bool  是否存在
+     * @brief   Check if Key exists
+     * @param   key   Key
+     * @return  bool  Exists
      */
     bool ExistsKey(const std::string &key);
 
     /**
-     * @brief   关闭连接
+     * @brief   Close connection
      */
     void Close();
 
 private:
     RedisMgr();
 
-    std::unordered_map<std::string, std::string> _string_cache; ///< 模拟 Redis 存储
-    std::mutex _mtx;                                            ///< 保护 map 线程安全
+    redisContext* _connect; ///< hiredis context
+    redisReply* _reply;     ///< hiredis reply
+    std::mutex _mtx;        ///< Mutex for thread safety
 };

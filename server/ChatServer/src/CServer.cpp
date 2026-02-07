@@ -1,17 +1,17 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
-#include <iostream>
 #include <functional>
+#include <spdlog/spdlog.h>
 
 CServer::CServer(boost::asio::io_context& io_context, short port):_io_context(io_context), _port(port), 
 _acceptor(io_context, tcp::endpoint(tcp::v4(),port)) 
 { 
-    cout << "Server start success, listen on port : " << _port << endl; 
+    spdlog::info("Server start success, listen on port : {}", _port); 
     StartAccept(); 
 } 
 
 CServer::~CServer() {
-    cout << "Server destruct" << endl;
+    spdlog::info("Server destruct");
 }
 
 void CServer::HandleAccept(shared_ptr<CSession> new_session, const boost::system::error_code& error){ 
@@ -21,7 +21,7 @@ void CServer::HandleAccept(shared_ptr<CSession> new_session, const boost::system
         _sessions.insert(make_pair(new_session->GetUuid(), new_session)); 
     } 
     else { 
-        cout << "session accept failed, error is " << error.what() << endl; 
+        spdlog::error("session accept failed, error is {}", error.message()); 
     } 
 
     StartAccept(); 

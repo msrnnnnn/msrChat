@@ -8,6 +8,7 @@
 #include "ConfigMgr.h"
 #include "const.h"
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 StatusGrpcClient::StatusGrpcClient()
 {
@@ -22,27 +23,31 @@ StatusGrpcClient::StatusGrpcClient()
     if (host.empty())
     {
         host = "localhost";
-        std::cout << "[Warning] StatusServer Host not found in config, using default: localhost" << std::endl;
+        spdlog::warn("StatusServer Host not found in config, using default: localhost");
     }
     if (port.empty())
     {
         port = "50052"; // 假设 StatusServer 端口为 50052
-        std::cout << "[Warning] StatusServer Port not found in config, using default: 50052" << std::endl;
+        spdlog::warn("StatusServer Port not found in config, using default: 50052");
     }
 
-    std::cout << "StatusGrpcClient config - Host: " << host << ", Port: " << port << std::endl;
+    spdlog::info("StatusGrpcClient config - Host: {}, Port: {}", host, port);
 
     // ---------------------------------------------------------
     // 2. 初始化连接池
     // ---------------------------------------------------------
     pool_ = std::make_unique<StatusConPool>(5, host, port);
 
-    std::cout << "StatusGrpcClient initialized with connection pool." << std::endl;
+    spdlog::info("StatusGrpcClient initialized with connection pool.");
 }
 
 GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
 {
     ClientContext context;
+    // Set deadline to 3 seconds
+    std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(3);
+    context.set_deadline(deadline);
+
     GetChatServerRsp reply;
     GetChatServerReq request;
     request.set_uid(uid);
@@ -59,6 +64,7 @@ GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
     }
     else
     {
+        spdlog::error("GetChatServer RPC failed: {} - {}", status.error_code(), status.error_message());
         reply.set_error((int)ChatApp::ErrorCode::RPCFailed);
         return reply;
     }
@@ -67,6 +73,10 @@ GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
 LoginRsp StatusGrpcClient::Login(int uid, std::string token)
 {
     ClientContext context;
+    // Set deadline to 3 seconds
+    std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(3);
+    context.set_deadline(deadline);
+
     LoginRsp reply;
     LoginReq request;
     request.set_uid(uid);
@@ -81,6 +91,7 @@ LoginRsp StatusGrpcClient::Login(int uid, std::string token)
     }
     else
     {
+        spdlog::error("Login RPC failed: {} - {}", status.error_code(), status.error_message());
         reply.set_error((int)ChatApp::ErrorCode::RPCFailed);
         return reply;
     }

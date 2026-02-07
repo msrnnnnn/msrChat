@@ -7,7 +7,7 @@
 #include "StatusGrpcClient.h"
 #include "ConfigMgr.h"
 #include "const.h"
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 StatusGrpcClient::StatusGrpcClient()
 {
@@ -22,22 +22,22 @@ StatusGrpcClient::StatusGrpcClient()
     if (host.empty())
     {
         host = "localhost";
-        std::cout << "[Warning] StatusServer Host not found in config, using default: localhost" << std::endl;
+        spdlog::warn("StatusServer Host not found in config, using default: localhost");
     }
     if (port.empty())
     {
         port = "50052"; // 假设 StatusServer 端口为 50052
-        std::cout << "[Warning] StatusServer Port not found in config, using default: 50052" << std::endl;
+        spdlog::warn("StatusServer Port not found in config, using default: 50052");
     }
 
-    std::cout << "StatusGrpcClient config - Host: " << host << ", Port: " << port << std::endl;
+    spdlog::info("StatusGrpcClient config - Host: {}, Port: {}", host, port);
 
     // ---------------------------------------------------------
     // 2. 初始化连接池
     // ---------------------------------------------------------
     pool_ = std::make_unique<StatusConPool>(5, host, port);
 
-    std::cout << "StatusGrpcClient initialized with connection pool." << std::endl;
+    spdlog::info("StatusGrpcClient initialized with connection pool.");
 }
 
 GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)

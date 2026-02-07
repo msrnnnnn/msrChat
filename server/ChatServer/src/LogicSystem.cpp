@@ -5,7 +5,7 @@
 #include <json/json.h>
 #include <json/reader.h>
 #include <json/value.h>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 using namespace std;
 using namespace ChatApp;
@@ -70,20 +70,33 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
     Json::Reader reader;
     Json::Value root;
     reader.parse(msg_data, root);
-    auto uid = root["uid"].asInt();
-    std::cout << "user login uid is  " << uid << " user token  is "
-        << root["token"].asString() << endl;
     
-    //从状态服务器获取token匹配是否准确 
-    auto rsp = StatusGrpcClient::GetInstance()->Login(uid, root["token"].asString());
-    Json::Value  rtvalue;
+    spdlog::info("LoginHandler called. MsgData: {}", msg_data);
+
+    // 提前准备回包，确保任何路径都能回复客户端
+    Json::Value rtvalue;
     Defer defer([this, &rtvalue, session]() {
         std::string return_str = rtvalue.toStyledString();
         session->Send(return_str, MSG_CHAT_LOGIN_RSP);
     });
 
+    if (!root.isMember("uid") || !root.isMember("token")) {
+        spdlog::error("LoginHandler error: uid or token missing in JSON");
+        rtvalue["error"] = (int)ErrorCode::Error_Json;
+        return;
+    }
+
+    auto uid = root["uid"].asInt();
+    auto token = root["token"].asString();
+    
+    spdlog::info("user login uid: {}, token: {}", uid, token);
+    
+    //从状态服务器获取token匹配是否准确 
+    auto rsp = StatusGrpcClient::GetInstance()->Login(uid, token);
+    
     rtvalue["error"] = rsp.error();
     if (rsp.error() != (int)ErrorCode::Success) {
+        spdlog::error("StatusServer Login failed. Error: {}", rsp.error());
         return;
     }
 
@@ -94,6 +107,7 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
         //查询数据库 
         user_info = MysqlMgr::GetInstance()->GetUser(uid);
         if (user_info == nullptr) {
+            spdlog::error("MysqlMgr GetUser failed for uid: {}", uid);
             rtvalue["error"] = (int)ErrorCode::UidInvalid;
             return;
         }
@@ -107,4 +121,5 @@ void LogicSystem::LoginHandler(shared_ptr<CSession> session, const short& msg_id
     rtvalue["uid"] = uid;
     rtvalue["token"] = rsp.token();
     rtvalue["name"] = user_info->name;
+    spdlog::info("Login success for uid: {}, name: {}", uid, user_info->name);
 }

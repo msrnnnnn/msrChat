@@ -1,4 +1,5 @@
 #include "MysqlDao.h"
+#include <spdlog/spdlog.h>
 
 MysqlDao::MysqlDao()
 {
@@ -47,7 +48,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         if (res->next())
         {
             int result = res->getInt("result");
-            std::cout << "RegUser Result: " << result << std::endl;
+            spdlog::info("RegUser Result: {}", result);
             return result;
         }
 
@@ -55,7 +56,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         return -1;
     }
 }
@@ -79,7 +80,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
         return nullptr;
     }
     catch (sql::SQLException &e) {
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         return nullptr;
     }
 }
@@ -106,7 +107,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
         if (res->next())
         {
             origin_pwd = res->getString("pwd");
-            std::cout << "Password: " << origin_pwd << std::endl;
+            // spdlog::info("Password: {}", origin_pwd); // Security: Do not log passwords
             
             if (pwd != origin_pwd)
             {
@@ -116,7 +117,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
             userInfo.name = name;
             userInfo.email = res->getString("email");
             userInfo.uid = res->getInt("uid");
-            userInfo.pwd = origin_pwd;
+            userInfo.pwd = ""; // Security: Do not return password in memory if not needed, or keep it but don't log it.
             return true;
         }
         
@@ -124,10 +125,8 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQLException: " << e.what();
-        std::cerr << " (MySQL error code: " << e.getErrorCode();
-        std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
-        return false;
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return 0;
     }
 }
 
@@ -147,7 +146,7 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 
         while (res->next())
         {
-            std::cout << "Check Email: " << res->getString("email") << std::endl;
+            spdlog::info("Check Email: {}", res->getString("email").c_str());
             if (email != res->getString("email"))
             {
                 return false;
@@ -158,9 +157,7 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQLException: " << e.what();
-        std::cerr << " (MySQL error code: " << e.getErrorCode();
-        std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
         return false;
     }
 }
@@ -179,14 +176,12 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
         pstmt->setString(1, newpwd);
         pstmt->setString(2, name);
         int updateCount = pstmt->executeUpdate();
-        std::cout << "Updated rows: " << updateCount << std::endl;
+        spdlog::info("Updated rows: {}", updateCount);
         return updateCount > 0;
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQLException: " << e.what();
-        std::cerr << " (MySQL error code: " << e.getErrorCode();
-        std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
         return false;
     }
 }

@@ -1,6 +1,8 @@
 #include "StatusServiceImpl.h"
 #include "ConfigMgr.h"
 #include "const.h"
+#include "RedisMgr.h"
+#include <spdlog/spdlog.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -31,16 +33,21 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
 {
     auto uid = request->uid();
     auto token = request->token();
-    std::lock_guard<std::mutex> guard(_token_mtx);
-    auto iter = _tokens.find(uid);
-    if (iter == _tokens.end()) {
+    
+    std::string uid_str = std::to_string(uid);
+    std::string token_val;
+    bool success = RedisMgr::GetInstance()->Get(uid_str, token_val);
+    
+    if (!success) {
         reply->set_error((int)ChatApp::ErrorCode::UidInvalid);
         return Status::OK;
     }
-    if (iter->second != token) {
+    
+    if (token_val != token) {
         reply->set_error((int)ChatApp::ErrorCode::TokenInvalid);
         return Status::OK;
     }
+    
     reply->set_error((int)ChatApp::ErrorCode::Success);
     reply->set_uid(uid);
     reply->set_token(token);
@@ -49,8 +56,8 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
 
 void StatusServiceImpl::insertToken(int uid, std::string token)
 {
-    std::lock_guard<std::mutex> guard(_token_mtx);
-    _tokens[uid] = token;
+    std::string uid_str = std::to_string(uid);
+    RedisMgr::GetInstance()->SetEx(uid_str, token, 86400);
 }
 
 StatusServiceImpl::StatusServiceImpl() : _server_index(0)

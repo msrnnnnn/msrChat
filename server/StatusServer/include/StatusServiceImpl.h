@@ -33,6 +33,4 @@ public:
 private:
     std::vector<ChatServer> _servers;
     std::atomic<int> _server_index;
-    std::map<int, std::string> _tokens;
-    std::mutex _token_mtx;
 };

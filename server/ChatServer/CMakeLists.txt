@@ -10,6 +10,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
+find_package(spdlog REQUIRED)
 
 # MySQL Connector/C++
 find_path(MYSQL_INCLUDE_DIR mysql_connection.h PATH_SUFFIXES jdbc mysql-cppconn-8)
@@ -49,6 +50,7 @@ set(LIBRARIES
     protobuf::libprotobuf
     gRPC::grpc++
     ${MYSQL_LIBRARY}
+    spdlog::spdlog
 )
 
 add_executable(ChatServer ${SOURCES})

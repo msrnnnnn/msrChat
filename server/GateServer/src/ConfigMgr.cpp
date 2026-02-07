@@ -8,7 +8,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <filesystem>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 /**
  * @brief 构造函数
@@ -25,10 +25,10 @@ ConfigMgr::ConfigMgr()
     {
         // [Fallback] 如果当前目录找不到，尝试使用项目绝对路径
         // 注意：此路径为开发环境硬编码，生产环境请确保 config.ini 与可执行文件同级
-        config_path = "e:/Study/Project/Chat/msrchat/server/GateServer/config.ini";
+        config_path = "/home/msr/msrChat/server/GateServer/config.ini";
     }
 
-    std::cout << "Loading Config from: " << config_path << std::endl;
+    spdlog::info("Loading Config from: {}", config_path.string());
 
     boost::property_tree::ptree pt;
     try
@@ -37,7 +37,7 @@ ConfigMgr::ConfigMgr()
     }
     catch (std::exception &e)
     {
-        std::cerr << "Config load failed: " << e.what() << std::endl;
+        spdlog::error("Config load failed: {}", e.what());
         return;
     }
 

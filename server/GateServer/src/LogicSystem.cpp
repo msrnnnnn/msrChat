@@ -8,13 +8,14 @@
 #include "HttpConnection.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
-#include "VerifyGrpcClient.h"
 #include "StatusGrpcClient.h"
+#include "VerifyGrpcClient.h"
 #include "const.h"
 #include <iostream>
-#include <jsoncpp/json/json.h>
+#include <spdlog/spdlog.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
+#include <jsoncpp/json/writer.h>
 
 const std::string CODEPREFIX = "code_";
 
@@ -45,7 +46,7 @@ LogicSystem::LogicSystem()
              * buffers_to_string 会将分散在 buffer 中的数据拷贝并拼接成一个 std::string。
              */
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
 
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value response_json;
@@ -62,7 +63,7 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, request_json);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::error("Failed to parse JSON data!");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -71,7 +72,7 @@ LogicSystem::LogicSystem()
 
             // 提取 email 字段
             auto email = request_json["email"].asString();
-            std::cout << "email is " << email << std::endl;
+            spdlog::info("email is {}", email);
             // [RPC Call] 调用我们的 Mock 客户端
             GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
             // 构造回包
@@ -90,7 +91,7 @@ LogicSystem::LogicSystem()
         [](std::shared_ptr<HttpConnection> connection)
         {
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
 
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value root;
@@ -100,11 +101,19 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, src_root);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::error("Failed to parse JSON data!");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;
+            }
+
+            if (!src_root.isMember("user") || !src_root.isMember("passwd")) {
+                 spdlog::error("Login failed: missing user or passwd");
+                 root["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
+                 std::string jsonstr = root.toStyledString();
+                 beast::ostream(connection->_response.body()) << jsonstr;
+                 return true;
             }
 
             auto name = src_root["user"].asString();
@@ -115,7 +124,7 @@ LogicSystem::LogicSystem()
             bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(name, pwd, userInfo);
             if (!pwd_valid)
             {
-                std::cout << " user pwd not match" << std::endl;
+                spdlog::info(" user pwd not match");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdInvalid);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -126,14 +135,14 @@ LogicSystem::LogicSystem()
             auto reply = StatusGrpcClient::GetInstance()->GetChatServer(userInfo.uid);
             if (reply.error())
             {
-                std::cout << " grpc get chat server failed, error is " << reply.error() << std::endl;
+                spdlog::error(" grpc get chat server failed, error is {}", reply.error());
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;
             }
 
-            std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
+            spdlog::info("succeed to load userinfo uid is {}", userInfo.uid);
             root["error"] = 0;
             root["user"] = name;
             root["uid"] = userInfo.uid;
@@ -151,7 +160,7 @@ LogicSystem::LogicSystem()
         [](std::shared_ptr<HttpConnection> connection)
         {
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value response_json;
             Json::Value request_json;
@@ -159,7 +168,7 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, request_json);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::error("Failed to parse JSON data!");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -171,7 +180,7 @@ LogicSystem::LogicSystem()
             if (!b_get_varify)
             {
                 // Mock 版其实不会进这里，因为 Get 永远返回 true
-                std::cout << " get varify code expired" << std::endl;
+                spdlog::warn(" get varify code expired");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -179,7 +188,7 @@ LogicSystem::LogicSystem()
             }
             if (varify_code != request_json["varifycode"].asString())
             {
-                std::cout << " varify code error" << std::endl;
+                spdlog::info(" varify code error");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -189,7 +198,7 @@ LogicSystem::LogicSystem()
             bool b_usr_exist = RedisMgr::GetInstance()->ExistsKey(request_json["user"].asString());
             if (b_usr_exist)
             {
-                std::cout << " user exist" << std::endl;
+                spdlog::info(" user exist");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -205,14 +214,14 @@ LogicSystem::LogicSystem()
             // 如果 MySQL 返回 0 或 -1，说明用户名或邮箱已存在
             if (uid == 0 || uid == -1)
             {
-                std::cout << "User or email exist in DB" << std::endl;
+                spdlog::warn("User or email exist in DB");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
                 beast::ostream(connection->_response.body()) << response_json.toStyledString();
                 return true;
             }
 
             // 6. 返回成功 (带上生成的 uid)
-            std::cout << "Register Success, uid: " << uid << std::endl;
+            spdlog::info("Register Success, uid: {}", uid);
             response_json["error"] = 0;
             response_json["uid"] = uid; // 把 uid 给客户端
             response_json["email"] = request_json["email"];
@@ -228,7 +237,7 @@ LogicSystem::LogicSystem()
         [](std::shared_ptr<HttpConnection> connection)
         {
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value root;
             Json::Reader reader;
@@ -236,7 +245,7 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, src_root);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::error("Failed to parse JSON data!");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -250,7 +259,7 @@ LogicSystem::LogicSystem()
             bool b_get_varify = RedisMgr::GetInstance()->Get(CODEPREFIX + src_root["email"].asString(), varify_code);
             if (!b_get_varify)
             {
-                std::cout << " get varify code expired" << std::endl;
+                spdlog::warn(" get varify code expired");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -258,7 +267,7 @@ LogicSystem::LogicSystem()
             }
             if (varify_code != src_root["varifycode"].asString())
             {
-                std::cout << " varify code error" << std::endl;
+                spdlog::info(" varify code error");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -268,7 +277,7 @@ LogicSystem::LogicSystem()
             bool email_valid = MysqlMgr::GetInstance()->CheckEmail(name, email);
             if (!email_valid)
             {
-                std::cout << " user email not match" << std::endl;
+                spdlog::info(" user email not match");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::EmailNotMatch);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -278,13 +287,13 @@ LogicSystem::LogicSystem()
             bool b_up = MysqlMgr::GetInstance()->UpdatePwd(name, pwd);
             if (!b_up)
             {
-                std::cout << " update pwd failed" << std::endl;
+                spdlog::error(" update pwd failed");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdUpFailed);
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;
             }
-            std::cout << "succeed to update password" << pwd << std::endl;
+            spdlog::info("succeed to update password {}", pwd);
             root["error"] = 0;
             root["email"] = email;
             root["user"] = name;

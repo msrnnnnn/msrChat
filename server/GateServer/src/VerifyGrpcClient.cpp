@@ -6,7 +6,7 @@
 
 #include "VerifyGrpcClient.h"
 #include "ConfigMgr.h" // 如果你还没有 ConfigMgr，可以先注释掉，看下面的代码
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 VerifyGrpcClient::VerifyGrpcClient()
 {
@@ -21,15 +21,15 @@ VerifyGrpcClient::VerifyGrpcClient()
     if (host.empty())
     {
         host = "localhost";
-        std::cout << "[Warning] VerifyServer Host not found in config, using default: localhost" << std::endl;
+        spdlog::warn("VerifyServer Host not found in config, using default: localhost");
     }
     if (port.empty())
     {
         port = "50051";
-        std::cout << "[Warning] VerifyServer Port not found in config, using default: 50051" << std::endl;
+        spdlog::warn("VerifyServer Port not found in config, using default: 50051");
     }
 
-    std::cout << "VerifyGrpcClient config - Host: " << host << ", Port: " << port << std::endl;
+    spdlog::info("VerifyGrpcClient config - Host: {}, Port: {}", host, port);
 
     // ---------------------------------------------------------
     // 2. 初始化连接池
@@ -38,7 +38,7 @@ VerifyGrpcClient::VerifyGrpcClient()
     // ---------------------------------------------------------
     pool_ = std::make_unique<RPConPool>(5, host, port);
 
-    std::cout << "VerifyGrpcClient initialized with connection pool." << std::endl;
+    spdlog::info("VerifyGrpcClient initialized with connection pool.");
 }
 
 GetVerifyResponse VerifyGrpcClient::GetVerifyCode(std::string email)
@@ -69,7 +69,7 @@ GetVerifyResponse VerifyGrpcClient::GetVerifyCode(std::string email)
 
     // 【现在用的 Mock 代码】
     // 假装 RPC 调用成功了
-    std::cout << "[Mock] GetVerifyCode called for " << email << std::endl;
+    spdlog::info("[Mock] GetVerifyCode called for {}", email);
 
     GetVerifyResponse reply;
     reply.set_error(0); // 成功
