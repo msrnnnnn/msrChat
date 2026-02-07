@@ -141,6 +141,13 @@ TcpMgr::~TcpMgr()
 void TcpMgr::slot_tcp_connect(ServerInfo si)
 {
     qDebug() << "Connecting to server: " << si.Host << ":" << si.Port;
+    
+    // 如果已经连接或正在连接，先断开
+    if (_socket.state() == QAbstractSocket::ConnectedState || _socket.state() == QAbstractSocket::ConnectingState) {
+         qDebug() << "Closing existing connection...";
+        _socket.abort(); // 立即中止当前连接
+    }
+
     _host = si.Host;
     _port = static_cast<uint16_t>(si.Port.toUInt());
     _socket.connectToHost(_host, _port);

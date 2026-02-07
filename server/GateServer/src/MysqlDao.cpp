@@ -82,7 +82,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
         // 遍历结果集
         if (res->next())
         {
-            origin_pwd = res->getString("pwd");
+            origin_pwd = res->getString("password");
             // spdlog::info("Password: {}", origin_pwd); // Security: Do not log passwords
             
             if (pwd != origin_pwd)

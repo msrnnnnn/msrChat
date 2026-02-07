@@ -111,6 +111,7 @@ LogicSystem::LogicSystem()
             if (!src_root.isMember("user") || !src_root.isMember("passwd")) {
                  spdlog::error("Login failed: missing user or passwd");
                  root["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
+                 root["msg"] = "Missing user or passwd"; // Added msg
                  std::string jsonstr = root.toStyledString();
                  beast::ostream(connection->_response.body()) << jsonstr;
                  return true;
@@ -126,6 +127,7 @@ LogicSystem::LogicSystem()
             {
                 spdlog::info(" user pwd not match");
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdInvalid);
+                root["msg"] = "Username or password invalid"; // Added msg
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;
@@ -137,6 +139,7 @@ LogicSystem::LogicSystem()
             {
                 spdlog::error(" grpc get chat server failed, error is {}", reply.error());
                 root["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
+                root["msg"] = "Failed to allocate ChatServer"; // Added msg
                 std::string jsonstr = root.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
                 return true;

@@ -68,7 +68,7 @@ StatusServiceImpl::StatusServiceImpl() : _server_index(0)
     server.host = cfg["ChatServer1"]["Host"];
     _servers.push_back(server);
     
-    server.port = cfg["ChatServer2"]["Port"];
-    server.host = cfg["ChatServer2"]["Host"];
-    _servers.push_back(server);
+    // server.port = cfg["ChatServer2"]["Port"];
+    // server.host = cfg["ChatServer2"]["Host"];
+    // _servers.push_back(server);
 }
