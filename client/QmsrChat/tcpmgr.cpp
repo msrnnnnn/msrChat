@@ -5,8 +5,11 @@
  */
 
 #include "tcpmgr.h"
+#include "usermgr.h"
 #include <QDataStream>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 TcpMgr::TcpMgr()
     : _host(""),
@@ -15,6 +18,9 @@ TcpMgr::TcpMgr()
       _message_id(0),
       _message_len(0)
 {
+    // 注册消息处理器
+    initHandlers();
+
     // 连接成功
     QObject::connect(
         &_socket, &QTcpSocket::connected,
@@ -73,8 +79,8 @@ TcpMgr::TcpMgr()
                 // 移除已处理的消息体
                 _buffer = _buffer.mid(_message_len);
 
-                // 发送信号给上层业务
-                emit sig_send_data(static_cast<ReqId>(_message_id), QString::fromUtf8(messageBody));
+                // 处理消息
+                handleMsg(static_cast<ReqId>(_message_id), _message_len, messageBody);
             }
         });
 
@@ -158,4 +164,59 @@ void TcpMgr::slot_send_data(ReqId reqId, QString data)
     sendData.append(dataBytes);
 
     _socket.write(sendData);
+}
+
+void TcpMgr::initHandlers()
+{
+    _handlers.insert(
+        ReqId::ID_CHAT_LOGIN_RSP,
+        [this](ReqId id, int len, QByteArray data)
+        {
+            Q_UNUSED(len);
+            qDebug() << "handle id is " << (int)id << " data is " << data;
+            // 将QByteArray转换为QJsonDocument
+            QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
+
+            // 检查转换是否成功
+            if (jsonDoc.isNull())
+            {
+                qDebug() << "Failed to create QJsonDocument.";
+                return;
+            }
+
+            QJsonObject jsonObj = jsonDoc.object();
+
+            if (!jsonObj.contains("error"))
+            {
+                int err = static_cast<int>(ErrorCodes::ERROR_JSON);
+                qDebug() << "Login Failed, err is Json Parse Err" << err;
+                emit sig_login_failed(err);
+                return;
+            }
+
+            int err = jsonObj["error"].toInt();
+            if (err != static_cast<int>(ErrorCodes::SUCCESS))
+            {
+                qDebug() << "Login Failed, err is " << err;
+                emit sig_login_failed(err);
+                return;
+            }
+
+            UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
+            UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
+            UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
+            emit sig_swich_chatdlg();
+        });
+}
+
+void TcpMgr::handleMsg(ReqId id, int len, QByteArray data)
+{
+    auto find_iter = _handlers.find(id);
+    if (find_iter == _handlers.end())
+    {
+        qDebug() << "not found id [" << (int)id << "] to handle";
+        return;
+    }
+
+    find_iter.value()(id, len, data);
 }

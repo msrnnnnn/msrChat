@@ -68,6 +68,7 @@
   - 修正了 `registerdialog.cpp` 中使用了未定义的枚举 `ReqId` 和 `ErrorCodes` 的问题。
   - 将 `ReqId::ID_REG_USER` 移除，适配新的 `PostHttpRequest` 回调接口。
   - 将 `ErrorCodes::SUCCESS` 修正为 `ERRORCODES::SUCCESS`，并统一使用 `static_cast<int>` 进行比较。
+  - **CMake 配置修复**：将 `usermgr.cpp/h` 添加到 `CMakeLists.txt` 源文件列表中，解决链接错误。
 
 ## 7. 密码重置功能 (Password Reset)
 
@@ -137,3 +138,26 @@
 - **代码修正**:
   - 修正了 `ReqId` 枚举值不匹配问题 (`ID_LOGIN_USER` -> `ID_USER_LOGIN`)。
   - 修正了 TCP 错误处理的信号连接语法。
+
+## 9. 登录回包处理与用户管理
+
+### 9.1 UserMgr 单例实现
+- 创建 `UserMgr` 单例类，统一管理用户数据 (uid, name, token)。
+- 提供 Set/Get 接口供全局访问。
+
+### 9.2 TcpMgr 消息处理增强
+- 引入消息处理器注册机制 `initHandlers` 和消息分发机制 `handleMsg`。
+- 注册 `ID_CHAT_LOGIN_RSP` 处理器：
+  - 解析服务器返回的 JSON 数据。
+  - 登录成功：更新 `UserMgr` 数据，发送 `sig_swich_chatdlg` 信号。
+  - 登录失败：发送 `sig_login_failed` 信号。
+- 优化 `readyRead` 逻辑，调用 `handleMsg` 替代原有的信号转发。
+
+### 9.3 LoginDialog 错误处理
+- 连接 `TcpMgr::sig_login_failed` 信号。
+- 实现 `slot_login_failed`：
+  - 显示具体错误码提示。
+  - 恢复登录按钮可用状态。
+
+### 9.4 协议更新
+- `global.h` 新增 `ID_CHAT_LOGIN_RSP` (1006) 枚举值。

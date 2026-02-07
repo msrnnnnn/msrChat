@@ -25,6 +25,7 @@ set(PROJECT_SOURCES
         clickedlabel.cpp clickedlabel.h
         global.cpp global.h
         tcpmgr.cpp tcpmgr.h
+        usermgr.cpp usermgr.h
         singleton.h
         resources.qrc
         config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑

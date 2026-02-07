@@ -9,8 +9,10 @@
 
 #include "Singleton.h"
 #include "global.h"
+#include <QMap>
 #include <QObject>
 #include <QTcpSocket>
+#include <functional>
 #include <memory>
 
 /**
@@ -27,6 +29,8 @@ public:
 
 private:
     TcpMgr();
+    void initHandlers();
+    void handleMsg(ReqId id, int len, QByteArray data);
 
     QTcpSocket _socket;
     QString _host;
@@ -35,6 +39,7 @@ private:
     bool _b_recv_pending;
     quint16 _message_id;
     quint16 _message_len;
+    QMap<ReqId, std::function<void(ReqId id, int len, QByteArray data)>> _handlers;
 
 public slots:
     /**
@@ -53,6 +58,8 @@ public slots:
 signals:
     void sig_con_success(bool bsuccess);
     void sig_send_data(ReqId reqId, QString data);
+    void sig_swich_chatdlg();
+    void sig_login_failed(int err);
 };
 
 #endif // TCPMGR_H

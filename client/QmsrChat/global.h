@@ -49,7 +49,8 @@ enum class ReqId
     ID_REGISTER_USER = 1002,   ///< 注册用户请求
     ID_RESET_PWD = 1003,       ///< 重置密码请求
     ID_USER_LOGIN = 1004,      ///< 用户登录请求
-    ID_CHAT_LOGIN = 1005       ///< 聊天登录请求
+    ID_CHAT_LOGIN = 1005,      ///< 聊天登录请求
+    ID_CHAT_LOGIN_RSP = 1006   ///< 聊天登录回复
 };
 
 /**
