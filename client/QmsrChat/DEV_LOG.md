@@ -165,6 +165,11 @@
   - 添加 `chatbubble.cpp/h`。
   - 移除 `chatdialog.ui`。
 
+### 10.4 登录体验优化
+- **防抖动处理**:
+  - 在 `on_login_Button_clicked` 中点击即调用 `enableBtn(false)` 禁用按钮。
+  - 在所有失败回调路径 (`slot_login_mod_finish`, JSON 解析失败等) 中调用 `enableBtn(true)` 恢复按钮。
+
 ## Bug Fixes
 
 - **TcpMgr 编译错误**:
