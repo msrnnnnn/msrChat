@@ -18,7 +18,7 @@ void RunServer() {
     // Initialize spdlog with console and file sinks
     try {
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/status_server.log", 1024 * 1024 * 5, 3);
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("../logs/status_server.log", 1024 * 1024 * 5, 3);
         
         std::vector<spdlog::sink_ptr> sinks {console_sink, file_sink};
         auto logger = std::make_shared<spdlog::logger>("StatusServer", sinks.begin(), sinks.end());

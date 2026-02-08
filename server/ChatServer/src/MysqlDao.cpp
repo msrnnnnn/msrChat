@@ -169,7 +169,12 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
              user_ptr->pwd = res->getString("password");
              user_ptr->email = res->getString("email");
              user_ptr->nick = res->getString("nick");
-             user_ptr->desc = res->getString("desc");
+             try {
+                 user_ptr->desc = res->getString("desc");
+             } catch (...) {
+                 spdlog::warn("Column 'desc' missing or invalid, using empty string");
+                 user_ptr->desc = "";
+             }
              user_ptr->sex = res->getInt("sex");
              user_ptr->icon = res->getString("icon");
              return user_ptr;
