@@ -106,4 +106,14 @@ enum class ClickLbState
     Selected = 1 ///< 选中状态
 };
 
+/**
+ * @brief 列表项类型枚举
+ */
+enum class ListItemType
+{
+    CHAT_USER_ITEM = 0,    ///< 聊天列表项
+    CONTACT_USER_ITEM = 1, ///< 联系人列表项
+    SEARCH_USER_ITEM = 2,  ///< 搜索用户列表项
+};
+
 #endif // GLOBAL_H

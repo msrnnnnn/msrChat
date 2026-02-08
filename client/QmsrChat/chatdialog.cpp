@@ -1,6 +1,8 @@
 #include "chatdialog.h"
+#include "chatuserwid.h"
 #include "ui_chatdialog.h"
 #include <QAction>
+#include <QRandomGenerator>
 
 ChatDialog::ChatDialog(QWidget *parent)
     : QDialog(parent),
@@ -55,7 +57,10 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     ui->search_edit->SetMaxLength(15);
 
+    connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::on_search_edit_textChanged);
+
     ShowSearch(false);
+    addChatUserList();
 }
 
 ChatDialog::~ChatDialog()
@@ -86,4 +91,87 @@ void ChatDialog::ShowSearch(bool bsearch)
         ui->con_user_list->show();
         _mode = ChatUIMode::ContactMode;
     }
+}
+
+void ChatDialog::addChatUserList()
+{
+    // 创建QListWidgetItem，并设置自定义的widget
+    _msgs = {
+        "hello world !", "nice to meet u", "New year，new life", "You have to love yourself",
+        "My love is written in the wind ever since the whole world is you"};
+
+    _heads = {":/res/head_1.jpg", ":/res/head_2.jpg", ":/res/head_3.jpg", ":/res/head_4.jpg", ":/res/head_5.jpg"};
+
+    _names = {"llfc", "zack", "golang", "cpp", "java", "nodejs", "python", "rust"};
+
+    loadingChatUser();
+}
+
+void ChatDialog::loadingChatUser()
+{
+    for (int i = 0; i < 13; i++)
+    {
+        int randomValue = QRandomGenerator::global()->bounded(100); // 生成0到99之间的随机整数
+        int str_i = randomValue % _msgs.size();
+        int head_i = randomValue % _heads.size();
+        int name_i = randomValue % _names.size();
+
+        auto *chat_user_wid = new ChatUserWid();
+        chat_user_wid->SetInfo(_names[name_i], _heads[head_i], _msgs[str_i]);
+        QListWidgetItem *item = new QListWidgetItem;
+        // qDebug()<<"chat_user_wid sizeHint is " << chat_user_wid->sizeHint();
+        item->setSizeHint(chat_user_wid->sizeHint());
+        ui->chat_user_list->addItem(item);
+        ui->chat_user_list->setItemWidget(item, chat_user_wid);
+    }
+}
+
+void ChatDialog::on_search_edit_textChanged(const QString &arg1)
+{
+    if (!arg1.isEmpty())
+    {
+        ShowSearch(true);
+        handleSearch(arg1);
+    }
+    else
+    {
+        ShowSearch(false);
+    }
+}
+
+void ChatDialog::handleSearch(const QString &text)
+{
+    if (text.isEmpty())
+    {
+        return;
+    }
+
+    ui->search_list->clear();
+
+    // Simple local search implementation
+    for (size_t i = 0; i < _names.size(); i++)
+    {
+        if (_names[i].contains(text, Qt::CaseInsensitive))
+        {
+            auto *chat_user_wid = new ChatUserWid();
+            // Use random head/msg for demo consistency
+            int randomValue = QRandomGenerator::global()->bounded(100);
+            int str_i = randomValue % _msgs.size();
+            int head_i = randomValue % _heads.size();
+
+            chat_user_wid->SetInfo(_names[i], _heads[head_i], _msgs[str_i]);
+            QListWidgetItem *item = new QListWidgetItem;
+            item->setSizeHint(chat_user_wid->sizeHint());
+            ui->search_list->addItem(item);
+            ui->search_list->setItemWidget(item, chat_user_wid);
+        }
+    }
+}
+
+bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    // 如果有特定的事件需要处理，可以在这里添加逻辑
+    // 例如处理点击外部关闭搜索框等
+    // 目前默认透传给基类
+    return QDialog::eventFilter(watched, event);
 }

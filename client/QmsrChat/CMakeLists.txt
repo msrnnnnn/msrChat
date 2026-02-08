@@ -33,6 +33,8 @@ set(PROJECT_SOURCES
         statelabel.cpp statelabel.h
         clickedbtn.cpp clickedbtn.h
         customizeedit.cpp customizeedit.h
+        listitembase.cpp listitembase.h
+        chatuserwid.cpp chatuserwid.h chatuserwid.ui
         singleton.h
         resources.qrc
         config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑

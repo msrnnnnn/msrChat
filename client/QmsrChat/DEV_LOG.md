@@ -244,3 +244,15 @@
 - **模式切换**:
   - 在 `ChatDialog` 中引入 `ChatUIMode` 枚举 (`ChatMode`, `ContactMode`, `SearchMode`)。
   - 实现了 `ShowSearch(bool)` 函数，根据搜索状态在聊天列表 (`chat_user_list`)、联系人列表 (`con_user_list`) 和搜索结果列表 (`search_list`) 之间切换显示。
+
+### 12.4 聊天列表项组件 (ChatUserWid)
+- **基类设计**:
+  - 创建 `ListItemBase` 基类，定义 `ListItemType` 枚举 (Chat/Contact/Search)，方便后续扩展不同类型的列表项。
+- **自定义组件**:
+  - 创建 `ChatUserWid` 类 (继承自 `ListItemBase`)，包含头像、昵称、最后一条消息、时间等元素。
+  - 使用 `QHBoxLayout` 和 `QVBoxLayout` 组合布局，实现仿微信的列表项样式。
+- **列表填充**:
+  - 在 `ChatDialog` 中实现 `addChatUserList` 函数，生成 13 条测试数据 (随机头像、昵称、消息)。
+  - 使用 `QListWidgetItem` 配合 `setItemWidget` 将自定义组件插入到列表中。
+- **资源补充**:
+  - 补充了缺失的头像资源占位文件 (`head_2.jpg` ~ `head_5.jpg`)。
