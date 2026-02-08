@@ -31,6 +31,8 @@ private:
     void DealMsg();
     void RegisterCallBacks();
     void LoginHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+    void AddFriendApplyHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+    void AuthFriendHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 
     std::queue<std::shared_ptr<LogicNode>> _msg_que;
     std::mutex _mutex;
@@ -39,4 +41,5 @@ private:
     std::thread _worker_thread;
     std::map<short, FunCallBack> _fun_callbacks;
     std::map<int, std::shared_ptr<UserInfo>> _users;
+    std::map<int, std::shared_ptr<CSession>> _user_sessions;
 };

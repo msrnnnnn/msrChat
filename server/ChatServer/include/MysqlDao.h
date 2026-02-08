@@ -17,6 +17,20 @@ struct UserInfo
     std::string pwd;
     int uid;
     std::string email;
+    std::string nick;
+    std::string desc;
+    int sex;
+    std::string icon;
+};
+
+struct ApplyInfo {
+    int applyuid;
+    std::string name;
+    std::string desc;
+    std::string icon;
+    std::string nick;
+    int sex;
+    int status;
 };
 
 /**
@@ -77,6 +91,12 @@ public:
     bool CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo);
 
     std::shared_ptr<UserInfo> GetUser(int uid);
+    std::shared_ptr<UserInfo> GetUser(std::string name);
+    bool AddFriendApply(int from_uid, int to_uid, const std::string& msg);
+    bool AuthFriendApply(int from_uid, int to_uid);
+    bool AddFriend(int self_id, int friend_id, const std::string& back);
+    std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(int uid, int offset, int limit);
+    std::vector<std::shared_ptr<UserInfo>> GetFriendList(int uid);
 
 private:
     std::unique_ptr<MySqlPool> pool_; ///< MySQL 连接池

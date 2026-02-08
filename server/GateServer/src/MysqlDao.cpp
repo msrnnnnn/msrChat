@@ -148,7 +148,7 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 
     try
     {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("UPDATE user SET pwd = ? WHERE name = ?"));
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("UPDATE user SET password = ? WHERE name = ?"));
         pstmt->setString(1, newpwd);
         pstmt->setString(2, name);
         int updateCount = pstmt->executeUpdate();

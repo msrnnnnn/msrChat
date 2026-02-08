@@ -94,6 +94,8 @@ void LoginDialog::on_login_Button_clicked()
         return;
     }
 
+    enableBtn(false); // 禁用按钮防止重复点击
+
     auto user = ui->user_Edit->text();
     auto pwd = ui->password_Edit->text();
 
@@ -139,6 +141,7 @@ void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
     if (err != ErrorCodes::SUCCESS)
     {
         showTip(tr("网络请求错误"), false);
+        enableBtn(true); // 恢复按钮
         return;
     }
     // 解析 JSON 字符串,res需转化为QByteArray
@@ -147,12 +150,14 @@ void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
     if (jsonDoc.isNull())
     {
         showTip(tr("json解析错误"), false);
+        enableBtn(true); // 恢复按钮
         return;
     }
     // json解析错误
     if (!jsonDoc.isObject())
     {
         showTip(tr("json解析错误"), false);
+        enableBtn(true); // 恢复按钮
         return;
     }
     // 调用对应的逻辑,根据id回调。

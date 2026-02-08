@@ -13,6 +13,12 @@ const int MAX_LENGTH = 1024 * 2; // 2KB max message length
 // Message ID
 const short MSG_CHAT_LOGIN = 1005; 
 const short MSG_CHAT_LOGIN_RSP = 1006;
+const short ID_ADD_FRIEND_REQ = 1009;
+const short ID_ADD_FRIEND_RSP = 1010;
+const short ID_NOTIFY_ADD_FRIEND_REQ = 1011;
+const short ID_AUTH_FRIEND_REQ = 1012;
+const short ID_AUTH_FRIEND_RSP = 1013;
+const short ID_NOTIFY_AUTH_FRIEND_REQ = 1014;
 
 class RecvNode {
 public:

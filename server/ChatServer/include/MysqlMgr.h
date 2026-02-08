@@ -58,6 +58,12 @@ public:
     bool UpdatePwd(const std::string &name, const std::string &pwd);
 
     std::shared_ptr<UserInfo> GetUser(int uid);
+    std::shared_ptr<UserInfo> GetUser(std::string name);
+    bool AddFriendApply(int from_uid, int to_uid, const std::string& msg);
+    bool AuthFriendApply(int from_uid, int to_uid);
+    bool AddFriend(int self_id, int friend_id, const std::string& back);
+    std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(int uid, int offset, int limit);
+    std::vector<std::shared_ptr<UserInfo>> GetFriendList(int uid);
 
 private:
     MysqlMgr();

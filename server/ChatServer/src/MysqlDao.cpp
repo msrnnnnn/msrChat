@@ -1,17 +1,21 @@
 #include "MysqlDao.h"
 #include <spdlog/spdlog.h>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cppconn/prepared_statement.h>
+#include <cppconn/resultset.h>
+#include <cppconn/exception.h>
 
 MysqlDao::MysqlDao()
 {
-    auto &cfg = ConfigMgr::GetInstance();
-    const auto &host = cfg["Mysql"]["Host"];
-    const auto &port = cfg["Mysql"]["Port"];
-    const auto &pwd = cfg["Mysql"]["Passwd"];
-    const auto &schema = cfg["Mysql"]["Name"]; // 注意 config.ini 里叫 Name 还是 Schema，要对应
-    const auto &user = cfg["Mysql"]["User"];
-
-    // 初始化连接池，这里拼出了 tcp://192.168.x.x:3306
-    pool_.reset(new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, 5));
+    pool_ = std::make_unique<MySqlPool>(
+        ConfigMgr::GetInstance()["Mysql"]["Host"] + ":" + ConfigMgr::GetInstance()["Mysql"]["Port"], 
+        ConfigMgr::GetInstance()["Mysql"]["User"], 
+        ConfigMgr::GetInstance()["Mysql"]["Passwd"], 
+        ConfigMgr::GetInstance()["Mysql"]["Name"], 
+        5
+    );
 }
 
 MysqlDao::~MysqlDao()
@@ -29,19 +33,14 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 
     try
     {
-        // 【修改点】这里变成 4 个问号，对应 reg_user 存储过程的参数
         std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("CALL reg_user(?,?,?,?,@result)"));
-
-        // 设置输入参数
         stmt->setString(1, name);
         stmt->setString(2, email);
         stmt->setString(3, pwd);
-        stmt->setString(4, icon); // 【修改点】设置头像
+        stmt->setString(4, icon);
 
-        // 执行存储过程
         stmt->execute();
 
-        // 获取输出参数 @result
         std::unique_ptr<sql::Statement> stmtResult(con->createStatement());
         std::unique_ptr<sql::ResultSet> res(stmtResult->executeQuery("SELECT @result AS result"));
 
@@ -56,77 +55,8 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
     }
     catch (sql::SQLException &e)
     {
-        spdlog::error("SQLException: {}", e.what());
-        return -1;
-    }
-}
-
-std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
-{
-    auto con = pool_->getConnection();
-    if(con == nullptr) return nullptr;
-    try {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT * FROM user WHERE uid = ?"));
-        pstmt->setInt(1, uid);
-        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-        if(res->next()) {
-             auto user_ptr = std::make_shared<UserInfo>();
-             user_ptr->uid = res->getInt("uid");
-             user_ptr->name = res->getString("name");
-             user_ptr->pwd = res->getString("password");
-             user_ptr->email = res->getString("email");
-             return user_ptr;
-        }
-        return nullptr;
-    }
-    catch (sql::SQLException &e) {
-        spdlog::error("SQLException: {}", e.what());
-        return nullptr;
-    }
-}
-
-bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo)
-{
-    auto con = pool_->getConnection();
-    if (con == nullptr)
-    {
-        return false;
-    }
-
-    try
-    {
-        // 准备SQL语句
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT * FROM user WHERE name = ?"));
-        pstmt->setString(1, name);
-
-        // 执行查询
-        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-        std::string origin_pwd = "";
-        
-        // 遍历结果集
-        if (res->next())
-        {
-            origin_pwd = res->getString("password");
-            // spdlog::info("Password: {}", origin_pwd); // Security: Do not log passwords
-            
-            if (pwd != origin_pwd)
-            {
-                return false;
-            }
-
-            userInfo.name = name;
-            userInfo.email = res->getString("email");
-            userInfo.uid = res->getInt("uid");
-            userInfo.pwd = ""; // Security: Do not return password in memory if not needed, or keep it but don't log it.
-            return true;
-        }
-        
-        return false;
-    }
-    catch (sql::SQLException &e)
-    {
         spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
-        return 0;
+        return -1;
     }
 }
 
@@ -146,7 +76,6 @@ bool MysqlDao::CheckEmail(const std::string &name, const std::string &email)
 
         while (res->next())
         {
-            spdlog::info("Check Email: {}", res->getString("email").c_str());
             if (email != res->getString("email"))
             {
                 return false;
@@ -172,16 +101,253 @@ bool MysqlDao::UpdatePwd(const std::string &name, const std::string &newpwd)
 
     try
     {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("UPDATE user SET pwd = ? WHERE name = ?"));
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("UPDATE user SET password = ? WHERE name = ?"));
         pstmt->setString(1, newpwd);
         pstmt->setString(2, name);
         int updateCount = pstmt->executeUpdate();
-        spdlog::info("Updated rows: {}", updateCount);
         return updateCount > 0;
     }
     catch (sql::SQLException &e)
     {
         spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
         return false;
+    }
+}
+
+bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return false;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT * FROM user WHERE name = ?"));
+        pstmt->setString(1, name);
+
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        
+        if (res->next())
+        {
+            std::string origin_pwd = res->getString("password");
+            
+            if (pwd != origin_pwd)
+            {
+                return false;
+            }
+
+            userInfo.name = name;
+            userInfo.email = res->getString("email");
+            userInfo.uid = res->getInt("uid");
+            userInfo.pwd = ""; 
+            return true;
+        }
+        
+        return false;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return false;
+    }
+}
+
+std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
+{
+    auto con = pool_->getConnection();
+    if(con == nullptr) return nullptr;
+    try {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT * FROM user WHERE name = ?"));
+        pstmt->setString(1, name);
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        if(res->next()) {
+             auto user_ptr = std::make_shared<UserInfo>();
+             user_ptr->uid = res->getInt("uid");
+             user_ptr->name = res->getString("name");
+             user_ptr->pwd = res->getString("password");
+             user_ptr->email = res->getString("email");
+             user_ptr->nick = res->getString("nick");
+             user_ptr->desc = res->getString("desc");
+             user_ptr->sex = res->getInt("sex");
+             user_ptr->icon = res->getString("icon");
+             return user_ptr;
+        }
+        return nullptr;
+    }
+    catch (sql::SQLException &e) {
+        spdlog::error("SQLException: {}", e.what());
+        return nullptr;
+    }
+}
+
+std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
+{
+    auto con = pool_->getConnection();
+    if(con == nullptr) return nullptr;
+    try {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT * FROM user WHERE uid = ?"));
+        pstmt->setInt(1, uid);
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        if(res->next()) {
+             auto user_ptr = std::make_shared<UserInfo>();
+             user_ptr->uid = res->getInt("uid");
+             user_ptr->name = res->getString("name");
+             user_ptr->pwd = res->getString("password");
+             user_ptr->email = res->getString("email");
+             user_ptr->nick = res->getString("nick");
+             user_ptr->desc = res->getString("desc");
+             user_ptr->sex = res->getInt("sex");
+             user_ptr->icon = res->getString("icon");
+             return user_ptr;
+        }
+        return nullptr;
+    }
+    catch (sql::SQLException &e) {
+        spdlog::error("SQLException: {}", e.what());
+        return nullptr;
+    }
+}
+
+bool MysqlDao::AddFriendApply(int from_uid, int to_uid, const std::string& msg)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return false;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("INSERT INTO friend_apply (from_uid, to_uid, msg) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE msg = VALUES(msg)"));
+        pstmt->setInt(1, from_uid);
+        pstmt->setInt(2, to_uid);
+        pstmt->setString(3, msg);
+        int updateCount = pstmt->executeUpdate();
+        return true;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return false;
+    }
+}
+
+bool MysqlDao::AuthFriendApply(int from_uid, int to_uid)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return false;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("UPDATE friend_apply SET status = 1 WHERE from_uid = ? AND to_uid = ?"));
+        pstmt->setInt(1, from_uid);
+        pstmt->setInt(2, to_uid);
+        int updateCount = pstmt->executeUpdate();
+        return updateCount > 0;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return false;
+    }
+}
+
+bool MysqlDao::AddFriend(int self_id, int friend_id, const std::string& back)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return false;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("INSERT IGNORE INTO friend (self_id, friend_id, back) VALUES (?, ?, ?)"));
+        pstmt->setInt(1, self_id);
+        pstmt->setInt(2, friend_id);
+        pstmt->setString(3, back);
+        int updateCount = pstmt->executeUpdate();
+        return true;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return false;
+    }
+}
+
+std::vector<std::shared_ptr<ApplyInfo>> MysqlDao::GetApplyList(int uid, int offset, int limit)
+{
+    std::vector<std::shared_ptr<ApplyInfo>> applyList;
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return applyList;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT fa.from_uid, fa.msg, fa.status, u.name, u.nick, u.sex, u.icon FROM friend_apply fa JOIN user u ON fa.from_uid = u.uid WHERE fa.to_uid = ? ORDER BY fa.created_at DESC LIMIT ? OFFSET ?"));
+        pstmt->setInt(1, uid);
+        pstmt->setInt(2, limit);
+        pstmt->setInt(3, offset);
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        while (res->next())
+        {
+            auto applyInfo = std::make_shared<ApplyInfo>();
+            applyInfo->applyuid = res->getInt("from_uid");
+            applyInfo->desc = res->getString("msg");
+            applyInfo->status = res->getInt("status");
+            applyInfo->name = res->getString("name");
+            applyInfo->nick = res->getString("nick");
+            applyInfo->sex = res->getInt("sex");
+            applyInfo->icon = res->getString("icon");
+            applyList.push_back(applyInfo);
+        }
+        return applyList;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return applyList;
+    }
+}
+
+std::vector<std::shared_ptr<UserInfo>> MysqlDao::GetFriendList(int uid)
+{
+    std::vector<std::shared_ptr<UserInfo>> friendList;
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return friendList;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT u.uid, u.name, u.nick, u.sex, u.icon, u.email, f.back FROM friend f JOIN user u ON f.friend_id = u.uid WHERE f.self_id = ?"));
+        pstmt->setInt(1, uid);
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+        while (res->next())
+        {
+            auto userInfo = std::make_shared<UserInfo>();
+            userInfo->uid = res->getInt("uid");
+            userInfo->name = res->getString("name");
+            userInfo->nick = res->getString("nick");
+            userInfo->sex = res->getInt("sex");
+            userInfo->icon = res->getString("icon");
+            userInfo->email = res->getString("email");
+            friendList.push_back(userInfo);
+        }
+        return friendList;
+    }
+    catch (sql::SQLException &e)
+    {
+        spdlog::error("SQLException: {}, MySQL error code: {}, SQLState: {}", e.what(), e.getErrorCode(), e.getSQLState().c_str());
+        return friendList;
     }
 }

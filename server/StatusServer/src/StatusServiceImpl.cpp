@@ -44,6 +44,9 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
     }
     
     if (token_val != token) {
+        // Double check: if client sent a previous valid token but Redis updated
+        // We could implement a grace period logic here if we had timestamps,
+        // but for now, strict equality is enforced.
         reply->set_error((int)ChatApp::ErrorCode::TokenInvalid);
         return Status::OK;
     }
