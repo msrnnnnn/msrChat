@@ -1,6 +1,7 @@
 #include "applyfriendpage.h"
 #include "ui_applyfriendpage.h"
 #include <QPainter>
+#include <QStyle>
 #include <QStyleOption>
 
 ApplyFriendPage::ApplyFriendPage(QWidget *parent)
