@@ -168,15 +168,10 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(std::string name)
              user_ptr->name = res->getString("name");
              user_ptr->pwd = res->getString("password");
              user_ptr->email = res->getString("email");
-             user_ptr->nick = res->getString("nick");
-             try {
-                 user_ptr->desc = res->getString("desc");
-             } catch (...) {
-                 spdlog::warn("Column 'desc' missing or invalid, using empty string");
-                 user_ptr->desc = "";
-             }
-             user_ptr->sex = res->getInt("sex");
-             user_ptr->icon = res->getString("icon");
+             user_ptr->nick = user_ptr->name; // Default nick to name
+             user_ptr->desc = ""; // Default desc
+             user_ptr->sex = 0; // Default sex
+             user_ptr->icon = ""; // Default icon
              return user_ptr;
         }
         return nullptr;
@@ -201,10 +196,10 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
              user_ptr->name = res->getString("name");
              user_ptr->pwd = res->getString("password");
              user_ptr->email = res->getString("email");
-             user_ptr->nick = res->getString("nick");
-             user_ptr->desc = res->getString("desc");
-             user_ptr->sex = res->getInt("sex");
-             user_ptr->icon = res->getString("icon");
+             user_ptr->nick = user_ptr->name; // Default nick to name
+             user_ptr->desc = ""; // Default desc
+             user_ptr->sex = 0; // Default sex
+             user_ptr->icon = ""; // Default icon
              return user_ptr;
         }
         return nullptr;
@@ -297,7 +292,7 @@ std::vector<std::shared_ptr<ApplyInfo>> MysqlDao::GetApplyList(int uid, int offs
 
     try
     {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT fa.from_uid, fa.msg, fa.status, u.name, u.nick, u.sex, u.icon FROM friend_apply fa JOIN user u ON fa.from_uid = u.uid WHERE fa.to_uid = ? ORDER BY fa.created_at DESC LIMIT ? OFFSET ?"));
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT fa.from_uid, fa.msg, fa.status, u.name FROM friend_apply fa JOIN user u ON fa.from_uid = u.uid WHERE fa.to_uid = ? ORDER BY fa.created_at DESC LIMIT ? OFFSET ?"));
         pstmt->setInt(1, uid);
         pstmt->setInt(2, limit);
         pstmt->setInt(3, offset);
@@ -309,9 +304,9 @@ std::vector<std::shared_ptr<ApplyInfo>> MysqlDao::GetApplyList(int uid, int offs
             applyInfo->desc = res->getString("msg");
             applyInfo->status = res->getInt("status");
             applyInfo->name = res->getString("name");
-            applyInfo->nick = res->getString("nick");
-            applyInfo->sex = res->getInt("sex");
-            applyInfo->icon = res->getString("icon");
+            applyInfo->nick = applyInfo->name;
+            applyInfo->sex = 0;
+            applyInfo->icon = "";
             applyList.push_back(applyInfo);
         }
         return applyList;
@@ -334,7 +329,7 @@ std::vector<std::shared_ptr<UserInfo>> MysqlDao::GetFriendList(int uid)
 
     try
     {
-        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT u.uid, u.name, u.nick, u.sex, u.icon, u.email, f.back FROM friend f JOIN user u ON f.friend_id = u.uid WHERE f.self_id = ?"));
+        std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT u.uid, u.name, u.email, f.back FROM friend f JOIN user u ON f.friend_id = u.uid WHERE f.self_id = ?"));
         pstmt->setInt(1, uid);
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
         while (res->next())
@@ -342,9 +337,9 @@ std::vector<std::shared_ptr<UserInfo>> MysqlDao::GetFriendList(int uid)
             auto userInfo = std::make_shared<UserInfo>();
             userInfo->uid = res->getInt("uid");
             userInfo->name = res->getString("name");
-            userInfo->nick = res->getString("nick");
-            userInfo->sex = res->getInt("sex");
-            userInfo->icon = res->getString("icon");
+            userInfo->nick = userInfo->name;
+            userInfo->sex = 0;
+            userInfo->icon = "";
             userInfo->email = res->getString("email");
             friendList.push_back(userInfo);
         }
