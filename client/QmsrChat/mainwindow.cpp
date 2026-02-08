@@ -53,10 +53,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
 
     // 连接创建聊天界面信号
-    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this, &MainWindow::SlotSwitchChat);
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this, &MainWindow::slotSwitchChat);
 
-    // 测试：直接发送信号触发跳转
-    // emit TcpMgr::GetInstance()->sig_swich_chatdlg();
+    // 测试跳转
+    emit TcpMgr::GetInstance() -> sig_swich_chatdlg();
 }
 
 /**
@@ -113,9 +113,12 @@ void MainWindow::slotSwitchLogin2()
     _login_dialog->show();
 }
 
-void MainWindow::SlotSwitchChat()
+/**
+ * @brief 切换到聊天界面
+ */
+void MainWindow::slotSwitchChat()
 {
-    _chat_dialog = new ChatDialog(this);
+    _chat_dialog = new ChatDialog();
     _chat_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     setCentralWidget(_chat_dialog);
     _chat_dialog->show();

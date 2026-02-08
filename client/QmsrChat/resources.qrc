@@ -8,5 +8,11 @@
         <file>res/visible_hover.png</file>
         <file>res/unvisible.png</file>
         <file>res/unvisible_hover.png</file>
+        <file>res/add_friend_normal.png</file>
+        <file>res/add_friend_hover.png</file>
+        <file>res/search.png</file>
+        <file>res/close_transparent.png</file>
+        <file>res/close_search.png</file>
+        <file>res/head_1.jpg</file>
     </qresource>
 </RCC>

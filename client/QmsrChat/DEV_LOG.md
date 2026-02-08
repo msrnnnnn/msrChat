@@ -195,3 +195,52 @@
     - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_NETWORK` 统一修正为 `ERR_NETWORK`。
     - 将 `httpmanagement.cpp` 和 `tcpmgr.cpp` 中引用的 `ERROR_JSON` 统一修正为 `ERR_JSON`。
   - **头文件缺失修复**: `chatsidebar.cpp` 中缺少 `#include <QLabel>`，导致 `QLabel` 未声明错误。
+
+## 11. 聊天界面 UI 组件化 (ChatDialog Custom Widgets)
+
+### 11.1 自定义控件体系
+根据需求实现了以下自定义控件，用于构建模块化的聊天界面：
+- **ClickedBtn**: 继承自 `QPushButton`，支持悬浮、点击、松开等状态的 QSS 属性 (`state`) 切换，实现交互特效。
+- **StateLabel**: 继承自 `ClickedLabel`，用于侧边栏图标，支持选中/未选中状态切换。
+- **CustomizeEdit**: 继承自 `QLineEdit`，支持 `focusOut` 信号和文本长度限制。
+- **ChatView / ChatUserList / SearchList**: 继承自 `QListWidget`，作为特定功能列表的基类，预留了后续扩展接口。
+
+### 11.2 界面布局重构
+- 更新 `chatdialog.ui`，完全匹配指定的 UI 树形结构：
+  - **SideBar**: 包含头像、Chat/Contact 切换按钮 (`StateLabel`)。
+  - **ChatUserWid**: 包含搜索栏 (`CustomizeEdit` + `ClickedBtn`) 和用户/搜索列表。
+  - **ChatDataWid**: 包含标题栏、消息列表 (`ChatView`)、工具栏和输入发送区。
+- 使用 `CMakeLists.txt` 集成所有新创建的控件源文件。
+
+### 11.3 交互细节优化
+- **ClickedBtn 增强**:
+  - 完善了 `ClickedBtn` 的事件处理 (`enterEvent`, `leaveEvent`, `mousePressEvent`, `mouseReleaseEvent`)。
+  - 实现了基于 QSS 属性 (`state='normal'/'hover'/'press'`) 的动态样式切换。
+  - 在 `stylesheet.qss` 中添加了 `add_btn` 的样式定义，配置了不同状态下的背景图片。
+- **界面美化**:
+  - 移除了 `MainWindow` 中的默认菜单栏 (`QMenuBar`) 和状态栏 (`QStatusBar`)，使界面更加简洁，符合现代 IM 软件风格。
+
+## 12. 搜索框与聊天列表功能实现
+
+### 12.1 自定义搜索框 (CustomizeEdit)
+- **功能增强**:
+  - 继承自 `QLineEdit`，实现了 `SetMaxLength` 限制输入长度。
+  - 重写 `focusOutEvent`，添加了 `sig_foucus_out` 信号，支持失去焦点时的逻辑处理。
+  - 实现了 `limitTextLength` 槽函数，监听 `textChanged` 信号，确保输入不超过最大长度。
+- **UI 集成**:
+  - 在 `ChatDialog` 中，为搜索框添加了搜索图标 (LeadingPosition) 和清除图标 (TrailingPosition)。
+  - 实现了输入文字时显示清除按钮，点击清除按钮清空内容并隐藏按钮的交互逻辑。
+
+### 12.2 聊天用户列表 (ChatUserList)
+- **自定义列表控件**:
+  - 继承自 `QListWidget`，默认隐藏滚动条。
+  - 使用事件过滤器 (`eventFilter`) 实现了智能滚动条显示：
+    - 鼠标悬浮时显示滚动条，离开时隐藏。
+    - 拦截鼠标滚轮事件，手动计算滚动步数，并在滚动到底部时发射 `sig_loading_chat_user` 信号，用于加载更多聊天记录。
+- **样式定制**:
+  - 在 `stylesheet.qss` 中配置了列表项的选中、悬浮样式，去除了边框和焦点虚线框，提升视觉体验。
+
+### 12.3 界面状态管理
+- **模式切换**:
+  - 在 `ChatDialog` 中引入 `ChatUIMode` 枚举 (`ChatMode`, `ContactMode`, `SearchMode`)。
+  - 实现了 `ShowSearch(bool)` 函数，根据搜索状态在聊天列表 (`chat_user_list`)、联系人列表 (`con_user_list`) 和搜索结果列表 (`search_list`) 之间切换显示。

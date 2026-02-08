@@ -1,11 +1,13 @@
 #ifndef CHATDIALOG_H
 #define CHATDIALOG_H
 
-#include "chatarea.h"
-#include "chatsidebar.h"
 #include "global.h"
 #include <QDialog>
-#include <QHBoxLayout>
+
+namespace Ui
+{
+class ChatDialog;
+}
 
 class ChatDialog : public QDialog
 {
@@ -15,11 +17,20 @@ public:
     explicit ChatDialog(QWidget *parent = nullptr);
     ~ChatDialog();
 
-private:
-    void initUi();
+    enum class ChatUIMode
+    {
+        ChatMode,
+        ContactMode,
+        SearchMode
+    };
 
-    ChatSideBar *m_pSideBar;
-    ChatArea *m_pChatArea;
+    void ShowSearch(bool bsearch);
+
+private:
+    Ui::ChatDialog *ui;
+    ChatUIMode _mode;
+    ChatUIMode _state;
+    bool _b_loading;
 };
 
 #endif // CHATDIALOG_H

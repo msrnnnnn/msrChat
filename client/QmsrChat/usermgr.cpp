@@ -2,7 +2,6 @@
 
 UserMgr::~UserMgr()
 {
-
 }
 
 void UserMgr::SetName(QString name)
@@ -37,5 +36,4 @@ QString UserMgr::GetToken()
 
 UserMgr::UserMgr()
 {
-
 }

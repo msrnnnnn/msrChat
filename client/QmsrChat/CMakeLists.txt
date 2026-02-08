@@ -20,17 +20,19 @@ set(PROJECT_SOURCES
         logindialog.cpp logindialog.h logindialog.ui
         registerdialog.cpp registerdialog.h registerdialog.ui
         resetdialog.cpp resetdialog.h resetdialog.ui
-        chatdialog.cpp chatdialog.h
-        chatsidebar.cpp chatsidebar.h
-        chatarea.cpp chatarea.h
-        chatbubble.cpp chatbubble.h
-        sessionitemdelegate.cpp sessionitemdelegate.h
         httpmanagement.cpp httpmanagement.h
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h
         global.cpp global.h
         tcpmgr.cpp tcpmgr.h
         usermgr.cpp usermgr.h
+        chatdialog.cpp chatdialog.h chatdialog.ui
+        chatview.cpp chatview.h
+        chatuserlist.cpp chatuserlist.h
+        searchlist.cpp searchlist.h
+        statelabel.cpp statelabel.h
+        clickedbtn.cpp clickedbtn.h
+        customizeedit.cpp customizeedit.h
         singleton.h
         resources.qrc
         config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑

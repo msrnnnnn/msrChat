@@ -94,8 +94,6 @@ void LoginDialog::on_login_Button_clicked()
         return;
     }
 
-    enableBtn(false); // 防抖：点击后禁用按钮
-
     auto user = ui->user_Edit->text();
     auto pwd = ui->password_Edit->text();
 
@@ -117,33 +115,7 @@ void LoginDialog::initHttpHandlers()
             int error = jsonObj["error"].toInt();
             if (error != static_cast<int>(ErrorCodes::SUCCESS))
             {
-                QString errStr = tr("未知错误");
-                switch (static_cast<ErrorCodes>(error))
-                {
-                    case ErrorCodes::ERR_JSON:
-                        errStr = tr("JSON解析失败");
-                        break;
-                    case ErrorCodes::RPC_FAILED:
-                        errStr = tr("系统服务不可用");
-                        break;
-                    case ErrorCodes::USER_EXIST:
-                        errStr = tr("用户已存在");
-                        break;
-                    case ErrorCodes::PASSWD_ERR:
-                    case ErrorCodes::PASSWD_INVALID:
-                        errStr = tr("用户名或密码错误");
-                        break;
-                    case ErrorCodes::RPC_GET_FAILED:
-                        errStr = tr("获取聊天服务失败");
-                        break;
-                    case ErrorCodes::VARIFY_CODE_ERR:
-                        errStr = tr("验证码错误");
-                        break;
-                    default:
-                        errStr = tr("错误码: %1").arg(error);
-                        break;
-                }
-                showTip(errStr, false);
+                showTip(tr("参数错误"), false);
                 enableBtn(true);
                 return;
             }
@@ -167,7 +139,6 @@ void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
     if (err != ErrorCodes::SUCCESS)
     {
         showTip(tr("网络请求错误"), false);
-        enableBtn(true);
         return;
     }
     // 解析 JSON 字符串,res需转化为QByteArray
@@ -176,14 +147,12 @@ void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
     if (jsonDoc.isNull())
     {
         showTip(tr("json解析错误"), false);
-        enableBtn(true);
         return;
     }
     // json解析错误
     if (!jsonDoc.isObject())
     {
         showTip(tr("json解析错误"), false);
-        enableBtn(true);
         return;
     }
     // 调用对应的逻辑,根据id回调。

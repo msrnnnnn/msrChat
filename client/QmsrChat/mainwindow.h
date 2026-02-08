@@ -65,7 +65,7 @@ public slots:
     /**
      * @brief 切换到聊天界面
      */
-    void SlotSwitchChat();
+    void slotSwitchChat();
 
 private:
     Ui::MainWindow *ui; ///< UI 指针
