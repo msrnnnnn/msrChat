@@ -33,6 +33,11 @@ public:
     void mousePressEvent(QMouseEvent *ev) override;
 
     /**
+     * @brief 鼠标释放事件
+     */
+    void mouseReleaseEvent(QMouseEvent *ev) override;
+
+    /**
      * @brief 鼠标进入事件
      */
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -69,7 +74,7 @@ signals:
     /**
      * @brief 点击信号
      */
-    void clicked(void);
+    void clicked(QString, ClickLbState);
 
 private:
     QString _normal;

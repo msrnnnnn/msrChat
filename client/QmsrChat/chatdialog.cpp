@@ -1,5 +1,6 @@
 #include "chatdialog.h"
 #include "chatuserwid.h"
+#include "loadingdlg.h"
 #include "ui_chatdialog.h"
 #include <QAction>
 #include <QRandomGenerator>
@@ -14,7 +15,7 @@ ChatDialog::ChatDialog(QWidget *parent)
     ui->setupUi(this);
     setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
 
-    ui->add_btn->SetState("normal", "hover", "press");
+    ui->add_btn->SetState(QStringLiteral("normal"), QStringLiteral("hover"), QStringLiteral("press"));
 
     QAction *searchAction = new QAction(ui->search_edit);
     searchAction->setIcon(QIcon(":/res/search.png"));
@@ -59,8 +60,34 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::on_search_edit_textChanged);
 
+    // 连接加载更多聊天用户信号
+    connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this, &ChatDialog::slot_loading_chat_user);
+
     ShowSearch(false);
     addChatUserList();
+
+    // 初始化 ChatPage
+    _chat_page = new ChatPage(this);
+    ui->stackedWidget->addWidget(_chat_page);
+    ui->stackedWidget->setCurrentWidget(_chat_page);
+
+    // Initialize Sidebar states
+    ui->side_chat_lb->SetState(
+        QStringLiteral("normal"), QStringLiteral("hover"), QStringLiteral("press"), QStringLiteral("selected_normal"),
+        QStringLiteral("selected_hover"), QStringLiteral("selected_press"));
+    ui->side_contact_lb->SetState(
+        QStringLiteral("normal"), QStringLiteral("hover"), QStringLiteral("press"), QStringLiteral("selected_normal"),
+        QStringLiteral("selected_hover"), QStringLiteral("selected_press"));
+
+    // Connect sidebar signals
+    connect(ui->side_chat_lb, &ClickedLabel::clicked, this, &ChatDialog::slot_side_chat);
+    connect(ui->side_contact_lb, &ClickedLabel::clicked, this, &ChatDialog::slot_side_contact);
+
+    // Default selection
+    slot_side_chat();
+
+    connect(
+        ui->con_user_list, &ContactUserList::sigSwitchApplyFriendPage, this, &ChatDialog::slotSwitchApplyFriendPage);
 }
 
 ChatDialog::~ChatDialog()
@@ -126,6 +153,61 @@ void ChatDialog::loadingChatUser()
     }
 }
 
+void ChatDialog::slot_loading_chat_user()
+{
+    if (_b_loading)
+    {
+        return;
+    }
+
+    _b_loading = true;
+    LoadingDlg *loadingDialog = new LoadingDlg(this);
+    loadingDialog->setModal(true);
+    loadingDialog->show();
+    qDebug() << "add new data to list.....";
+
+    // 模拟耗时操作，延时加载
+    QTimer::singleShot(
+        1000,
+        [this, loadingDialog]()
+        {
+            loadingChatUser();
+            // 加载完成后关闭对话框
+            loadingDialog->deleteLater();
+            _b_loading = false;
+        });
+}
+
+void ChatDialog::slot_side_chat()
+{
+    qDebug() << "receive side chat clicked";
+    ui->side_chat_lb->setProperty("state", QStringLiteral("selected_normal"));
+    ui->side_contact_lb->setProperty("state", QStringLiteral("normal"));
+    repolish(ui->side_chat_lb);
+    repolish(ui->side_contact_lb);
+    ui->stackedWidget->setCurrentWidget(_chat_page);
+    _state = ChatUIMode::ChatMode;
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_side_contact()
+{
+    qDebug() << "receive side contact clicked";
+    ui->side_chat_lb->setProperty("state", QStringLiteral("normal"));
+    ui->side_contact_lb->setProperty("state", QStringLiteral("selected_normal"));
+    repolish(ui->side_chat_lb);
+    repolish(ui->side_contact_lb);
+    // ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
+    _state = ChatUIMode::ContactMode;
+    ShowSearch(false);
+}
+
+void ChatDialog::slot_text_changed(const QString &str)
+{
+    // Implementation for text changed if needed separately
+    on_search_edit_textChanged(str);
+}
+
 void ChatDialog::on_search_edit_textChanged(const QString &arg1)
 {
     if (!arg1.isEmpty())
@@ -174,4 +256,11 @@ bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
     // 例如处理点击外部关闭搜索框等
     // 目前默认透传给基类
     return QDialog::eventFilter(watched, event);
+}
+
+void ChatDialog::slotSwitchApplyFriendPage()
+{
+    qDebug() << "receive switch apply friend page";
+    ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
+    ui->con_user_list->showRedPoint(false);
 }

@@ -1,6 +1,7 @@
 #ifndef CHATDIALOG_H
 #define CHATDIALOG_H
 
+#include "chatpage.h"
 #include "global.h"
 #include <QDialog>
 
@@ -33,6 +34,11 @@ protected:
 
 private slots:
     void on_search_edit_textChanged(const QString &arg1);
+    void slot_loading_chat_user();
+    void slot_side_chat();
+    void slot_side_contact();
+    void slot_text_changed(const QString &str);
+    void slotSwitchApplyFriendPage();
 
 private:
     void loadingChatUser();
@@ -43,6 +49,7 @@ private:
     std::vector<QString> _names;
     std::vector<QString> _heads;
     std::vector<QString> _msgs;
+    ChatPage *_chat_page;
 };
 
 #endif // CHATDIALOG_H

@@ -35,6 +35,18 @@ set(PROJECT_SOURCES
         customizeedit.cpp customizeedit.h
         listitembase.cpp listitembase.h
         chatuserwid.cpp chatuserwid.h chatuserwid.ui
+        loadingdlg.cpp loadingdlg.h loadingdlg.ui
+        chatpage.cpp chatpage.h chatpage.ui
+        bubbleframe.cpp bubbleframe.h
+        chatitembase.cpp chatitembase.h
+        textbubble.cpp textbubble.h
+        picturebubble.cpp picturebubble.h
+        applyfriend.cpp applyfriend.h applyfriend.ui
+        applyfrienditem.cpp applyfrienditem.h applyfrienditem.ui
+        applyfriendpage.cpp applyfriendpage.h applyfriendpage.ui
+        contactuserlist.cpp contactuserlist.h
+        conuseritem.cpp conuseritem.h conuseritem.ui
+        clickedoncelabel.cpp clickedoncelabel.h
         singleton.h
         resources.qrc
         config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑
