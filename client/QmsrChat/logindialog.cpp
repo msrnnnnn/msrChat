@@ -65,7 +65,7 @@ LoginDialog::LoginDialog(QWidget *parent)
     connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_login_failed, this, &LoginDialog::slot_login_failed);
 
     // 连接登录按钮
-    connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::on_login_Button_clicked);
+    connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::slot_login_btn_clicked);
 }
 
 /**
@@ -82,7 +82,7 @@ void LoginDialog::slot_forget_pwd()
     emit switchReset();
 }
 
-void LoginDialog::on_login_Button_clicked()
+void LoginDialog::slot_login_btn_clicked()
 {
     qDebug() << "login btn clicked";
     if (!checkUserValid())
@@ -231,6 +231,14 @@ void LoginDialog::showTip(QString str, bool b_ok)
 void LoginDialog::slot_login_failed(int err)
 {
     QString result = QString("登录失败, err is %1").arg(err);
+    if (err == 1012)
+    {
+        result = QString("登录失败, token无效");
+    }
+    else if (err == 1011)
+    {
+        result = QString("登录失败, 服务器数据库查询失败(UID:1011)");
+    }
     showTip(result, false);
     enableBtn(true);
 }
