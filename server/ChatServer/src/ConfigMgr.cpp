@@ -13,6 +13,17 @@ ConfigMgr::ConfigMgr()
     {
         config_path = "/home/msr/msrChat/server/ChatServer/config.ini";
     }
+    
+    // Windows fallback for current environment
+    if (!std::filesystem::exists(config_path))
+    {
+        config_path = "E:/Study/Project/Chat/msrchat/server/ChatServer/config.ini";
+    }
+
+    if (!std::filesystem::exists(config_path)) {
+        spdlog::critical("Config.ini NOT FOUND at {}! Server cannot start.", config_path.string());
+        throw std::runtime_error("Config not found");
+    }
 
     spdlog::info("Loading Config from: {}", config_path.string());
 

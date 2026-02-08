@@ -5,10 +5,12 @@
 #include "AsioIOServicePool.h" 
 #include "CServer.h" 
 #include "ConfigMgr.h" 
+#include "MysqlMgr.h"
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
+#include <filesystem>
 
 using namespace std; 
 
@@ -26,8 +28,14 @@ int main()
         spdlog::flush_on(spdlog::level::info);
         
         spdlog::info("ChatServer Starting...");
+        spdlog::info("Current Working Directory: {}", std::filesystem::current_path().string());
 
         auto &cfg = ConfigMgr::Inst(); 
+
+        // Force Init Mysql Connection Pool
+        spdlog::info("Initializing MySQL Connection Pool...");
+        MysqlMgr::GetInstance(); 
+
         auto pool = AsioIOServicePool::GetInstance(); 
         boost::asio::io_context  io_context; 
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM); 

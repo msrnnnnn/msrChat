@@ -66,6 +66,7 @@ public:
         {
             // 处理异常
             spdlog::error("mysql pool init failed: {}", e.what());
+            throw;
         }
     }
 

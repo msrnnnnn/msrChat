@@ -1,10 +1,11 @@
 #ifndef CHATUSERWID_H
 #define CHATUSERWID_H
 
-#include <QWidget>
 #include "listitembase.h"
+#include <QWidget>
 
-namespace Ui {
+namespace Ui
+{
 class ChatUserWid;
 }
 
@@ -16,7 +17,8 @@ public:
     explicit ChatUserWid(QWidget *parent = nullptr);
     ~ChatUserWid();
 
-    QSize sizeHint() const override {
+    QSize sizeHint() const override
+    {
         return QSize(250, 70); // 返回自定义的尺寸
     }
 
