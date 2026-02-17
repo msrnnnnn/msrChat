@@ -179,18 +179,27 @@ void RegisterDialog::initHttpHandlers()
         RequestType::ID_GET_VARIFY_CODE,
         [this](const QJsonObject &JsonObject)
         {
-            // 1. 检查业务层错误码 (区分于网络层错误)
-            // 注意：使用 static_cast 转换枚举，防止编译器警告
             int error = JsonObject["error"].toInt();
             if (error != static_cast<int>(ERRORCODES::SUCCESS))
             {
-                showTip("参数错误", false); // 建议后续根据具体 error code 显示不同提示
+                QString errStr = tr("获取验证码失败");
+                switch (static_cast<ERRORCODES>(error))
+                {
+                case ERRORCODES::EmailExist:
+                    errStr = tr("该邮箱已被注册");
+                    break;
+                case ERRORCODES::ERROR_NETWORK:
+                    errStr = tr("网络错误");
+                    break;
+                default:
+                    break;
+                }
+                showTip(errStr, false);
                 return;
             }
 
-            // 2. 业务处理成功
             auto email = JsonObject["email"].toString();
-            showTip("验证码已发送到邮箱，注意查收：123456", true);
+            showTip(tr("验证码已发送到邮箱，注意查收"), true);
             qDebug() << "Verification code sent to:" << email;
         });
 
@@ -202,7 +211,26 @@ void RegisterDialog::initHttpHandlers()
             int error = jsonObj["error"].toInt();
             if (error != static_cast<int>(ERRORCODES::SUCCESS))
             {
-                showTip(tr("参数错误"), false);
+                QString errStr = tr("注册失败");
+                switch (static_cast<ERRORCODES>(error))
+                {
+                case ERRORCODES::UserExist:
+                    errStr = tr("用户名已存在");
+                    break;
+                case ERRORCODES::EmailExist:
+                    errStr = tr("邮箱已被注册");
+                    break;
+                case ERRORCODES::VarifyCodeErr:
+                    errStr = tr("验证码错误");
+                    break;
+                case ERRORCODES::VarifyCodeExpired:
+                    errStr = tr("验证码已过期");
+                    break;
+                default:
+                    errStr = tr("注册失败，未知错误");
+                    break;
+                }
+                showTip(errStr, false);
                 return;
             }
             auto email = jsonObj["email"].toString();

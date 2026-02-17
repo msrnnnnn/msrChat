@@ -112,6 +112,8 @@ signals:
      * @deprecated 建议未来统一使用 signal_http_finish 分发
      */
     void signal_register_mod_finish(RequestType req_type, QString res, ERRORCODES err);
+
+    void sig_login_mod_finish(RequestType id, QString res, ERRORCODES err, Modules mod);
 };
 
 #endif // HTTPMANAGEMENT_H
