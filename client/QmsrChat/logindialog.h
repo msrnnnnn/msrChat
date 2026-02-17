@@ -38,6 +38,12 @@ public:
 private:
     Ui::LoginDialog *ui; ///< UI 界面指针
 
+    bool checkUserValid();
+    bool checkPwdValid();
+
+private slots:
+    void on_login_btn_clicked();
+
 signals:
     /**
      * @brief 切换到注册界面信号

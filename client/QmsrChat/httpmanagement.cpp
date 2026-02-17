@@ -98,3 +98,6 @@ void HttpManagement::slot_http_finish(RequestType req_type, QString res, ERRORCO
         qWarning() << "Module handler not found. Module ID:" << static_cast<int>(mod);
     }
 }
+
+
+
