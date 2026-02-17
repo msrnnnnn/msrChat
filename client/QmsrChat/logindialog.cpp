@@ -69,5 +69,5 @@ void LoginDialog::on_login_btn_clicked()
     json_obj["user"] = user;
     json_obj["passwd"] = xorString(pwd);
     HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/user_login"), json_obj, RequestType::ID_LOGIN_USER, Modules::LOGIN_MOD);
+        QUrl(gate_url_prefix + "/user_login"), json_obj, RequestType::ID_LOGIN_USER, Modules::LOGINMOD);
 }
