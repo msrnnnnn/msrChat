@@ -28,29 +28,37 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 
     try
     {
-        // 对应存储过程：PROCEDURE `reg_user`(IN p_name, IN p_email, IN p_password, OUT p_result)
-        // 只有 3 个输入参数
-        std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("CALL reg_user(?,?,?,@result)"));
+        // Check if user or email exists
+        std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("SELECT uid FROM user WHERE name = ? OR email = ?"));
+        stmt->setString(1, name);
+        stmt->setString(2, email);
+        
+        std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+        if (res->next())
+        {
+            pool_->returnConnection(std::move(con));
+            return 0; // User or email already exists
+        }
 
-        // 设置输入参数
+        // Insert new user
+        stmt.reset(con->prepareStatement("INSERT INTO user (name, email, password) VALUES (?, ?, ?)"));
         stmt->setString(1, name);
         stmt->setString(2, email);
         stmt->setString(3, pwd);
-        // 第4个参数 icon 不传，因为数据库存储过程不需要
-
-        // 执行存储过程
-        stmt->execute();
-
-        // 获取输出参数 @result
-        std::unique_ptr<sql::Statement> stmtResult(con->createStatement());
-        std::unique_ptr<sql::ResultSet> res(stmtResult->executeQuery("SELECT @result AS result"));
-
-        if (res->next())
+        
+        int updateCount = stmt->executeUpdate();
+        if (updateCount > 0)
         {
-            int result = res->getInt("result");
-            std::cout << "RegUser Result: " << result << std::endl;
-            pool_->returnConnection(std::move(con));
-            return result;
+            // Get the generated uid
+            std::unique_ptr<sql::Statement> stmtResult(con->createStatement());
+            std::unique_ptr<sql::ResultSet> resUid(stmtResult->executeQuery("SELECT LAST_INSERT_ID()"));
+            if (resUid->next())
+            {
+                int uid = resUid->getInt(1);
+                std::cout << "RegUser Success, uid: " << uid << std::endl;
+                pool_->returnConnection(std::move(con));
+                return uid;
+            }
         }
 
         pool_->returnConnection(std::move(con));
@@ -60,6 +68,10 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
     {
         pool_->returnConnection(std::move(con));
         std::cerr << "SQLException: " << e.what() << std::endl;
+        if (e.getErrorCode() == 1062) // Duplicate entry
+        {
+            return 0;
+        }
         return -1;
     }
 }

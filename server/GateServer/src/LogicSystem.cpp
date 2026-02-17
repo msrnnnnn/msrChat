@@ -69,13 +69,17 @@ LogicSystem::LogicSystem()
             // 提取 email 字段
             auto email = request_json["email"].asString();
             std::cout << "email is " << email << std::endl;
-            // [RPC Call] 调用我们的 Mock 客户端
+            // 调用 gRPC 客户端获取验证码
             GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
-            // 构造回包
-            response_json["error"] = rsp.error();
+            std::string code = rsp.code();
+            std::cout << "get varify code is " << code << std::endl;
+            response_json["code"] = code;
             response_json["email"] = email;
-            // 调试用：把验证码也发回去方便看
-            response_json["code"] = rsp.code();
+            
+            // 将验证码写入 Redis (无 TTL，符合“一直有效”的需求)
+            RedisMgr::GetInstance()->Set(email, code);
+
+            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
             std::string jsonstr = response_json.toStyledString();
             beast::ostream(connection->_response.body()) << jsonstr;
             return true;
