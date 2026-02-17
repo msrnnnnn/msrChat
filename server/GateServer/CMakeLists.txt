@@ -69,9 +69,39 @@ set(SERVER_SOURCES
     src/RedisMgr.cpp        
     src/MysqlMgr.cpp        # <--- 已取消注释
     src/MysqlDao.cpp        # <--- 已取消注释
-    message.pb.cc
-    message.grpc.pb.cc
 )
+
+# =============================================================
+# 6. Protobuf 自动生成 (Proto Generation)
+# =============================================================
+# 获取 protoc 和 grpc_cpp_plugin 的路径
+get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
+get_target_property(protoc_location protobuf::protoc LOCATION)
+
+# 定义 Proto 文件路径 (绝对路径)
+set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../shared/message.proto")
+set(PROTO_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+
+# 定义生成的文件名
+set(PROTO_SRCS "${PROTO_SRC_DIR}/message.pb.cc" "${PROTO_SRC_DIR}/message.grpc.pb.cc")
+set(PROTO_HDRS "${PROTO_SRC_DIR}/message.pb.h" "${PROTO_SRC_DIR}/message.grpc.pb.h")
+
+# 添加自定义命令生成代码
+add_custom_command(
+    OUTPUT ${PROTO_SRCS} ${PROTO_HDRS}
+    COMMAND ${protoc_location}
+    ARGS --grpc_out=${PROTO_SRC_DIR}
+         --cpp_out=${PROTO_SRC_DIR}
+         --plugin=protoc-gen-grpc=${grpc_cpp_plugin_location}
+         -I "${CMAKE_CURRENT_SOURCE_DIR}/../../shared"
+         ${PROTO_FILE}
+    DEPENDS ${PROTO_FILE}
+    COMMENT "Running C++ gRPC protocol buffer compiler on message.proto"
+)
+
+# 确保生成的代码也被包含在源文件列表中（或单独作为 target 依赖）
+# 在 add_executable 前将生成的文件加入 SERVER_SOURCES
+list(APPEND SERVER_SOURCES ${PROTO_SRCS})
 
 add_executable(GateServer ${SERVER_SOURCES})
 
@@ -82,6 +112,7 @@ add_executable(GateServer ${SERVER_SOURCES})
 target_include_directories(GateServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROTO_SRC_DIR} # <--- 添加生成代码的目录
     ${Boost_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
     ${Protobuf_INCLUDE_DIRS}
@@ -110,7 +141,7 @@ target_link_libraries(GateServer PRIVATE
 )
 
 # =============================================================
-# 6. 调试信息 (Debug Info)
+# 7. 调试信息 (Debug Info)
 # =============================================================
 message(STATUS "Build Info:")
 message(STATUS "   CXX Standard: ${CMAKE_CXX_STANDARD}")

@@ -28,14 +28,15 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 
     try
     {
-        // 【修改点】这里变成 4 个问号，对应 reg_user 存储过程的参数
-        std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("CALL reg_user(?,?,?,?,@result)"));
+        // 对应存储过程：PROCEDURE `reg_user`(IN p_name, IN p_email, IN p_password, OUT p_result)
+        // 只有 3 个输入参数
+        std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("CALL reg_user(?,?,?,@result)"));
 
         // 设置输入参数
         stmt->setString(1, name);
         stmt->setString(2, email);
         stmt->setString(3, pwd);
-        stmt->setString(4, icon); // 【修改点】设置头像
+        // 第4个参数 icon 不传，因为数据库存储过程不需要
 
         // 执行存储过程
         stmt->execute();

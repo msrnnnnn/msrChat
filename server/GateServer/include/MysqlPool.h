@@ -65,7 +65,7 @@ public:
         catch (sql::SQLException &e)
         {
             // 处理异常
-            std::cout << "mysql pool init failed" << std::endl;
+            std::cout << "mysql pool init failed: " << e.what() << std::endl;
         }
     }
 
