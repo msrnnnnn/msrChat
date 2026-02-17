@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 
 # [Architect Refactor] 统一管理所有源文件
 # 无论是在 Qt5 还是 Qt6 下编译，都使用这份清单
@@ -31,7 +32,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        .gitignore # 直接使用上面定义好的集合
+        .gitignore
+        tcpmgr.h tcpmgr.cpp
+        # 直接使用上面定义好的集合
     )
 # [Qt5 / Android Build Path]
 else()
@@ -47,6 +50,7 @@ else()
 endif()
 
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
+target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
 # ================= [Architect Add] 配置管理自动化核心逻辑 =================
 # 定义配置文件源路径 (源码目录下的 config.ini)
