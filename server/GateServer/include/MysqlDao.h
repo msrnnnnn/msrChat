@@ -42,6 +42,8 @@ public:
      * @return  int   注册结果 (通常由存储过程返回)
      */
     int RegUser(const std::string &name, const std::string &email, const std::string &pwd, const std::string &icon);
+    int ResetPwd(const std::string &name, const std::string &email, const std::string &pwd);
+    int LoginUser(const std::string &name, const std::string &pwd);
 
 private:
     std::unique_ptr<MySqlPool> pool_; ///< MySQL 连接池

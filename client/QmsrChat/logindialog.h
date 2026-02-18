@@ -8,6 +8,10 @@
 #define LOGINDIALOG_H
 
 #include <QDialog>
+#include <QEvent>
+#include <QJsonObject>
+#include <QMap>
+#include <functional>
 
 namespace Ui
 {
@@ -40,15 +44,29 @@ private:
 
     bool checkUserValid();
     bool checkPwdValid();
+    void showTip(QString str, bool isCorrect);
+    void initHandlers();
 
 private slots:
-    void on_login_btn_clicked();
+    void on_login_Button_clicked();
+    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
+    void slot_forget_pwd();
 
 signals:
     /**
      * @brief 切换到注册界面信号
      */
     void switchRegister();
+    /**
+     * @brief 切换到重置密码界面信号
+     */
+    void switchReset();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+private:
+    QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
 };
 
 #endif // LOGINDIALOG_H

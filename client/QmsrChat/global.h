@@ -66,15 +66,18 @@ enum class Modules
  */
 enum class ERRORCODES
 {
-    SUCCESS = 0,      ///< 操作成功
-    ERROR_JSON = 1,   ///< JSON 解析失败
-    ERROR_NETWORK = 2, ///< 网络通信错误
-    // 业务逻辑错误码 (1000+)
-    UserExist = 1001,       ///< 用户名已存在
-    PasswdErr = 1002,       ///< 密码错误
-    EmailExist = 1003,      ///< 邮箱已存在
-    VarifyCodeErr = 1004,   ///< 验证码错误
-    VarifyCodeExpired = 1005 ///< 验证码过期
+    SUCCESS = 0,            ///< 操作成功
+    ERROR_JSON = 1001,      ///< JSON 解析失败
+    RPC_FAILED = 1002,      ///< RPC 调用失败
+    VarifyCodeExpired = 1003, ///< 验证码过期
+    VarifyCodeErr = 1004,     ///< 验证码错误
+    UserExist = 1005,         ///< 用户名已存在
+    PasswdErr = 1006,         ///< 密码错误
+    UserNotExist = 1007,      ///< 用户不存在
+    EmailNotMatch = 1008,     ///< 邮箱不匹配
+    PasswdUpFailed = 1009,    ///< 密码更新失败
+    RPCGetFailed = 1010,      ///< 获取状态服务失败
+    ERROR_NETWORK = 2         ///< 网络通信错误
 };
 
 #endif // GLOBAL_H

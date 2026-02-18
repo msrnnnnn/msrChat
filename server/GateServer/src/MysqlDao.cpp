@@ -75,3 +75,80 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         return -1;
     }
 }
+
+int MysqlDao::ResetPwd(const std::string &name, const std::string &email, const std::string &pwd)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return -1;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> stmt(
+            con->prepareStatement("SELECT uid FROM user WHERE name = ? AND email = ?"));
+        stmt->setString(1, name);
+        stmt->setString(2, email);
+        std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+        if (!res->next())
+        {
+            pool_->returnConnection(std::move(con));
+            return 0;
+        }
+        int uid = res->getInt(1);
+
+        stmt.reset(con->prepareStatement("UPDATE user SET password = ? WHERE uid = ?"));
+        stmt->setString(1, pwd);
+        stmt->setInt(2, uid);
+        int updateCount = stmt->executeUpdate();
+        pool_->returnConnection(std::move(con));
+        if (updateCount > 0)
+        {
+            return uid;
+        }
+        return -1;
+    }
+    catch (sql::SQLException &e)
+    {
+        pool_->returnConnection(std::move(con));
+        std::cerr << "SQLException: " << e.what() << std::endl;
+        return -1;
+    }
+}
+
+int MysqlDao::LoginUser(const std::string &name, const std::string &pwd)
+{
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return -1;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> stmt(
+            con->prepareStatement("SELECT uid, password FROM user WHERE name = ?"));
+        stmt->setString(1, name);
+        std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+        if (!res->next())
+        {
+            pool_->returnConnection(std::move(con));
+            return 0;
+        }
+        int uid = res->getInt("uid");
+        std::string db_pwd = res->getString("password");
+        pool_->returnConnection(std::move(con));
+        if (db_pwd != pwd)
+        {
+            return -1;
+        }
+        return uid;
+    }
+    catch (sql::SQLException &e)
+    {
+        pool_->returnConnection(std::move(con));
+        std::cerr << "SQLException: " << e.what() << std::endl;
+        return -1;
+    }
+}

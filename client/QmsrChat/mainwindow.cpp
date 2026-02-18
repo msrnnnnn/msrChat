@@ -41,9 +41,17 @@ MainWindow::MainWindow(QWidget *parent)
     _register_dialog->move(this->pos());
     _register_dialog->hide();
 
+    _reset_dialog = new ResetDialog(this);
+    _reset_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
+    _reset_dialog->setFixedSize(this->size());
+    _reset_dialog->move(this->pos());
+    _reset_dialog->hide();
+
     // 4. 绑定切换信号槽
     connect(_login_dialog, &LoginDialog::switchRegister, this, &MainWindow::slotSwitchRegister);
     connect(_register_dialog, &RegisterDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
+    connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
+    connect(_reset_dialog, &ResetDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
 }
 
 /**
@@ -60,6 +68,7 @@ MainWindow::~MainWindow()
 void MainWindow::slotSwitchRegister()
 {
     _login_dialog->hide();
+    _reset_dialog->hide();
     _register_dialog->show();
 }
 
@@ -69,5 +78,13 @@ void MainWindow::slotSwitchRegister()
 void MainWindow::slotSwitchLogin()
 {
     _register_dialog->hide();
+    _reset_dialog->hide();
     _login_dialog->show();
+}
+
+void MainWindow::slotSwitchReset()
+{
+    _login_dialog->hide();
+    _register_dialog->hide();
+    _reset_dialog->show();
 }

@@ -83,8 +83,8 @@ void RegisterDialog::on_Confirm_Button_clicked()
     QJsonObject json_obj;
     json_obj["user"] = ui->user_Edit->text();
     json_obj["email"] = ui->email_Edit->text();
-    json_obj["passwd"] = ui->password_Edit->text();
-    json_obj["confirm"] = ui->confirm_password_Edit->text();
+    json_obj["passwd"] = xorString(ui->password_Edit->text());
+    json_obj["confirm"] = xorString(ui->confirm_password_Edit->text());
     json_obj["varifycode"] = ui->verifycode_Edit->text();
 
     HttpManagement::GetInstance()->PostHttpRequest(
@@ -129,6 +129,10 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
  */
 void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
 {
+    if (mod != Modules::REGISTER_MOD)
+    {
+        return;
+    }
     // 1. 网络层错误拦截
     if (err != ERRORCODES::SUCCESS)
     {
@@ -185,11 +189,8 @@ void RegisterDialog::initHttpHandlers()
                 QString errStr = tr("获取验证码失败");
                 switch (static_cast<ERRORCODES>(error))
                 {
-                case ERRORCODES::EmailExist:
-                    errStr = tr("该邮箱已被注册");
-                    break;
-                case ERRORCODES::ERROR_NETWORK:
-                    errStr = tr("网络错误");
+                case ERRORCODES::UserExist:
+                    errStr = tr("用户名或邮箱已存在");
                     break;
                 default:
                     break;
@@ -215,10 +216,7 @@ void RegisterDialog::initHttpHandlers()
                 switch (static_cast<ERRORCODES>(error))
                 {
                 case ERRORCODES::UserExist:
-                    errStr = tr("用户名已存在");
-                    break;
-                case ERRORCODES::EmailExist:
-                    errStr = tr("邮箱已被注册");
+                    errStr = tr("用户名或邮箱已存在");
                     break;
                 case ERRORCODES::VarifyCodeErr:
                     errStr = tr("验证码错误");

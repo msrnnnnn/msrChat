@@ -10,6 +10,7 @@
 #include <QMainWindow>
 #include "logindialog.h"
 #include "registerdialog.h"
+#include "resetdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -49,12 +50,14 @@ public slots:
      * @brief 切换回登录界面
      */
     void slotSwitchLogin();
+    void slotSwitchReset();
 
 private:
     Ui::MainWindow *ui; ///< UI 指针
 
     LoginDialog *_login_dialog;       ///< 登录对话框实例
     RegisterDialog *_register_dialog; ///< 注册对话框实例
+    ResetDialog *_reset_dialog;       ///< 重置对话框实例
 };
 
 #endif // MAINWINDOW_H
