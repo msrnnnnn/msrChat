@@ -10,6 +10,7 @@
 #include "global.h"
 #include <QDialog>
 #include <QMap>
+#include <QTimer>
 #include <functional>
 
 namespace Ui
@@ -68,17 +69,17 @@ private slots:
     void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
 
 private:
-    /**
-     * @brief 初始化 HTTP 处理器注册表
-     * @note  在此函数中绑定 RequestType 与对应的 Lambda 处理逻辑
-     */
     void initHttpHandlers();
 
-    /**
-     * @brief 显示提示信息 (错误/成功)
-     * @param str 提示文本
-     * @param isCorrect true=绿色/正常状态, false=红色/错误状态
-     */
+    void startVerifyCountdown(int seconds);
+
+    bool checkUserValid();
+    bool checkEmailValid();
+    bool checkPassValid();
+    bool checkConfirmValid();
+    bool checkVarifyValid();
+    void AddTipErr(TipErr te, QString tips);
+    void DelTipErr(TipErr te);
     void showTip(QString str, bool isCorrect);
 
     Ui::RegisterDialog *ui; ///< UI 界面指针
@@ -89,6 +90,9 @@ private:
      * 这种设计符合开闭原则，新增请求类型无需修改核心分发逻辑
      */
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
+    QMap<TipErr, QString> _tip_errs;
+    QTimer *_verify_timer;
+    int _verify_counter;
 };
 
 #endif // REGISTERDIALOG_H
