@@ -4,6 +4,7 @@
 #include "message.grpc.pb.h"
 #include <atomic>
 #include <condition_variable>
+#include <grpcpp/grpcpp.h>
 #include <memory>
 #include <mutex>
 #include <queue>
