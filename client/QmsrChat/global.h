@@ -42,6 +42,13 @@ enum class RequestType
     ID_LOGIN_USER = 1004,      ///< 用户登录
 };
 
+struct ServerInfo {
+    QString Host;
+    QString Port;
+    QString Token;
+    int Uid;
+};
+
 /**
  * @brief 功能模块枚举
  * @details 标识应用程序的不同功能模块。

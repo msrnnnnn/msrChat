@@ -1,75 +1,54 @@
 #include "TcpMgr.h"
 #include <QDataStream>
 #include <QDebug>
+#include <QAbstractSocket>
 
-TcpMgr::TcpMgr()
-    : _host(""), _port(0),
-      _b_head_parsed(false),
-      _message_id(0),
-      _message_len(0)
+TcpMgr::TcpMgr() : _host(""), _port(0), _b_head_parsed(false), _message_id(0), _message_len(0)
 {
-    // 连接建立信号
+    // 1. 连接建立信号
     connect(&_socket, &QTcpSocket::connected, [this]() {
         qDebug() << "Connected to server!";
+        // 发送连接成功信号，LoginDialog 会收到这个信号然后发起登录
         emit sig_con_success(true);
     });
 
-           // 🌟 核心修复：接收数据处理 (变量名已替换) 🌟
+    // 2. 接收数据核心逻辑 (保持不变，因为这是处理粘包的标准做法)
     connect(&_socket, &QTcpSocket::readyRead, [this]() {
-        // 1. 读取所有新数据追加到缓冲区
         _buffer.append(_socket.readAll());
 
         while (true) {
-            // --- 阶段 A：解析头部 (4字节) ---
-            // 如果头部还没解析 (false)，那就尝试解析头部
+            // --- 阶段 A：解析头部 ---
             if (!_b_head_parsed) {
-                // 如果数据连头部都不够，直接返回，等下次
                 if (_buffer.size() < 4) {
                     return;
                 }
-
-                       // 使用 QDataStream 读取头部
                 QDataStream stream(_buffer);
-                stream.setByteOrder(QDataStream::BigEndian); // 网络字节序：大端
-
+                stream.setByteOrder(QDataStream::BigEndian);
                 stream >> _message_id >> _message_len;
 
-                       // 头部解析成功，从 buffer 中移除这 4 个字节
                 _buffer = _buffer.mid(4);
-
-                       // 🌟 状态流转：头部解析完成，标记为 true，进入等待 Body 阶段
                 _b_head_parsed = true;
             }
 
                    // --- 阶段 B：解析包体 ---
-                   // 如果头部已经解析了 (true)，那就尝试解析包体
             if (_b_head_parsed) {
-                // 检查缓冲区剩下的数据是否够一个完整的 Body
                 if (_buffer.size() < _message_len) {
-                    // 不够，说明半包了，返回等待下一次 readyRead
                     return;
                 }
-
-                       // 够了！提取 Body
                 QByteArray messageBody = _buffer.mid(0, _message_len);
-
-                       // 打印调试
                 qDebug() << "Recv Packet: ID=" << _message_id << " Len=" << _message_len;
 
-                       // 发送信号给逻辑层 (类型强转)
+                       // 通知业务层
                 emit sig_msg_received(static_cast<RequestType>(_message_id), messageBody);
 
-                       // 移除已处理的 Body
                 _buffer = _buffer.mid(_message_len);
-
-                       // 🌟 状态流转：Body 处理完了，标记为 false，准备处理下一个包的 Head
                 _b_head_parsed = false;
             }
         }
     });
 
-           // 错误处理 (适配 Qt 6)
-    connect(&_socket, &QTcpSocket::errorOccurred, [this](QAbstractSocket::SocketError socketError) {
+           // 3. 错误处理
+    connect(&_socket, &QTcpSocket::errorOccurred, [this](QAbstractSocket::SocketError) {
         qDebug() << "Socket Error:" << _socket.errorString();
         emit sig_con_success(false);
     });
@@ -79,30 +58,49 @@ TcpMgr::~TcpMgr() {
     _socket.close();
 }
 
-void TcpMgr::slot_tcp_connect(const QString& ip, quint16 port) {
-    if (_socket.state() == QAbstractSocket::ConnectedState) return;
-    _host = ip;
-    _port = port;
+// 🌟 按照教程修改：参数使用 ServerInfo 结构体
+void TcpMgr::slot_tcp_connect(ServerInfo si)
+{
+    qDebug()<< "receive tcp connect signal";
+    qDebug() << "Connecting to server...";
+
+    _host = si.Host;
+    // 教程里用的 toUInt 转 int 再强转 uint16
+    _port = static_cast<uint16_t>(si.Port.toUInt());
+
     _socket.connectToHost(_host, _port);
 }
 
-void TcpMgr::slot_send_data(RequestType reqId, QString data) {
-    if (_socket.state() != QAbstractSocket::ConnectedState) {
-        qDebug() << "Socket Not Connected!";
-        return;
-    }
-
-           // 构造 TLV 包
+// 🌟 按照教程修改：使用 append 拼接数据
+void TcpMgr::slot_send_data(RequestType reqId, QString data)
+{
     uint16_t id = static_cast<uint16_t>(reqId);
-    QByteArray body = data.toUtf8();
-    uint16_t len = static_cast<uint16_t>(body.size());
 
-    QByteArray sendBuffer;
-    QDataStream out(&sendBuffer, QIODevice::WriteOnly);
-    out.setByteOrder(QDataStream::BigEndian); // 关键：大端序
+           // 1. 将字符串转换为UTF-8编码的字节数组
+           // 比如 "Hello" -> 5个字节
+    QByteArray dataBytes = data.toUtf8();
 
+           // 2. 计算长度
+           // 注意：这里教程直接取 size，最大支持 65535 字节
+    quint16 len = static_cast<quint16>(dataBytes.size());
+
+           // 3. 创建一个QByteArray用于存储要发送的所有数据
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+
+           // 4. 设置数据流使用网络字节序 (大端)
+    out.setByteOrder(QDataStream::BigEndian);
+
+           // 5. 写入头部：ID(2字节) + 长度(2字节)
     out << id << len;
-    out.writeRawData(body.data(), len);
 
-    _socket.write(sendBuffer);
+           // 6. 添加字符串数据 (包体)
+           // 教程做法：直接把 dataBytes 追加到 block 后面
+    block.append(dataBytes);
+
+           // 7. 发送数据
+    _socket.write(block);
+
+    // Debug一下看发了啥
+    qDebug() << "Tcp Send: ID=" << id << " Len=" << len << " Data=" << data;
 }
