@@ -7,6 +7,7 @@
 #ifndef LOGINDIALOG_H
 #define LOGINDIALOG_H
 
+#include "global.h"
 #include <QDialog>
 #include <QEvent>
 #include <QJsonObject>
