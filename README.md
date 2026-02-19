@@ -15,92 +15,87 @@
 
 后端核心采用 **C++17** 标准，基于 **Boost.Asio** 异步网络库和 **gRPC** 框架，实现了高性能的网络通信和跨服务调用。前端使用 **Qt** 框架，打造了流畅且美观的用户界面。
 
+## 🏗️ 系统架构 (Architecture)
+
+```mermaid
+graph TD
+    Client[Qt Client]
+    Gate[GateServer (HTTP)]
+    Status[StatusServer (gRPC)]
+    Chat[ChatServer (TCP)]
+    Redis[(Redis Cache)]
+    MySQL[(MySQL DB)]
+
+    Client -- 1. HTTP Register/Login --> Gate
+    Client -- 4. TCP Long Connection --> Chat
+    Gate -- 2. gRPC GetChatServer --> Status
+    Gate -- 3. Reg/Login Data --> MySQL
+    Gate -- Verify Code/Token --> Redis
+    Status -- Monitor Load --> Chat
+```
+
+*   **GateServer**: HTTP 网关，负责用户注册、登录、负载均衡。
+*   **StatusServer**: 状态服务，维护 ChatServer 集群的健康状态和负载情况。
+*   **ChatServer**: (WIP) TCP 聊天服务器，负责消息推送、即时通讯。
+*   **Qt Client**: 跨平台客户端，集成 HTTP 和 TCP 通信模块。
+
 ## ✨ 核心特性 (Key Features)
 
-*   **🏗️ 分布式微服务架构**：
-    *   **GateServer (网关服务)**：基于 **Boost.Beast** 实现的 HTTP 服务器，负责用户注册、登录、负载均衡以及聊天服务器的分配。
-    *   **StatusServer (状态服务)**：基于 **gRPC** 实现，维护所有 ChatServer 的在线状态和负载情况，确保连接分配的最优化。
-    *   **ChatServer (聊天服务)**：(WIP) 负责维护客户端的 TCP 长连接、消息转发和即时通讯业务。
-
 *   **⚡ 高性能网络模型**：
-    *   **Boost.Asio 异步 I/O**：利用 **Epoll** (Linux) 和 **IOCP** (Windows) 技术，实现非阻塞的高并发网络处理。
-    *   **I/O Context Pool**：实现了多线程 Reactor 模型，通过线程池分发 I/O 事件，充分利用多核 CPU 性能。
+    *   **Boost.Asio 异步 I/O**: 基于 Epoll/IOCP 实现非阻塞 I/O，单机支持万级并发。
+    *   **IO Context Pool**: 实现多线程 Reactor 模型，通过 `round-robin` 轮询分发连接，充分利用多核 CPU。
 
 *   **🔄 高效通信与协议**：
-    *   **gRPC & Protobuf**：服务间通信采用 gRPC，使用 Protocol Buffers 进行高效的序列化与反序列化，大幅降低网络传输开销。
-    *   **自定义应用层协议**：TCP 通信采用 "Length-Field" 封包格式，完美解决 TCP 粘包/拆包问题。
+    *   **gRPC 微服务通信**: 服务间调用采用 gRPC (Protobuf)，比 RESTful API 更高效。
+    *   **自定义应用层协议**: TCP 通信采用 "Length-Field" (ID+Length+Data) 封包格式，完美解决粘包/拆包问题。
 
-*   **💾 数据存储与缓存**：
-    *   **MySQL 连接池**：基于生产者-消费者模型实现的数据库连接池，支持动态扩容与空闲回收，显著提升数据库并发访问性能。
-    *   **Redis 缓存**：使用 Redis 存储验证码、用户会话等临时高频数据，减轻数据库压力，提升响应速度。
+*   **💾 数据存储与优化**：
+    *   **MySQL 连接池**: 基于 `std::queue` 和 `std::condition_variable` 实现的线程安全连接池，支持动态扩容与空闲回收，大幅减少连接建立开销。
+    *   **Redis 缓存**: 缓存验证码、Session Token 等高频数据，减轻数据库压力。
 
-*   **💻 现代化客户端 (Qt)**：
-    *   **UI/UX**：使用 QSS 样式表定制界面，提供流畅的交互体验。
-    *   **模块化设计**：通过单例模式 (Singleton) 管理网络模块 (HttpMgr/TcpMgr)，实现业务逻辑与网络层的解耦。
+*   **🛡️ 工程化实践**：
+    *   **RAII 资源管理**: 全面使用智能指针 (`std::shared_ptr`, `std::unique_ptr`) 管理内存和资源，杜绝内存泄漏。
+    *   **Singleton 单例模式**: 统一管理全局配置、网络连接池等核心组件。
 
 ## 🛠️ 技术栈 (Tech Stack)
 
-*   **后端开发**：
-    *   **语言标准**：C++17
-    *   **网络框架**：Boost.Asio, Boost.Beast
-    *   **RPC 框架**：gRPC, Protobuf
-    *   **数据库**：MySQL (mysql-connector-cpp), Redis (hiredis)
-    *   **JSON 处理**：JsonCpp
+| 类别 | 技术 | 说明 |
+| :--- | :--- | :--- |
+| **语言** | C++17 | 使用 lambda, smart pointers, mutex 等现代特性 |
+| **网络** | Boost.Asio, Boost.Beast | 高性能异步网络库 & HTTP 库 |
+| **RPC** | gRPC, Protobuf | Google 高性能 RPC 框架 |
+| **数据库** | MySQL, Redis | 关系型数据库 & 内存缓存 |
+| **客户端** | Qt 5 / Qt 6 | 跨平台 GUI 框架 |
+| **构建** | CMake | 跨平台构建系统 |
 
-*   **前端开发**：
-    *   **框架**：Qt 5 / Qt 6 (Core, Gui, Widgets, Network)
-    *   **UI 设计**：Qt Designer, QSS
+## 🚀 编译与运行 (Build & Run)
 
-*   **构建与工具**：
-    *   **构建系统**：CMake
-    *   **版本控制**：Git
+### 1. 依赖项 (Dependencies)
 
-## 🚀 快速开始 (Getting Started)
-
-### 1. 环境准备
-
-*   **编译器**：GCC 9+ / Clang 10+ / MSVC 2019+ (支持 C++17)
-*   **构建工具**：CMake 3.15+
-*   **依赖库**：
-    *   Boost 1.70+
+*   **Compiler**: GCC 9+ / Clang 10+ / MSVC 2019+ (C++17 Support)
+*   **CMake**: 3.15+
+*   **Libraries**:
+    *   Boost (system, thread, filesystem)
     *   gRPC & Protobuf
     *   MySQL Connector/C++
     *   hiredis (Redis Client)
-    *   Qt 5.12+ 或 Qt 6.0+
+    *   Qt 5.12+ (Client only)
 
-### 2. 服务端配置
+### 2. 服务端编译 (Server)
 
-在 `server` 目录下各服务的 `config.ini` 中配置数据库和网络参数：
-
-```ini
-[GateServer]
-Port=8080
-
-[Mysql]
-Host=127.0.0.1
-Port=3306
-User=root
-Passwd=your_password
-Name=msrchat
-
-[Redis]
-Host=127.0.0.1
-Port=6379
-```
-
-### 3. 编译与运行
-
-#### 编译服务端
 ```bash
+# 1. 编译 GateServer
 cd server/GateServer
 mkdir build && cd build
 cmake ..
 make -j4
+
+# 2. 运行
 ./GateServer
 ```
 
-#### 编译客户端
-使用 Qt Creator 打开 `client/QmsrChat/CMakeLists.txt` 或使用命令行编译：
+### 3. 客户端编译 (Client)
+
 ```bash
 cd client/QmsrChat
 mkdir build && cd build
