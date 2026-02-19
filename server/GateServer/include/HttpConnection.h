@@ -1,11 +1,8 @@
 /**
  * @file    HttpConnection.h
  * @brief   HTTP 连接类声明
- * @author  msr
- *
  * @details 管理单个 HTTP 连接的生命周期，处理请求解析、响应发送和超时检测。
  */
-
 #pragma once
 
 #include <boost/asio.hpp>
@@ -61,10 +58,10 @@ private:
 
     /**
      * @brief   Beast 动态缓冲区 (Dynamic Buffer)
-     * @note
+     * @details
      * 1. 自动扩容。
      * 2. 处理 TCP 粘包/拆包的核心组件。
-     * 3. `async_read` 读多了的数据会留在这里供下一次解析使用。
+     * 3. async_read 读取的数据暂存区。
      */
     beast::flat_buffer _buffer{8192};
 

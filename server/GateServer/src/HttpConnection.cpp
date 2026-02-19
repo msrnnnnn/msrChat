@@ -1,7 +1,6 @@
 /**
  * @file    HttpConnection.cpp
  * @brief   HTTP 连接类实现
- * @author  msr
  */
 
 #include "HttpConnection.h"
@@ -19,22 +18,13 @@ void HttpConnection::Start()
 {
     auto self = shared_from_this();
 
-    // [Heartbeat] 更新超时时间：倒计时60秒(此时还没开始计时)
+    // 更新超时定时器：60秒
     deadline_.expires_after(std::chrono::seconds(60));
 
-    // 启动/检测超时定时器
+    // 启动超时检测
     self->CheckDeadline();
 
-    /**
-     * @brief 异步读取并解析 HTTP 请求
-     * @details
-     * 这是一个组合操作 (Composed Operation):
-     * 1. 调用 socket.read_some 读取字节到 _buffer。
-     * 2. 调用 http parser 解析字节流。
-     * 3. 如果 Header 不完整 (未找到 \r\n\r\n)，重复步骤 1。
-     * 4. 如果 Body 不完整 (Content-Length 未满足)，重复步骤 1。
-     * 5. 全部解析完成后，调用 lambda 回调。
-     */
+    // 异步读取并解析 HTTP 请求
     http::async_read(
         _socket, _buffer, _request,
         [self](beast::error_code ec, std::size_t)
@@ -43,7 +33,7 @@ void HttpConnection::Start()
             {
                 if (ec)
                 {
-                    // EOF (End of File) 表示对端关闭了连接，是正常流程
+                    // 对端关闭连接或其他错误
                     std::cout << "http read is" << ec.what() << std::endl;
                     return;
                 }
@@ -63,10 +53,9 @@ void HttpConnection::HandleRequest()
     std::cout << "[HTTP Request] Method: " << _request.method_string() << ", Target: " << _request.target()
               << std::endl;
 
-    // [Protocol Compliance]
     // 设置 HTTP 版本 (1.0 或 1.1)
     _response.version(_request.version());
-    // 设置 Keep-Alive 属性。如果是 1.1，默认是 true；如果是 1.0，取决于 Connection header。
+    // 设置 Keep-Alive 属性
     bool keep_alive = _request.keep_alive();
     _response.keep_alive(keep_alive);
 
@@ -74,14 +63,14 @@ void HttpConnection::HandleRequest()
     {
         PreParseGetParam();
         std::cout << "[Routing] GET request to: " << _get_url << std::endl;
-        // [Routing] 路由分发
+        // 路由分发
         bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
         if (!success)
         {
             std::cout << "[Routing] Route not found: " << _get_url << std::endl;
             _response.result(http::status::not_found);
             _response.set(http::field::content_type, "text/plain");
-            beast::ostream(_response.body()) << "url not found \r\n";
+            beast::ostream(_response.body()) << "url not found\r\n";
             WriteResponse();
             return;
         }
@@ -118,10 +107,7 @@ void HttpConnection::WriteResponse()
     // 必须显式设置 Content-Length，否则客户端可能不知道响应何时结束
     _response.content_length(_response.body().size());
 
-    /**
-     * @brief 异步写回响应
-     * @details 将用户态 buffer 的数据拷贝到内核态 socket 发送缓冲区。
-     */
+    // 异步写回响应
     http::async_write(
         _socket, _response,
         [self](beast::error_code ec, std::size_t)
@@ -134,7 +120,6 @@ void HttpConnection::WriteResponse()
                 return;
             }
 
-            // [Keep-Alive Handling]
             // 如果协议支持长连接，则清空 Request/Response 对象，递归调用 ReadRequest 等待下一个请求。
             // 否则，主动关闭连接。
             if (self->_response.keep_alive())
@@ -156,20 +141,13 @@ void HttpConnection::CheckDeadline()
 {
     auto self = shared_from_this();
 
-    /**
-     * @brief 异步等待定时器
-     * @details
-     * - 情况1: 超时。ec == 0。调用 close() 关闭 socket。
-     * - 情况2: 定时器被取消 (cancel)。ec == operation_aborted。什么都不做。
-     * - 情况3: 定时器重新设置 (expires_after)。也会触发 operation_aborted。
-     */
+    // 异步等待定时器
     deadline_.async_wait(
         [self](beast::error_code ec)
         {
             if (!ec)
             {
                 // 真正的超时发生了，硬关闭 Socket
-                // 这会导致任何正在进行的 read/write 操作立即返回 error，从而中断连接
                 std::cout << "socket close" << std::endl;
                 self->_socket.close();
             }
@@ -222,13 +200,13 @@ std::string UrlDecode(const std::string &str)
 void HttpConnection::PreParseGetParam()
 {
     // 1. 使用 string_view 避免拷贝
-    std::string_view uri = _request.target(); // Beast 也是返回 string_view
+    std::string_view uri = _request.target();
 
     // 2. 查找 ?
     auto query_pos = uri.find('?');
     if (query_pos == std::string_view::npos)
     {
-        _get_url = std::string(uri); // 这里必须拷贝，因为 _get_url 拥有所有权
+        _get_url = std::string(uri);
         return;
     }
 
@@ -243,7 +221,7 @@ void HttpConnection::PreParseGetParam()
         // 找 &
         auto amp_pos = query_string.find('&');
 
-        // 拿到当前的 kv 段 (例如 "id=1")
+        // 拿到当前的 kv 段
         // 如果找不到 &，说明是最后一段
         auto segment = (amp_pos == std::string_view::npos) ? query_string : query_string.substr(0, amp_pos);
 
@@ -251,7 +229,7 @@ void HttpConnection::PreParseGetParam()
         auto eq_pos = segment.find('=');
         if (eq_pos != std::string_view::npos)
         {
-            // 拿到 key 和 value 的视图 (还在原始 buffer 里，没发生拷贝)
+            // 拿到 key 和 value 的视图
             auto key_view = segment.substr(0, eq_pos);
             auto val_view = segment.substr(eq_pos + 1);
 

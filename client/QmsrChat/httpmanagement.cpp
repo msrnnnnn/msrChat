@@ -2,7 +2,6 @@
  * @file    httpmanagement.cpp
  * @brief   HTTP 网络请求管理器实现
  * @details 封装了基于 Qt 的异步 HTTP POST 请求逻辑，支持单例模式与生命周期安全。
- * @author  msr
  */
 
 #include "httpmanagement.h"
@@ -11,13 +10,9 @@
 #include <QJsonDocument>
 #include <QNetworkReply>
 
-// ============================================================
-// 构造与析构
-// ============================================================
-
 HttpManagement::~HttpManagement()
 {
-    // 析构函数：由于 _manager 是成员变量而非指针，Qt 会自动处理其资源释放
+    // 析构函数：Qt 的对象树机制或智能指针会自动处理资源
 }
 
 HttpManagement::HttpManagement()
@@ -26,18 +21,9 @@ HttpManagement::HttpManagement()
     connect(this, &HttpManagement::signal_http_finish, this, &HttpManagement::slot_http_finish);
 }
 
-// ============================================================
-// 核心业务逻辑
-// ============================================================
-
-/**
- * @brief 发送 HTTP POST 请求
- * @note 采用异步回调模式。通过 shared_from_this 延长生命周期，确保异步安全性。
- */
 void HttpManagement::PostHttpRequest(const QUrl &url, const QJsonObject &json, RequestType req_type, Modules mod)
 {
-    // 1. 序列化：将 JSON 对象转为紧凑格式的字节流，准备网络传输
-    // [优化] 使用 Compact 模式减少传输体积
+    // 1. 序列化：将 JSON 对象转为紧凑格式的字节流，减少传输体积
     QByteArray data = QJsonDocument(json).toJson(QJsonDocument::Compact);
 
     // 2. 构造请求头
@@ -48,7 +34,7 @@ void HttpManagement::PostHttpRequest(const QUrl &url, const QJsonObject &json, R
     // 3. 发起异步请求
     QNetworkReply *reply = _manager.post(request, data);
 
-    // 4. 生命周期管理
+    // 4. 获取 shared_from_this 以确保在异步回调中对象存活
     auto self = shared_from_this();
 
     // 5. 绑定回调
@@ -74,17 +60,11 @@ void HttpManagement::PostHttpRequest(const QUrl &url, const QJsonObject &json, R
         });
 }
 
-/**
- * @brief 注册模块处理器
- */
 void HttpManagement::registerHttpHandler(Modules mod, HttpHandler handler)
 {
     _handlers.insert(mod, handler);
 }
 
-/**
- * @brief 内部信号分发槽
- */
 void HttpManagement::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
 {
     auto it = _handlers.find(mod);

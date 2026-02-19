@@ -1,3 +1,8 @@
+/**
+ * @file    clickedlabel.h
+ * @brief   自定义可点击标签类
+ * @details 继承自 QLabel，增加了点击、悬停等状态处理。
+ */
 #ifndef CLICKEDLABEL_H
 #define CLICKEDLABEL_H
 

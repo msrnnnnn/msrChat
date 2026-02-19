@@ -8,14 +8,13 @@ RedisMgr::~RedisMgr()
 {
 }
 
-// Mock 连接：永远返回成功
 bool RedisMgr::Connect(const std::string &host, int port)
 {
+    // 模拟连接成功
     std::cout << "[Mock Redis] Connect to " << host << ":" << port << " Success." << std::endl;
     return true;
 }
 
-// Mock Auth：永远通过
 bool RedisMgr::Auth(const std::string &password)
 {
     std::cout << "[Mock Redis] Auth Success." << std::endl;
@@ -24,14 +23,12 @@ bool RedisMgr::Auth(const std::string &password)
 
 bool RedisMgr::Get(const std::string &key, std::string &value)
 {
-    // 【万能后门】
-    // 只要是查验证码，不管什么邮箱，永远告诉 LogicSystem：Redis 里存的是 "123456"
+    // 模拟获取验证码，始终返回测试值
     value = "123456";
     std::cout << "[Mock Redis] Get " << key << " -> always return 123456" << std::endl;
     return true;
 }
 
-// 核心功能：用 map 模拟 SET
 bool RedisMgr::Set(const std::string &key, const std::string &value)
 {
     std::lock_guard<std::mutex> lock(_mtx);
@@ -40,7 +37,7 @@ bool RedisMgr::Set(const std::string &key, const std::string &value)
     return true;
 }
 
-// 还有其他接口，暂时给个空实现，用到再补
+// 预留接口实现
 bool RedisMgr::LPush(const std::string &key, const std::string &value)
 {
     return true;

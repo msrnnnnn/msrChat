@@ -1,9 +1,8 @@
 /**
  * @file MysqlMgr.h
  * @brief MySQL 管理器定义
- * @author msr
+ * @details 封装了 MySQLDao，提供统一的数据库操作接口。
  */
-
 #pragma once
 
 #include "MysqlDao.h"
@@ -12,8 +11,6 @@
 /**
  * @class   MysqlMgr
  * @brief   MySQL 管理器 (Singleton)
- *
- * @details 封装了 MySQLDao，提供统一的数据库操作接口。
  */
 class MysqlMgr : public Singleton<MysqlMgr>
 {

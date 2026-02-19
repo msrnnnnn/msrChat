@@ -1,3 +1,8 @@
+/**
+ * @file    StatusGrpcClient.h
+ * @brief   状态服务 gRPC 客户端声明
+ * @details 负责连接 StatusServer，获取 ChatServer 的调度信息。
+ */
 #pragma once
 
 #include "Singleton.h"

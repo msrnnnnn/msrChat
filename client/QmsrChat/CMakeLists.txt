@@ -13,7 +13,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
 
-# [Architect Refactor] 统一管理所有源文件
+# 统一管理所有源文件
 # 无论是在 Qt5 还是 Qt6 下编译，都使用这份清单
 set(PROJECT_SOURCES
         main.cpp
@@ -27,19 +27,18 @@ set(PROJECT_SOURCES
         clickedlabel.cpp clickedlabel.h
         singleton.h
         resources.qrc
-        config.ini  # 将配置文件加入项目视图，方便在 IDE 中编辑
+        config.ini
 )
 
-# [Qt6 Build Path]
+# Qt6 Build Path
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         .gitignore
         tcpmgr.h tcpmgr.cpp
-        # 直接使用上面定义好的集合
     )
-# [Qt5 / Android Build Path]
+# Qt5 / Android Build Path
 else()
     if(ANDROID)
         add_library(QmsrChat SHARED
@@ -55,7 +54,7 @@ endif()
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 
-# ================= [Architect Add] 配置管理自动化核心逻辑 =================
+# ================= 配置管理自动化核心逻辑 =================
 # 定义配置文件源路径 (源码目录下的 config.ini)
 set(CONFIG_FILE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")
 

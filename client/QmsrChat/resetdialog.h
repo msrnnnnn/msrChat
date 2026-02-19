@@ -1,3 +1,8 @@
+/**
+ * @file    resetdialog.h
+ * @brief   重置密码对话框类
+ * @details 负责用户重置密码的交互逻辑。
+ */
 #ifndef RESETDIALOG_H
 #define RESETDIALOG_H
 

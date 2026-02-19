@@ -1,9 +1,7 @@
 /**
  * @file    registerdialog.cpp
  * @brief   注册对话框实现
- * @author  msr
  */
-
 #include "registerdialog.h"
 #include "global.h"
 #include "httpmanagement.h"
@@ -21,15 +19,15 @@ RegisterDialog::RegisterDialog(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 初始化错误提示标签状态 (基于 QSS 动态属性)
+    // 初始化错误提示标签状态
     ui->error_label->setProperty("state", "normal");
     repolish(ui->error_label); // 强制刷新样式，确保 state 属性生效
 
-    // [核心] 连接全局网络单例的信号
+    // 连接全局网络单例的信号
     // 当 HttpManagement 收到网络回包时，会触发此信号，进而调用本类的分发槽函数
     connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &RegisterDialog::slot_http_finish);
 
-    // 初始化注册表 (填充 _handlers)
+    // 初始化注册表
     initHttpHandlers();
 
     connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]()
@@ -145,7 +143,7 @@ void RegisterDialog::on_Confirm_Button_clicked()
         return;
     }
 
-    // day11 发送http请求注册用户
+    // 发送http请求注册用户
     QJsonObject json_obj;
     json_obj["user"] = ui->user_Edit->text();
     json_obj["email"] = ui->email_Edit->text();
@@ -208,9 +206,9 @@ void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCO
     }
 
     // 3. 业务逻辑分发 (Registry Pattern)
-    // [Safety Fix] 绝对禁止使用 _handlers[req_type] 直接调用！
+    // 绝对禁止使用 _handlers[req_type] 直接调用！
     // 原因：如果 req_type 不在 map 中，operator[] 会自动插入一个空对象并返回，
-    // 导致调用空 function 抛出 std::bad_function_call 异常，程序直接 Crash。
+    // 导致调用空回调引发崩溃。必须使用 find 检查存在性。
     auto it = _handlers.find(req_type);
     if (it == _handlers.end())
     {
@@ -228,7 +226,7 @@ void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCO
  */
 void RegisterDialog::initHttpHandlers()
 {
-    // [注册] 获取验证码回包逻辑
+    // 注册获取验证码回包逻辑
     _handlers.insert(
         RequestType::ID_GET_VARIFY_CODE,
         [this](const QJsonObject &JsonObject)
@@ -255,7 +253,7 @@ void RegisterDialog::initHttpHandlers()
             startVerifyCountdown(10);
         });
 
-    // 注册注册用户回包逻辑
+    // 注册用户回包逻辑
     _handlers.insert(
         RequestType::ID_REGISTER_USER,
         [this](QJsonObject jsonObj)
@@ -414,7 +412,7 @@ void RegisterDialog::showTip(QString str, bool isCorrect)
 
     ui->error_label->setText(str);
 
-    // [Qt 机制] 属性改变后，必须手动触发 repolish 才能让样式表重新计算
+    // 属性改变后，必须手动触发 repolish 才能让样式表重新计算
     repolish(ui->error_label);
 }
 

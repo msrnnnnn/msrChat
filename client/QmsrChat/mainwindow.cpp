@@ -1,9 +1,7 @@
 /**
  * @file    mainwindow.cpp
  * @brief   主窗口实现
- * @author  msr
  */
-
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QIcon>

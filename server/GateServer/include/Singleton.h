@@ -3,7 +3,6 @@
  * @brief   线程安全的单例模板基类
  * @details 基于 CRTP 实现。
  *          利用 C++11 Static Local Variable 的特性保证线程安全。
- * @author  msr
  */
 
 #pragma once
@@ -45,7 +44,7 @@ public:
      */
     void PrintDestructor()
     {
-        std::cout << "this is singleton destruct" << std::endl;
+        // std::cout << "this is singleton destruct" << std::endl;
     }
 
 protected:
@@ -69,6 +68,6 @@ protected:
      */
     virtual ~Singleton()
     {
-        std::cout << " this is ~Singleton() " << std::endl;
+        // std::cout << " this is ~Singleton() " << std::endl;
     }
 };

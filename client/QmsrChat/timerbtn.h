@@ -1,3 +1,8 @@
+/**
+ * @file    timerbtn.h
+ * @brief   倒计时按钮控件
+ * @details 继承自 QPushButton，提供倒计时功能，常用于发送验证码按钮。
+ */
 #ifndef TIMERBTN_H
 #define TIMERBTN_H
 

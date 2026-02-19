@@ -1,11 +1,8 @@
 /**
  * @file    AsioIOServicePool.h
  * @brief   IO 上下文线程池声明
- * @author  msr
- *
  * @details 管理多个 io_context 和工作线程，通过 Round-Robin 方式分配 IO 任务。
  */
-
 #pragma once
 
 #include "Singleton.h"
@@ -18,11 +15,7 @@
 /**
  * @class   AsioIOServicePool
  * @brief   IO 上下文线程池 (Singleton)
- *
- * @details
- * 1. 预先创建 N 个线程，每个线程运行一个 `io_context::run()`。
- * 2. 提供 GetIOService() 接口，轮询返回一个 io_context 供 Session 绑定。
- * 3. 避免单线程 Reactor 在高并发下的性能瓶颈。
+ * @details 负责创建和管理 IO 线程池，提供 IO 上下文分发。
  */
 class AsioIOServicePool : public Singleton<AsioIOServicePool>
 {

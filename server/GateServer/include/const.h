@@ -2,9 +2,7 @@
  * @file    const.h
  * @brief   全局常量与错误码定义
  * @details 定义系统范围内的通用常量、错误代码枚举。
- * @author  msr
  */
-
 #pragma once
 
 namespace ChatApp

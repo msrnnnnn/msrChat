@@ -1,3 +1,8 @@
+/**
+ * @file    resetdialog.cpp
+ * @brief   重置密码对话框实现
+ */
+
 #include "resetdialog.h"
 #include "httpmanagement.h"
 #include "ui_resetdialog.h"

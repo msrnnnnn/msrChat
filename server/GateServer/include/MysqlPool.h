@@ -1,9 +1,8 @@
 /**
  * @file MysqlPool.h
  * @brief MySQL 连接池定义
- * @author msr
+ * @details 维护一组 MySQL 连接，支持多线程安全地获取和归还连接。
  */
-
 #pragma once
 
 #include <atomic>             // std::atomic
@@ -27,9 +26,6 @@
 /**
  * @class   MySqlPool
  * @brief   MySQL 连接池
- *
- * @details 维护一组 MySQL 连接，支持多线程安全地获取和归还连接。
- *          使用 std::queue 存储空闲连接，使用 std::mutex 和 std::condition_variable 实现线程同步。
  */
 class MySqlPool
 {

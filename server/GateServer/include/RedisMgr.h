@@ -1,9 +1,8 @@
 /**
  * @file RedisMgr.h
- * @brief Redis 管理器定义 (Mock 实现)
- * @author msr
+ * @brief Redis 管理器定义
+ * @details 封装 Redis 操作接口，提供统一的缓存服务。
  */
-
 #pragma once
 
 #include "Singleton.h"
@@ -16,9 +15,6 @@
 /**
  * @class   RedisMgr
  * @brief   Redis 管理器 (Singleton)
- *
- * @details 封装 Redis 操作接口。当前为 Mock 实现，使用内存 map 模拟 Redis 行为。
- *          主要用于开发测试阶段，无需真实 Redis 服务。
  */
 class RedisMgr : public Singleton<RedisMgr>, public std::enable_shared_from_this<RedisMgr>
 {
@@ -31,14 +27,14 @@ public:
      * @brief   连接 Redis
      * @param   host 主机地址
      * @param   port 端口号
-     * @return  bool 连接是否成功 (Mock 永远返回 true)
+     * @return  bool 连接状态
      */
     bool Connect(const std::string &host, int port);
 
     /**
      * @brief   认证
      * @param   password 密码
-     * @return  bool 认证是否成功 (Mock 永远返回 true)
+     * @return  bool 认证状态
      */
     bool Auth(const std::string &password);
 

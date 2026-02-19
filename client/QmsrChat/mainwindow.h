@@ -1,9 +1,8 @@
 /**
  * @file    mainwindow.h
  * @brief   主窗口类
- * @author  msr
+ * @details 负责管理应用程序的主界面及子界面切换（登录、注册、重置密码）。
  */
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -50,6 +49,10 @@ public slots:
      * @brief 切换回登录界面
      */
     void slotSwitchLogin();
+
+    /**
+     * @brief 切换到重置密码界面
+     */
     void slotSwitchReset();
 
 private:

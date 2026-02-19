@@ -1,29 +1,49 @@
+/**
+ * @file singleton.h
+ * @brief 线程安全的单例模板基类
+ * @details 使用 CRTP (Curiously Recurring Template Pattern) 实现。
+ *          利用 C++11 静态局部变量特性保证初始化时的线程安全。
+ */
 #ifndef SINGLETON_H
 #define SINGLETON_H
-#include "global.h"
+#include <memory>
+#include <mutex>
+#include <iostream>
 
 /**
- * 这段代码定义了一个“单例生成器”。它的作用是：任何类只要继承了这个模板类，就自动拥有了单例属性，无需重复编写 GetInstance 等样板代码。
+ * @class Singleton
+ * @brief 线程安全的单例模板基类
+ * @tparam T 需要实现单例的具体类
  */
-
 template <typename T>
-class Singleton{
+class Singleton {
 protected:
     Singleton() = default;
     Singleton(const Singleton&) = delete;
     Singleton& operator=(const Singleton&) = delete;
-    virtual ~Singleton(){
-        std::cout << "this is ~Singleton() " << std::endl;
-    }
-public:
-    static std::shared_ptr<T> GetInstance(){
-        static std::shared_ptr<T> _instance(new T);//在 C++11 及以后标准中，局部静态变量的初始化是线程安全的，因此不需要额外的 std::mutex 加锁
-        return _instance;
-    }
-    static T* getPtr(){
-        return GetInstance().get();
+    
+    virtual ~Singleton() {
+        // 可在此处添加析构日志
     }
 
+public:
+    /**
+     * @brief 获取单例实例
+     * @return std::shared_ptr<T> 指向单例的智能指针
+     */
+    static std::shared_ptr<T> GetInstance() {
+        // C++11 保证静态局部变量初始化的线程安全性
+        static std::shared_ptr<T> _instance(new T);
+        return _instance;
+    }
+
+    /**
+     * @brief 获取单例原始指针
+     * @return T* 原始指针
+     */
+    static T* getPtr() {
+        return GetInstance().get();
+    }
 };
 
 #endif // SINGLETON_H

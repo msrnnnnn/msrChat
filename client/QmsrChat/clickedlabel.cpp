@@ -1,3 +1,8 @@
+/**
+ * @file    clickedlabel.cpp
+ * @brief   自定义可点击标签类实现
+ */
+
 #include "clickedlabel.h"
 #include <QMouseEvent>
 

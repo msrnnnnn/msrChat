@@ -1,11 +1,8 @@
 /**
  * @file    VerifyGrpcClient.h
  * @brief   gRPC 验证服务客户端声明
- * @author  msr
- *
  * @details 封装了与 VerifyServer 通信的 gRPC 客户端，包含连接池实现。
  */
-
 #pragma once
 
 #include "Singleton.h"
@@ -23,7 +20,7 @@ using grpc::ClientContext;
 using grpc::Status;
 using message::GetVerifyRequest;
 using message::GetVerifyResponse;
-using message::VerifyService; // 注意这里修正了拼写 Varify -> Verify
+using message::VerifyService;
 
 /**
  * @class   RPConPool

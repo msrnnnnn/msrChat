@@ -1,9 +1,7 @@
 /**
  * @file    ConfigMgr.cpp
  * @brief   配置管理器实现
- * @author  msr
  */
-
 #include "ConfigMgr.h"
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -23,8 +21,7 @@ ConfigMgr::ConfigMgr()
 
     if (!std::filesystem::exists(config_path))
     {
-        // [Fallback] 如果当前目录找不到，尝试使用项目绝对路径
-        // 注意：此路径为开发环境硬编码，生产环境请确保 config.ini 与可执行文件同级
+        // 如果当前目录找不到，尝试使用默认开发路径
         config_path = "e:/Study/Project/Chat/msrchat/server/GateServer/config.ini";
     }
 

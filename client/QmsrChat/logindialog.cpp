@@ -1,9 +1,7 @@
 /**
  * @file logindialog.cpp
  * @brief 登录对话框实现
- * @author msr
  */
-
 #include "logindialog.h"
 #include "global.h"
 #include "httpmanagement.h"

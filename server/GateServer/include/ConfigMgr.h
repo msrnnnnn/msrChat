@@ -2,9 +2,7 @@
  * @file    ConfigMgr.h
  * @brief   配置管理类
  * @details 负责读取 INI 配置文件并提供配置项查询功能。
- * @author  msr
  */
-
 #pragma once
 
 #include <map>

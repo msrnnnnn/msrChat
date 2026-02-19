@@ -1,7 +1,7 @@
 /**
  * @file    httpmanagement.h
- * @brief   HTTP 网络请求管理器 (基于 Qt Network)
- * @author  msr
+ * @brief   HTTP 网络请求管理器
+ * @details 基于 Qt Network 模块封装，提供异步 POST 请求及回调分发机制。
  */
 
 #ifndef HTTPMANAGEMENT_H

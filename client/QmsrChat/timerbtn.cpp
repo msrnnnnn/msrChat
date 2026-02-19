@@ -1,3 +1,8 @@
+/**
+ * @file    timerbtn.cpp
+ * @brief   倒计时按钮控件实现
+ */
+
 #include "timerbtn.h"
 #include <QMouseEvent>
 

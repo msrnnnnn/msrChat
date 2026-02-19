@@ -1,11 +1,8 @@
 /**
  * @file    LogicSystem.h
  * @brief   业务逻辑分发系统声明
- * @author  msr
- *
  * @details 定义了单例模式的逻辑系统，负责注册和分发 HTTP GET/POST 请求到对应的处理函数。
  */
-
 #pragma once
 
 #include "Singleton.h"

@@ -20,37 +20,37 @@ set(gRPC_USE_STATIC_LIBS ON)
 # =============================================================
 # 3. 查找依赖包 (Find Packages)
 # =============================================================
-# 3.1 查找 Boost
+# 3.1 Find Boost
 find_package(Boost REQUIRED COMPONENTS system thread filesystem)
 
-# 3.2 查找 JsonCpp
+# 3.2 Find JsonCpp
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
-# 3.3 查找 Protobuf & gRPC
+# 3.3 Find Protobuf & gRPC
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
-# 3.4 查找 Threads
+# 3.4 Find Threads
 find_package(Threads REQUIRED)
 
-# 3.5 查找 Redis (hiredis)
+# 3.5 Find Redis (hiredis)
 find_path(HIREDIS_INCLUDE_DIR hiredis.h PATH_SUFFIXES hiredis)
 find_library(HIREDIS_LIBRARY NAMES hiredis)
 
 if (NOT HIREDIS_INCLUDE_DIR OR NOT HIREDIS_LIBRARY)
-    message(FATAL_ERROR "hiredis not found! Please run: sudo apt-get install libhiredis-dev")
+    message(FATAL_ERROR "hiredis not found! Please ensure libhiredis-dev is installed.")
 else()
     message(STATUS "Found hiredis: ${HIREDIS_LIBRARY}")
 endif()
 
-# 3.6 [新增] 查找 MySQL Connector/C++ (Linux版)
-# Linux下通常头文件在 /usr/include/jdbc 或 /usr/include/mysql-cppconn-8
+# 3.6 Find MySQL Connector/C++ (Linux)
+# Search paths: /usr/include/jdbc or /usr/include/mysql-cppconn-8
 find_path(MYSQL_INCLUDE_DIR mysql_connection.h PATH_SUFFIXES jdbc mysql-cppconn-8)
 find_library(MYSQL_LIBRARY NAMES mysqlcppconn)
 
 if (NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_LIBRARY)
-    message(FATAL_ERROR "MySQL Connector C++ not found! Please run: sudo apt-get install libmysqlcppconn-dev")
+    message(FATAL_ERROR "MySQL Connector C++ not found! Please ensure libmysqlcppconn-dev is installed.")
 else()
     message(STATUS "Found MySQL Connector: ${MYSQL_LIBRARY}")
 endif()
@@ -68,8 +68,8 @@ set(SERVER_SOURCES
     src/StatusGrpcClient.cpp
     src/AsioIOServicePool.cpp
     src/RedisMgr.cpp        
-    src/MysqlMgr.cpp        # <--- 已取消注释
-    src/MysqlDao.cpp        # <--- 已取消注释
+    src/MysqlMgr.cpp
+    src/MysqlDao.cpp
 )
 
 # =============================================================

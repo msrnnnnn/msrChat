@@ -1,3 +1,8 @@
+/**
+ * @file    MysqlDao.cpp
+ * @brief   MySQL 数据访问对象实现
+ */
+
 #include "MysqlDao.h"
 
 MysqlDao::MysqlDao()
@@ -6,10 +11,10 @@ MysqlDao::MysqlDao()
     const auto &host = cfg["Mysql"]["Host"];
     const auto &port = cfg["Mysql"]["Port"];
     const auto &pwd = cfg["Mysql"]["Passwd"];
-    const auto &schema = cfg["Mysql"]["Name"]; // 注意 config.ini 里叫 Name 还是 Schema，要对应
+    const auto &schema = cfg["Mysql"]["Name"]; 
     const auto &user = cfg["Mysql"]["User"];
 
-    // 初始化连接池，这里拼出了 tcp://192.168.x.x:3306
+    // 初始化连接池
     pool_.reset(new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, 5));
 }
 
@@ -28,7 +33,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
 
     try
     {
-        // Check if user or email exists
+        // 检查用户或邮箱是否已存在
         std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("SELECT uid FROM user WHERE name = ? OR email = ?"));
         stmt->setString(1, name);
         stmt->setString(2, email);
@@ -37,10 +42,10 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         if (res->next())
         {
             pool_->returnConnection(std::move(con));
-            return 0; // User or email already exists
+            return 0; // 用户名或邮箱重复
         }
 
-        // Insert new user
+        // 插入新用户
         stmt.reset(con->prepareStatement("INSERT INTO user (name, email, password) VALUES (?, ?, ?)"));
         stmt->setString(1, name);
         stmt->setString(2, email);
@@ -49,7 +54,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         int updateCount = stmt->executeUpdate();
         if (updateCount > 0)
         {
-            // Get the generated uid
+            // 获取自增 UID
             std::unique_ptr<sql::Statement> stmtResult(con->createStatement());
             std::unique_ptr<sql::ResultSet> resUid(stmtResult->executeQuery("SELECT LAST_INSERT_ID()"));
             if (resUid->next())
