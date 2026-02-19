@@ -157,7 +157,7 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         return;
     }
 
-    showTip(tr("网络异常"), false);
+    showTip(tr("聊天服务未启动或不可用"), false);
 }
 
 void LoginDialog::initHandlers()
