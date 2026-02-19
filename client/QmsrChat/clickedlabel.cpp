@@ -47,7 +47,11 @@ void ClickedLabel::mouseReleaseEvent(QMouseEvent *event)
     QLabel::mouseReleaseEvent(event);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void ClickedLabel::enterEvent(QEnterEvent *event)
+#else
 void ClickedLabel::enterEvent(QEvent *event)
+#endif
 {
     if (_curstate == ClickLbState::Normal)
     {
