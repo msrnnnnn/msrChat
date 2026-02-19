@@ -24,6 +24,9 @@ cmake-build-*/
 *.pdb
 *.ilk
 *.exp
+*.ids
+*.user
+*.suo
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
@@ -47,23 +50,19 @@ install_manifest.txt
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
-*.suo
 *.ntvs*
 *.njsproj
-*.user
 *.user.*
 .qtc_clangd/
 .qtc/
 *.swp
 *.~*
-
-# 4. 系统文件
 .DS_Store
 Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# 5. Qt 相关文件
+# 4. Qt 相关文件
 moc_*.cpp
 ui_*.h
 qrc_*.cpp
@@ -73,11 +72,16 @@ qrc_*.cpp
 *.jsc
 Makefile*
 
-# 6. gRPC 与 Protobuf 生成文件
+# 5. gRPC 与 Protobuf 生成文件
 *.pb.cc
 *.pb.h
 *.grpc.pb.cc
 *.grpc.pb.h
 
-# 7. 项目特定文件
-/GateServer
+# 6. 项目文档与隐私文件
+开发文档/
+*.md.html
+config.ini
+**/config.ini
+!server/GateServer/config.ini.example
+!client/QmsrChat/config.ini.example
