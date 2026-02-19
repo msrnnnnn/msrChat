@@ -17,6 +17,8 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
     for (std::size_t i = 0; i < size; ++i)
     {
         ioServices_.emplace_back(std::make_shared<IOService>());
+        // work_guard 确保 io_context 不会因为没有任务而退出，
+        // 从而保持线程持续运行等待新的异步事件。
         works_.emplace_back(boost::asio::make_work_guard(ioServices_[i]->get_executor()));
         threads_.emplace_back([this, i]() { ioServices_[i]->run(); });
     }
@@ -29,7 +31,8 @@ AsioIOServicePool::~AsioIOServicePool()
 
 std::shared_ptr<AsioIOServicePool::IOService> AsioIOServicePool::GetIOService()
 {
-    // 轮询分配 IO Context
+    // 使用原子操作实现的 Round-Robin (轮询) 调度策略，
+    // 将连接均匀分发到不同的 IO 线程，实现负载均衡。
     std::size_t index = nextIOService_.fetch_add(1, std::memory_order_relaxed);
     return ioServices_[index % ioServices_.size()];
 }

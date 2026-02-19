@@ -85,7 +85,11 @@ public:
      */
     std::unique_ptr<sql::Connection> getConnection()
     {
+        // 使用 RAII 锁 (unique_lock) 自动管理互斥量，
+        // 配合 condition_variable 实现线程安全的等待机制。
         std::unique_lock<std::mutex> lock(mutex_);
+        
+        // 循环检查条件 (Predicate)，防止虚假唤醒 (Spurious Wakeup)。
         cond_.wait(
             lock,
             [this]

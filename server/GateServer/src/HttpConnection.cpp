@@ -16,6 +16,8 @@ HttpConnection::HttpConnection(tcp::socket &&socket)
 
 void HttpConnection::Start()
 {
+    // 获取当前对象的智能指针，增加引用计数。
+    // 在异步回调链中传递 self，确保在回调执行前 HttpConnection 对象不会被析构。
     auto self = shared_from_this();
 
     // 更新超时定时器：60秒
