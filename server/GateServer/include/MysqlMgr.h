@@ -33,6 +33,7 @@ public:
     int RegUser(const std::string &name, const std::string &email, const std::string &pwd, const std::string &icon);
     int ResetPwd(const std::string &name, const std::string &email, const std::string &pwd);
     int LoginUser(const std::string &name, const std::string &pwd);
+    bool CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo);
 
 private:
     MysqlMgr();

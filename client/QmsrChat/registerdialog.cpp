@@ -10,6 +10,7 @@
 #include "ui_registerdialog.h"
 #include <QMessageBox>
 #include <QRegularExpression>
+#include <QTimer>
 
 /**
  * @brief 构造函数
@@ -19,9 +20,6 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     : QDialog(parent), ui(new Ui::RegisterDialog)
 {
     ui->setupUi(this);
-
-    // 信号槽绑定：点击取消按钮切换回登录页
-    connect(ui->Cancel_Button, &QPushButton::clicked, this, &RegisterDialog::switchLogin);
 
     // 初始化错误提示标签状态 (基于 QSS 动态属性)
     ui->error_label->setProperty("state", "normal");
@@ -55,22 +53,62 @@ RegisterDialog::RegisterDialog(QWidget *parent)
         checkVarifyValid();
     });
 
-    _verify_timer = new QTimer(this);
-    _verify_counter = 0;
-    _verify_timer->setInterval(1000);
-    connect(_verify_timer, &QTimer::timeout, this, [this]()
+    ui->password_Edit->setEchoMode(QLineEdit::Password);
+    ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
+
+    ui->pass_visible->setCursor(Qt::PointingHandCursor);
+    ui->confirm_visible->setCursor(Qt::PointingHandCursor);
+    ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
+    ui->confirm_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
+    ui->pass_visible->setText(tr("显示"));
+    ui->confirm_visible->setText(tr("显示"));
+    connect(ui->pass_visible, &ClickedLabel::clicked, this, [this]()
     {
-        if (_verify_counter <= 1)
+        auto state = ui->pass_visible->GetCurState();
+        if (state == ClickLbState::Normal)
         {
-            _verify_timer->stop();
-            _verify_counter = 0;
-            ui->confirm_verifycode_Button->setText(tr("获取"));
-            ui->confirm_verifycode_Button->setEnabled(true);
+            ui->password_Edit->setEchoMode(QLineEdit::Password);
+            ui->pass_visible->setText(tr("显示"));
+        }
+        else
+        {
+            ui->password_Edit->setEchoMode(QLineEdit::Normal);
+            ui->pass_visible->setText(tr("隐藏"));
+        }
+    });
+    connect(ui->confirm_visible, &ClickedLabel::clicked, this, [this]()
+    {
+        auto state = ui->confirm_visible->GetCurState();
+        if (state == ClickLbState::Normal)
+        {
+            ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
+            ui->confirm_visible->setText(tr("显示"));
+        }
+        else
+        {
+            ui->confirm_password_Edit->setEchoMode(QLineEdit::Normal);
+            ui->confirm_visible->setText(tr("隐藏"));
+        }
+    });
+
+    ui->confirm_verifycode_Button->setAutoStart(false);
+
+    _countdown_timer = new QTimer(this);
+    _countdown = 5;
+    connect(_countdown_timer, &QTimer::timeout, this, [this]()
+    {
+        if (_countdown <= 0)
+        {
+            _countdown_timer->stop();
+            ui->stackedWidget->setCurrentWidget(ui->page_1);
+            emit switchLogin();
             return;
         }
-        _verify_counter -= 1;
-        ui->confirm_verifycode_Button->setText(QString::number(_verify_counter) + "s");
+        _countdown -= 1;
+        auto str = tr("注册成功，%1 s后返回登录").arg(_countdown);
+        ui->tip_lb->setText(str);
     });
+    ui->stackedWidget->setCurrentWidget(ui->page_1);
 }
 
 /**
@@ -247,25 +285,23 @@ void RegisterDialog::initHttpHandlers()
             auto email = jsonObj["email"].toString();
             showTip(tr("用户注册成功"), true);
             qDebug() << "email is " << email;
+            ChangeTipPage();
         });
+}
+
+void RegisterDialog::ChangeTipPage()
+{
+    _countdown_timer->stop();
+    _countdown = 5;
+    auto str = tr("注册成功，%1 s后返回登录").arg(_countdown);
+    ui->tip_lb->setText(str);
+    ui->stackedWidget->setCurrentWidget(ui->page_2);
+    _countdown_timer->start(1000);
 }
 
 void RegisterDialog::startVerifyCountdown(int seconds)
 {
-    if (seconds <= 0)
-    {
-        ui->confirm_verifycode_Button->setText(tr("获取"));
-        ui->confirm_verifycode_Button->setEnabled(true);
-        return;
-    }
-
-    _verify_counter = seconds;
-    ui->confirm_verifycode_Button->setEnabled(false);
-    ui->confirm_verifycode_Button->setText(QString::number(_verify_counter) + "s");
-    if (!_verify_timer->isActive())
-    {
-        _verify_timer->start();
-    }
+    ui->confirm_verifycode_Button->startCountdown(seconds);
 }
 
 void RegisterDialog::AddTipErr(TipErr te, QString tips)
@@ -380,4 +416,18 @@ void RegisterDialog::showTip(QString str, bool isCorrect)
 
     // [Qt 机制] 属性改变后，必须手动触发 repolish 才能让样式表重新计算
     repolish(ui->error_label);
+}
+
+void RegisterDialog::on_return_btn_clicked()
+{
+    _countdown_timer->stop();
+    ui->stackedWidget->setCurrentWidget(ui->page_1);
+    emit switchLogin();
+}
+
+void RegisterDialog::on_Cancel_Button_clicked()
+{
+    _countdown_timer->stop();
+    ui->stackedWidget->setCurrentWidget(ui->page_1);
+    emit switchLogin();
 }

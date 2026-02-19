@@ -139,6 +139,28 @@ selection-color: rgb(0, 85, 255);</string>
          </property>
         </widget>
        </item>
+      <item>
+       <widget class="ClickedLabel" name="pass_visible">
+        <property name="minimumSize">
+         <size>
+          <width>30</width>
+          <height>25</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>60</width>
+          <height>25</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>显示</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignmentFlag::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
       </layout>
      </item>
      <item>
@@ -157,7 +179,7 @@ selection-color: rgb(0, 85, 255);</string>
         </spacer>
        </item>
        <item>
-        <widget class="QLabel" name="forget_password_label">
+        <widget class="ClickedLabel" name="forget_password_label">
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -362,6 +384,13 @@ selection-color: rgb(0, 85, 255);</string>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ClickedLabel</class>
+   <extends>QLabel</extends>
+   <header>clickedlabel.h</header>
+  </customwidget>
+ </customwidgets>
  <resources>
   <include location="resources.qrc"/>
  </resources>

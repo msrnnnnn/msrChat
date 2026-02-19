@@ -52,6 +52,8 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_head_parsed(false), _message_id(0), _
         qDebug() << "Socket Error:" << _socket.errorString();
         emit sig_con_success(false);
     });
+
+    connect(this, &TcpMgr::sig_send_data, this, &TcpMgr::slot_send_data);
 }
 
 TcpMgr::~TcpMgr() {

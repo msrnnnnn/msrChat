@@ -236,21 +236,23 @@ LogicSystem::LogicSystem()
 
             auto name = request_json["user"].asString();
             auto pwd = request_json["passwd"].asString();
-            int uid = MysqlMgr::GetInstance()->LoginUser(name, pwd);
-            if (uid == 0)
+            UserInfo userInfo;
+            bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(name, pwd, userInfo);
+            if (!pwd_valid)
             {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserNotExist);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
-            if (uid == -1)
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdErr);
+                if (userInfo.uid == 0)
+                {
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserNotExist);
+                }
+                else
+                {
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdErr);
+                }
                 beast::ostream(connection->_response.body()) << response_json.toStyledString();
                 return true;
             }
 
-            GetChatServerRsp reply = StatusGrpcClient::GetInstance()->GetChatServer(uid);
+            GetChatServerRsp reply = StatusGrpcClient::GetInstance()->GetChatServer(userInfo.uid);
             if (reply.error() != static_cast<int>(ChatApp::ErrorCode::Success))
             {
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
@@ -260,7 +262,7 @@ LogicSystem::LogicSystem()
 
             response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
             response_json["user"] = name;
-            response_json["uid"] = uid;
+            response_json["uid"] = userInfo.uid;
             response_json["token"] = reply.token();
             response_json["host"] = reply.host();
             response_json["port"] = reply.port();

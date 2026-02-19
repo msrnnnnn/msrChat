@@ -7,11 +7,10 @@
 #include "logindialog.h"
 #include "global.h"
 #include "httpmanagement.h"
+#include "tcpmgr.h"
 #include "ui_logindialog.h"
-#include <QEvent>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMouseEvent>
 
 /**
  * @brief 构造函数
@@ -29,8 +28,31 @@ LoginDialog::LoginDialog(QWidget *parent)
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
     connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &LoginDialog::slot_http_finish);
 
+    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+
+    ui->forget_password_label->SetState("normal", "hover", "", "selected", "selected_hover", "");
     ui->forget_password_label->setCursor(Qt::PointingHandCursor);
-    ui->forget_password_label->installEventFilter(this);
+    connect(ui->forget_password_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
+
+    ui->password_Edit->setEchoMode(QLineEdit::Password);
+    ui->pass_visible->setCursor(Qt::PointingHandCursor);
+    ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
+    ui->pass_visible->setText(tr("显示"));
+    connect(ui->pass_visible, &ClickedLabel::clicked, this, [this]()
+    {
+        auto state = ui->pass_visible->GetCurState();
+        if (state == ClickLbState::Normal)
+        {
+            ui->password_Edit->setEchoMode(QLineEdit::Password);
+            ui->pass_visible->setText(tr("显示"));
+        }
+        else
+        {
+            ui->password_Edit->setEchoMode(QLineEdit::Normal);
+            ui->pass_visible->setText(tr("隐藏"));
+        }
+    });
 
     initHandlers();
 }
@@ -119,14 +141,23 @@ void LoginDialog::slot_forget_pwd()
     emit switchReset();
 }
 
-bool LoginDialog::eventFilter(QObject *watched, QEvent *event)
+void LoginDialog::slot_tcp_con_finish(bool bsuccess)
 {
-    if (watched == ui->forget_password_label && event->type() == QEvent::MouseButtonRelease)
+    if (bsuccess)
     {
-        slot_forget_pwd();
-        return true;
+        showTip(tr("聊天服务连接成功，正在登录..."), true);
+        QJsonObject jsonObj;
+        jsonObj["uid"] = _uid;
+        jsonObj["token"] = _token;
+
+        QJsonDocument doc(jsonObj);
+        QString jsonString = doc.toJson(QJsonDocument::Compact);
+
+        TcpMgr::GetInstance()->sig_send_data(RequestType::ID_CHAT_LOGIN, jsonString);
+        return;
     }
-    return QDialog::eventFilter(watched, event);
+
+    showTip(tr("网络异常"), false);
 }
 
 void LoginDialog::initHandlers()
@@ -157,7 +188,16 @@ void LoginDialog::initHandlers()
                 return;
             }
 
-            showTip(tr("登录成功"), true);
+            ServerInfo si;
+            si.Uid = jsonObj["uid"].toInt();
+            si.Host = jsonObj["host"].toString();
+            si.Port = jsonObj["port"].toString();
+            si.Token = jsonObj["token"].toString();
+
+            _uid = si.Uid;
+            _token = si.Token;
+            showTip(tr("登录成功，连接聊天服务..."), true);
+            emit sig_connect_tcp(si);
         });
 }
 

@@ -40,6 +40,7 @@ enum class RequestType
     ID_REGISTER_USER = 1002,    ///< 注册用户请求
     ID_RESET_PWD = 1003,       ///< 重置密码
     ID_LOGIN_USER = 1004,      ///< 用户登录
+    ID_CHAT_LOGIN = 1005,
 };
 
 struct ServerInfo {
@@ -89,6 +90,12 @@ enum class TipErr
     TIP_PWD_CONFIRM = 4,
     TIP_VARIFY_ERR = 5,
     TIP_USER_ERR = 6
+};
+
+enum class ClickLbState
+{
+    Normal = 0,
+    Selected = 1
 };
 
 #endif // GLOBAL_H

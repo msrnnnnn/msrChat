@@ -152,3 +152,55 @@ int MysqlDao::LoginUser(const std::string &name, const std::string &pwd)
         return -1;
     }
 }
+
+bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo)
+{
+    userInfo.uid = 0;
+    userInfo.name = name;
+    userInfo.email.clear();
+    userInfo.pwd.clear();
+
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        userInfo.uid = -1;
+        return false;
+    }
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> stmt(
+            con->prepareStatement("SELECT uid, email, password FROM user WHERE name = ?"));
+        stmt->setString(1, name);
+        std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+        if (!res->next())
+        {
+            pool_->returnConnection(std::move(con));
+            userInfo.uid = 0;
+            return false;
+        }
+
+        int uid = res->getInt("uid");
+        std::string db_pwd = res->getString("password");
+        std::string email = res->getString("email");
+        pool_->returnConnection(std::move(con));
+
+        if (db_pwd != pwd)
+        {
+            userInfo.uid = -1;
+            return false;
+        }
+
+        userInfo.uid = uid;
+        userInfo.email = email;
+        userInfo.pwd = db_pwd;
+        return true;
+    }
+    catch (sql::SQLException &e)
+    {
+        pool_->returnConnection(std::move(con));
+        std::cerr << "SQLException: " << e.what() << std::endl;
+        userInfo.uid = -1;
+        return false;
+    }
+}

@@ -9,7 +9,6 @@
 
 #include "global.h"
 #include <QDialog>
-#include <QEvent>
 #include <QJsonObject>
 #include <QMap>
 #include <functional>
@@ -52,6 +51,7 @@ private slots:
     void on_login_Button_clicked();
     void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
     void slot_forget_pwd();
+    void slot_tcp_con_finish(bool bsuccess);
 
 signals:
     /**
@@ -62,12 +62,12 @@ signals:
      * @brief 切换到重置密码界面信号
      */
     void switchReset();
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    void sig_connect_tcp(ServerInfo si);
 
 private:
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
+    int _uid = 0;
+    QString _token;
 };
 
 #endif // LOGINDIALOG_H

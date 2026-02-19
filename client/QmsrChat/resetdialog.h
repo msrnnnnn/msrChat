@@ -35,9 +35,13 @@ private:
     bool checkVarifyValid();
     void showTip(QString str, bool isCorrect);
     void initHandlers();
+    void AddTipErr(TipErr te, QString tips);
+    void DelTipErr(TipErr te);
 
     Ui::ResetDialog *ui;
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
+    QMap<TipErr, QString> _tip_errs;
 };
+
 
 #endif // RESETDIALOG_H

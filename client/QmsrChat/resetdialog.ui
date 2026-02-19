@@ -211,7 +211,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="varify_btn">
+        <widget class="TimerBtn" name="varify_btn">
          <property name="minimumSize">
           <size>
            <width>60</width>
@@ -278,6 +278,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TimerBtn</class>
+   <extends>QPushButton</extends>
+   <header>timerbtn.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

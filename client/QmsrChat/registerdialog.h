@@ -10,8 +10,9 @@
 #include "global.h"
 #include <QDialog>
 #include <QMap>
-#include <QTimer>
 #include <functional>
+
+class QTimer;
 
 namespace Ui
 {
@@ -67,11 +68,14 @@ private slots:
      * @param mod      模块标识
      */
     void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
+    void on_return_btn_clicked();
+    void on_Cancel_Button_clicked();
 
 private:
     void initHttpHandlers();
 
     void startVerifyCountdown(int seconds);
+    void ChangeTipPage();
 
     bool checkUserValid();
     bool checkEmailValid();
@@ -91,8 +95,8 @@ private:
      */
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
     QMap<TipErr, QString> _tip_errs;
-    QTimer *_verify_timer;
-    int _verify_counter;
+    QTimer *_countdown_timer;
+    int _countdown;
 };
 
 #endif // REGISTERDIALOG_H
