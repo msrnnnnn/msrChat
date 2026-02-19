@@ -19,19 +19,19 @@
 
 ```mermaid
 graph TD
-    Client[Qt Client]
-    Gate[GateServer (HTTP)]
-    Status[StatusServer (gRPC)]
-    Chat[ChatServer (TCP)]
-    Redis[(Redis Cache)]
-    MySQL[(MySQL DB)]
+    Client["Qt Client"]
+    Gate["GateServer (HTTP)"]
+    Status["StatusServer (gRPC)"]
+    Chat["ChatServer (TCP)"]
+    Redis[("Redis Cache")]
+    MySQL[("MySQL DB")]
 
-    Client -- 1. HTTP Register/Login --> Gate
-    Client -- 4. TCP Long Connection --> Chat
-    Gate -- 2. gRPC GetChatServer --> Status
-    Gate -- 3. Reg/Login Data --> MySQL
-    Gate -- Verify Code/Token --> Redis
-    Status -- Monitor Load --> Chat
+    Client -- "1. HTTP Register/Login" --> Gate
+    Client -- "4. TCP Long Connection" --> Chat
+    Gate -- "2. gRPC GetChatServer" --> Status
+    Gate -- "3. Reg/Login Data" --> MySQL
+    Gate -- "Verify Code/Token" --> Redis
+    Status -- "Monitor Load" --> Chat
 ```
 
 *   **GateServer**: HTTP 网关，负责用户注册、登录、负载均衡。
