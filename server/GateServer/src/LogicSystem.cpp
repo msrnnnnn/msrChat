@@ -10,10 +10,10 @@
 #include "StatusGrpcClient.h"
 #include "VerifyGrpcClient.h"
 #include "const.h"
-#include <iostream>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
+#include <spdlog/spdlog.h>
 
 LogicSystem::LogicSystem()
 {
@@ -39,7 +39,7 @@ LogicSystem::LogicSystem()
         {
             // 读取请求体并将 buffer 转换为 string
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
 
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value response_json;
@@ -50,7 +50,7 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, request_json);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::warn("Failed to parse JSON data!");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -59,12 +59,12 @@ LogicSystem::LogicSystem()
 
             // 提取 email 字段
             auto email = request_json["email"].asString();
-            std::cout << "email is " << email << std::endl;
+            spdlog::info("email is {}", email);
 
             // 调用 gRPC 客户端获取验证码
             GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
             std::string code = rsp.code();
-            std::cout << "get varify code is " << code << std::endl;
+            spdlog::info("get varify code is {}", code);
             
             response_json["code"] = code;
             response_json["email"] = email;
@@ -83,7 +83,7 @@ LogicSystem::LogicSystem()
         [](std::shared_ptr<HttpConnection> connection)
         {
             auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            std::cout << "receive body is " << body_str << std::endl;
+            spdlog::info("receive body is {}", body_str);
             
             connection->_response.set(http::field::content_type, "text/json");
             Json::Value response_json;
@@ -93,7 +93,7 @@ LogicSystem::LogicSystem()
             bool parse_success = reader.parse(body_str, request_json);
             if (!parse_success)
             {
-                std::cout << "Failed to parse JSON data!" << std::endl;
+                spdlog::warn("Failed to parse JSON data!");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -111,7 +111,7 @@ LogicSystem::LogicSystem()
             }
             if (varify_code != request_json["varifycode"].asString())
             {
-                std::cout << " varify code error" << std::endl;
+                spdlog::warn("varify code error");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -121,7 +121,7 @@ LogicSystem::LogicSystem()
             bool b_usr_exist = RedisMgr::GetInstance()->ExistsKey(request_json["user"].asString());
             if (b_usr_exist)
             {
-                std::cout << " user exist" << std::endl;
+                spdlog::info("user exist");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
                 std::string jsonstr = response_json.toStyledString();
                 beast::ostream(connection->_response.body()) << jsonstr;
@@ -137,14 +137,14 @@ LogicSystem::LogicSystem()
             // 如果 MySQL 返回 0 或 -1，说明用户名或邮箱已存在
             if (uid == 0 || uid == -1)
             {
-                std::cout << "User or email exist in DB" << std::endl;
+                spdlog::warn("User or email exist in DB");
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
                 beast::ostream(connection->_response.body()) << response_json.toStyledString();
                 return true;
             }
 
             // 6. 返回成功 (带上生成的 uid)
-            std::cout << "Register Success, uid: " << uid << std::endl;
+            spdlog::info("Register Success, uid: {}", uid);
             response_json["error"] = 0;
             response_json["uid"] = uid; // 把 uid 给客户端
             response_json["email"] = request_json["email"];

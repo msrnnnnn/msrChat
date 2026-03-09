@@ -7,7 +7,7 @@
 
 #include <atomic>             // std::atomic
 #include <condition_variable> // std::condition_variable
-#include <iostream>           // std::cout, std::endl
+#include <spdlog/spdlog.h>
 #include <memory>             // std::unique_ptr
 #include <mutex>              // std::mutex, std::unique_lock
 #include <queue>              // std::queue
@@ -61,7 +61,7 @@ public:
         catch (sql::SQLException &e)
         {
             // 处理异常
-            std::cout << "mysql pool init failed: " << e.what() << std::endl;
+            spdlog::error("mysql pool init failed: {}", e.what());
         }
     }
 

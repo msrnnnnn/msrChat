@@ -2,6 +2,7 @@
 #include "CServer.h"
 #include "const.h"
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 #include <string>
 
 CSession::CSession(boost::asio::io_context &ioc, CServer *server)
@@ -14,7 +15,7 @@ CSession::CSession(boost::asio::io_context &ioc, CServer *server)
 
 CSession::~CSession()
 {
-    std::cout << "~CSession: " << _uuid << std::endl;
+    spdlog::info("~CSession: {}", _uuid);
 }
 
 void CSession::Close()
@@ -95,7 +96,7 @@ void CSession::AsyncReadBody(int total_len)
                 return;
             }
             _recv_msg_node->_data[total_len] = '\0';
-            std::cout << "[Recv] ID: " << _recv_msg_node->_msg_id << " Data: " << _recv_msg_node->_data << std::endl;
+            spdlog::info("[Recv] ID: {} Data: {}", _recv_msg_node->_msg_id, _recv_msg_node->_data);
 
             // 处理消息
             short msg_id = _recv_msg_node->_msg_id;
@@ -110,7 +111,7 @@ void CSession::AsyncReadBody(int total_len)
                     int uid = json_data.value("uid", 0);
                     std::string token = json_data.value("token", "");
 
-                    std::cout << "[CSession] Login request - uid: " << uid << ", token: " << token << std::endl;
+                    spdlog::info("[CSession] Login request - uid: {}, token: {}", uid, token);
 
                     // 添加用户会话映射
                     _server->AddUserSession(uid, shared_from_this());
@@ -133,8 +134,7 @@ void CSession::AsyncReadBody(int total_len)
                     int to_uid = json_data.value("to_uid", 0);
                     std::string content = json_data.value("content", "");
 
-                    std::cout << "[CSession] Chat message - from: " << from_uid << ", to: " << to_uid
-                              << ", content: " << content << std::endl;
+                    spdlog::info("[CSession] Chat message - from: {}, to: {}, content: {}", from_uid, to_uid, content);
 
                     // 转发消息到目标用户
                     _server->ForwardMessage(to_uid, body_data);
@@ -147,7 +147,7 @@ void CSession::AsyncReadBody(int total_len)
             }
             catch (const std::exception &e)
             {
-                std::cerr << "[CSession] JSON parse error: " << e.what() << std::endl;
+                spdlog::error("[CSession] JSON parse error: {}", e.what());
                 // 解析失败，发送错误回复
                 nlohmann::json error_response;
                 error_response["code"] = -1;

@@ -5,7 +5,7 @@
 
 #include "HttpConnection.h"
 #include "LogicSystem.h"
-#include <iostream>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <string_view>
 
@@ -36,14 +36,14 @@ void HttpConnection::Start()
                 if (ec)
                 {
                     // 对端关闭连接或其他错误
-                    std::cout << "http read is" << ec.what() << std::endl;
+                    spdlog::warn("http read is {}", ec.what());
                     return;
                 }
                 self->HandleRequest();
             }
             catch (std::exception &exp)
             {
-                std::cout << "exception is" << exp.what() << std::endl;
+                spdlog::error("exception is {}", exp.what());
                 return;
             }
         });
@@ -52,8 +52,7 @@ void HttpConnection::Start()
 void HttpConnection::HandleRequest()
 {
     // 打印请求信息（调试用）
-    std::cout << "[HTTP Request] Method: " << _request.method_string() << ", Target: " << _request.target()
-              << std::endl;
+    spdlog::info("[HTTP Request] Method: {}, Target: {}", _request.method_string(), _request.target());
 
     // 设置 HTTP 版本 (1.0 或 1.1)
     _response.version(_request.version());
@@ -64,12 +63,12 @@ void HttpConnection::HandleRequest()
     if (_request.method() == http::verb::get)
     {
         PreParseGetParam();
-        std::cout << "[Routing] GET request to: " << _get_url << std::endl;
+        spdlog::info("[Routing] GET request to: {}", _get_url);
         // 路由分发
         bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
         if (!success)
         {
-            std::cout << "[Routing] Route not found: " << _get_url << std::endl;
+            spdlog::warn("[Routing] Route not found: {}", _get_url);
             _response.result(http::status::not_found);
             _response.set(http::field::content_type, "text/plain");
             beast::ostream(_response.body()) << "url not found\r\n";
@@ -84,11 +83,11 @@ void HttpConnection::HandleRequest()
 
     if (_request.method() == http::verb::post)
     {
-        std::cout << "[Routing] POST request to: " << _request.target() << std::endl;
+        spdlog::info("[Routing] POST request to: {}", _request.target());
         bool success = LogicSystem::GetInstance()->HandlePost(_request.target(), shared_from_this());
         if (!success)
         {
-            std::cout << "[Routing] Route not found: " << _request.target() << std::endl;
+            spdlog::warn("[Routing] Route not found: {}", _request.target());
             _response.result(http::status::not_found);
             _response.set(http::field::content_type, "text/plain");
             beast::ostream(_response.body()) << "url not found\r\n";
@@ -118,7 +117,7 @@ void HttpConnection::WriteResponse()
             {
                 // 发送失败，关闭连接
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
-                std::cout << "socket shutdown" << std::endl;
+                spdlog::warn("socket shutdown");
                 return;
             }
 
@@ -133,7 +132,7 @@ void HttpConnection::WriteResponse()
             else
             {
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
-                std::cout << "socket shutdown" << std::endl;
+                spdlog::warn("socket shutdown");
                 self->deadline_.cancel();
             }
         });
@@ -150,7 +149,7 @@ void HttpConnection::CheckDeadline()
             if (!ec)
             {
                 // 真正的超时发生了，硬关闭 Socket
-                std::cout << "socket close" << std::endl;
+                spdlog::warn("socket close");
                 self->_socket.close();
             }
         });

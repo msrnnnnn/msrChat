@@ -198,7 +198,7 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         bindObj["uid"] = _uid;
         QJsonDocument bindDoc(bindObj);
         QString bindString = bindDoc.toJson(QJsonDocument::Compact);
-        TcpMgr::GetInstance()->slot_send_data(1005, bindString);
+        TcpMgr::GetInstance()->slot_send_data(static_cast<RequestType>(1005), bindString);
 
         // 发射登录成功信号
         emit sig_login_success();

@@ -40,7 +40,11 @@ ChatDialog::ChatDialog(QWidget *parent)
     main_layout->addLayout(input_layout);
 
     // 连接信号槽
-    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_msg_received, this, &ChatDialog::slot_recv_chat_msg);
+    connect(
+        TcpMgr::GetInstance().get(),
+        static_cast<void (TcpMgr::*)(quint16, QByteArray)>(&TcpMgr::sig_msg_received),
+        this,
+        &ChatDialog::slot_recv_chat_msg);
     connect(_send_btn, &QPushButton::clicked, this, &ChatDialog::slot_send_btn_clicked);
 
     // ========== 自动发送 1005 绑定包 ==========
@@ -53,7 +57,7 @@ ChatDialog::ChatDialog(QWidget *parent)
         bindObj["token"] = token;
         QJsonDocument bindDoc(bindObj);
         QString bindString = bindDoc.toJson(QJsonDocument::Compact);
-        TcpMgr::GetInstance()->slot_send_data(1005, bindString);
+        TcpMgr::GetInstance()->slot_send_data(static_cast<RequestType>(1005), bindString);
         qDebug() << "ChatDialog: Auto-sent 1005 binding packet for UID:" << uid;
         _chat_show->append(tr("[系统]: 已连接聊天服务"));
     } else {
@@ -139,7 +143,7 @@ void ChatDialog::slot_send_btn_clicked()
     QJsonDocument doc(obj);
     QByteArray json_data = doc.toJson(QJsonDocument::Compact);
 
-    TcpMgr::GetInstance()->slot_send_data(1006, QString(json_data));
+    TcpMgr::GetInstance()->slot_send_data(static_cast<RequestType>(1006), QString(json_data));
 
     QString display_msg = tr("[我]: ") + content;
     _chat_show->append(display_msg);

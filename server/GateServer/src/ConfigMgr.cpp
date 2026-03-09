@@ -6,7 +6,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <filesystem>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 /**
  * @brief 构造函数
@@ -21,11 +21,11 @@ ConfigMgr::ConfigMgr()
 
     if (!std::filesystem::exists(config_path))
     {
-        std::cerr << "Config file not found: " << config_path << std::endl;
+        spdlog::error("Config file not found: {}", config_path.string());
         return;
     }
 
-    std::cout << "Loading Config from: " << config_path << std::endl;
+    spdlog::info("Loading Config from: {}", config_path.string());
 
     boost::property_tree::ptree pt;
     try
@@ -34,7 +34,7 @@ ConfigMgr::ConfigMgr()
     }
     catch (std::exception &e)
     {
-        std::cerr << "Config load failed: " << e.what() << std::endl;
+        spdlog::error("Config load failed: {}", e.what());
         return;
     }
 

@@ -2,7 +2,7 @@
 #include "CServer.h"
 #include <boost/asio.hpp>
 #include <csignal>
-#include <iostream>
+#include <spdlog/spdlog.h>
 #include <thread>
 
 int main()
@@ -16,7 +16,7 @@ int main()
         signals.async_wait(
             [&io_context](const boost::system::error_code &, int)
             {
-                std::cout << "Stopping server..." << std::endl;
+                spdlog::info("Stopping server...");
                 io_context.stop();
                 AsioIOServicePool::getInstance().Stop();
             });
@@ -25,12 +25,12 @@ int main()
         auto server = std::make_shared<CServer>(io_context, port);
         server->Start();
 
-        std::cout << "ChatServer is running on port " << port << "..." << std::endl;
+        spdlog::info("ChatServer is running on port {}...", port);
         io_context.run();
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Exception: " << e.what() << std::endl;
+        spdlog::error("Exception: {}", e.what());
     }
     return 0;
 }

@@ -6,7 +6,7 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "HttpConnection.h"
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 CServer::CServer(net::io_context &ioc, unsigned short &port)
     : _ioc(ioc),
@@ -46,7 +46,7 @@ void CServer::HandleAccept()
             }
             catch (std::exception &exp)
             {
-                std::cout << "exception is" << exp.what() << std::endl;
+                spdlog::error("exception is {}", exp.what());
                 self->HandleAccept();
             }
         });

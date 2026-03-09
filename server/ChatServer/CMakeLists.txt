@@ -7,6 +7,8 @@ project(ChatServer VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 # =============================================================
 # 2. 依赖查找 (Dependencies)
@@ -18,7 +20,9 @@ find_package(Threads REQUIRED)
 # 引入 nlohmann_json
 include(FetchContent)
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
 FetchContent_MakeAvailable(json)
+FetchContent_MakeAvailable(spdlog)
 
 # =============================================================
 # 3. 源文件列表 (Source Files)
@@ -58,6 +62,7 @@ target_link_libraries(ChatServer
     ${Boost_LIBRARIES}
     Threads::Threads
     nlohmann_json::nlohmann_json
+    spdlog::spdlog
 )
 
 # =============================================================
