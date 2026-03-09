@@ -21,8 +21,8 @@ ConfigMgr::ConfigMgr()
 
     if (!std::filesystem::exists(config_path))
     {
-        // 如果当前目录找不到，尝试使用默认开发路径
-        config_path = "e:/Study/Project/Chat/msrchat/server/GateServer/config.ini";
+        std::cerr << "Config file not found: " << config_path << std::endl;
+        return;
     }
 
     std::cout << "Loading Config from: " << config_path << std::endl;

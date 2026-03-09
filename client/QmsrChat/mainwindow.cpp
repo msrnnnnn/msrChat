@@ -11,7 +11,8 @@
  * @details 初始化窗口、子对话框及信号连接。
  */
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow)
+    : QMainWindow(parent),
+      ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
@@ -45,11 +46,17 @@ MainWindow::MainWindow(QWidget *parent)
     _reset_dialog->move(this->pos());
     _reset_dialog->hide();
 
+    // 初始化聊天对话框（初始隐藏）
+    _chat_dialog = nullptr;
+
     // 4. 绑定切换信号槽
     connect(_login_dialog, &LoginDialog::switchRegister, this, &MainWindow::slotSwitchRegister);
     connect(_register_dialog, &RegisterDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
     connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
     connect(_reset_dialog, &ResetDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
+
+    // 绑定登录成功信号
+    connect(_login_dialog, &LoginDialog::sig_login_success, this, &MainWindow::slotLoginSuccess);
 }
 
 /**
@@ -85,4 +92,24 @@ void MainWindow::slotSwitchReset()
     _login_dialog->hide();
     _register_dialog->hide();
     _reset_dialog->show();
+}
+
+void MainWindow::slotLoginSuccess()
+{
+    // 隐藏登录相关对话框
+    _login_dialog->hide();
+    _register_dialog->hide();
+    _reset_dialog->hide();
+
+    // 创建并显示聊天对话框
+    if (_chat_dialog == nullptr)
+    {
+        _chat_dialog = new ChatDialog(this);
+        _chat_dialog->setFixedSize(600, 500);
+        _chat_dialog->move(this->pos());
+    }
+
+    // 调整主窗口大小以适应聊天窗口
+    setFixedSize(600, 500);
+    _chat_dialog->show();
 }

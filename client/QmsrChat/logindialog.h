@@ -14,7 +14,7 @@
 
 namespace Ui
 {
-    class LoginDialog;
+class LoginDialog;
 }
 
 /**
@@ -99,15 +99,21 @@ signals:
      */
     void sig_connect_tcp(ServerInfo si);
 
+    /**
+     * @brief 登录成功信号
+     * @details 通知主窗口登录成功，可以切换到聊天界面
+     */
+    void sig_login_success();
+
 private:
     /**
      * @brief 业务逻辑处理器映射表
      * @details Key: 请求类型, Value: 处理函数
      */
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
-    
-    int _uid = 0;       ///< 用户 ID
-    QString _token;     ///< 登录令牌
+
+    int _uid = 0;   ///< 用户 ID
+    QString _token; ///< 登录令牌
 };
 
 #endif // LOGINDIALOG_H
