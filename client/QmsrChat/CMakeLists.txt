@@ -26,6 +26,7 @@ set(PROJECT_SOURCES
         chatdialog.cpp chatdialog.h
         httpmanagement.cpp httpmanagement.h
         global.cpp global.h
+        usermgr.cpp usermgr.h
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h
         singleton.h
