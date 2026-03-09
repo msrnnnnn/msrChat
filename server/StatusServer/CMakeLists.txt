@@ -4,6 +4,8 @@ project(StatusServer VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 list(PREPEND CMAKE_PREFIX_PATH "/usr/local")
 set(Protobuf_USE_STATIC_LIBS ON)
@@ -13,6 +15,10 @@ find_package(Boost REQUIRED COMPONENTS system thread filesystem)
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 find_package(Threads REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+FetchContent_MakeAvailable(spdlog)
 
 set(SERVER_SOURCES
     src/StatusServer.cpp
@@ -59,6 +65,7 @@ target_link_libraries(StatusServer PRIVATE
     gRPC::grpc
     gRPC::grpc++_reflection
     Threads::Threads
+    spdlog::spdlog
 )
 
 set(CONFIG_FILE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")

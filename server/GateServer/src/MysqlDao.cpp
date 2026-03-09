@@ -4,6 +4,7 @@
  */
 
 #include "MysqlDao.h"
+#include <spdlog/spdlog.h>
 
 MysqlDao::MysqlDao()
 {
@@ -60,7 +61,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
             if (resUid->next())
             {
                 int uid = resUid->getInt(1);
-                std::cout << "RegUser Success, uid: " << uid << std::endl;
+                spdlog::info("RegUser Success, uid: {}", uid);
                 pool_->returnConnection(std::move(con));
                 return uid;
             }
@@ -72,7 +73,7 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
     catch (sql::SQLException &e)
     {
         pool_->returnConnection(std::move(con));
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         if (e.getErrorCode() == 1062) // Duplicate entry
         {
             return 0;
@@ -117,7 +118,7 @@ int MysqlDao::ResetPwd(const std::string &name, const std::string &email, const 
     catch (sql::SQLException &e)
     {
         pool_->returnConnection(std::move(con));
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         return -1;
     }
 }
@@ -153,7 +154,7 @@ int MysqlDao::LoginUser(const std::string &name, const std::string &pwd)
     catch (sql::SQLException &e)
     {
         pool_->returnConnection(std::move(con));
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         return -1;
     }
 }
@@ -204,7 +205,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
     catch (sql::SQLException &e)
     {
         pool_->returnConnection(std::move(con));
-        std::cerr << "SQLException: " << e.what() << std::endl;
+        spdlog::error("SQLException: {}", e.what());
         userInfo.uid = -1;
         return false;
     }

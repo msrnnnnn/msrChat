@@ -5,6 +5,7 @@
  */
 
 #include "global.h"
+#include <QCryptographicHash>
 #include <QStyle>
 
 // 刷新 QSS 样式的实现

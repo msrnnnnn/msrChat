@@ -4,9 +4,9 @@
 #include <boost/asio.hpp>
 #include <csignal>
 #include <grpcpp/grpcpp.h>
-#include <iostream>
 #include <memory>
 #include <thread>
+#include <spdlog/spdlog.h>
 
 static void RunServer()
 {
@@ -29,7 +29,7 @@ static void RunServer()
     builder.RegisterService(&service);
 
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address << std::endl;
+    spdlog::info("Server listening on {}", server_address);
 
     boost::asio::io_context io_context;
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
@@ -37,7 +37,7 @@ static void RunServer()
                        {
                            if (!error)
                            {
-                               std::cout << "Shutting down server..." << std::endl;
+                               spdlog::info("Shutting down server...");
                                server->Shutdown();
                            }
                        });
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error: " << e.what() << std::endl;
+        spdlog::error("Error: {}", e.what());
         return EXIT_FAILURE;
     }
     return 0;

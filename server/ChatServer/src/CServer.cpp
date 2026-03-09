@@ -1,14 +1,14 @@
 #include "CServer.h"
 #include "CSession.h"
 #include "const.h"
-#include <iostream>
+#include <spdlog/spdlog.h>
 #include <string>
 
 CServer::CServer(boost::asio::io_context &io_context, short port)
     : _io_context(io_context),
       _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
 {
-    std::cout << "[CServer] Server initialized on port " << port << std::endl;
+    spdlog::info("[CServer] Server initialized on port {}", port);
 }
 
 void CServer::Start()
@@ -25,7 +25,7 @@ void CServer::DoAccept()
         {
             if (!ec)
             {
-                std::cout << "[CServer] New connection accepted: " << new_session->GetUuid() << std::endl;
+                spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
                 {
                     std::lock_guard<std::mutex> lock(_uuid_session_mtx);
                     _uuid_sessions[new_session->GetUuid()] = new_session;
@@ -34,7 +34,7 @@ void CServer::DoAccept()
             }
             else
             {
-                std::cerr << "[CServer] Accept error: " << ec.message() << std::endl;
+                spdlog::error("[CServer] Accept error: {}", ec.message());
             }
             DoAccept();
         });
@@ -44,7 +44,7 @@ void CServer::AddUserSession(int uid, std::shared_ptr<CSession> session)
 {
     std::lock_guard<std::mutex> lock(_session_mtx);
     _uid_sessions[uid] = session;
-    std::cout << "[CServer] User " << uid << " session added." << std::endl;
+    spdlog::info("[CServer] User {} session added.", uid);
 }
 
 void CServer::RemoveUserSession(int uid)
@@ -54,7 +54,7 @@ void CServer::RemoveUserSession(int uid)
     if (it != _uid_sessions.end())
     {
         _uid_sessions.erase(it);
-        std::cout << "[CServer] User " << uid << " session removed." << std::endl;
+        spdlog::info("[CServer] User {} session removed.", uid);
     }
 }
 
@@ -65,7 +65,7 @@ void CServer::ClearSession(const std::string &uuid)
     if (it != _uuid_sessions.end())
     {
         _uuid_sessions.erase(it);
-        std::cout << "[CServer] Session " << uuid << " cleared." << std::endl;
+        spdlog::info("[CServer] Session {} cleared.", uuid);
     }
 }
 
@@ -84,10 +84,10 @@ void CServer::ForwardMessage(int target_uid, const std::string &msg_data)
     if (target_session)
     {
         target_session->Send(msg_data, MSG_CHAT_TEXT);
-        std::cout << "[CServer] Message forwarded to user " << target_uid << std::endl;
+        spdlog::info("[CServer] Message forwarded to user {}", target_uid);
     }
     else
     {
-        std::cout << "[CServer] User " << target_uid << " not found, message dropped." << std::endl;
+        spdlog::warn("[CServer] User {} not found, message dropped.", target_uid);
     }
 }

@@ -7,6 +7,8 @@ project(GateServer VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
 
 # =============================================================
 # 2. 依赖查找策略 (Dependency Strategy)
@@ -33,6 +35,10 @@ find_package(gRPC REQUIRED)
 
 # 3.4 Find Threads
 find_package(Threads REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+FetchContent_MakeAvailable(spdlog)
 
 # 3.5 Find Redis (hiredis)
 find_path(HIREDIS_INCLUDE_DIR hiredis.h PATH_SUFFIXES hiredis)
@@ -128,6 +134,7 @@ target_link_libraries(GateServer PRIVATE
     ${JSONCPP_LIBRARIES}
     ${HIREDIS_LIBRARY}
     ${MYSQL_LIBRARY}         # <--- 链接 Linux 下的 mysqlcppconn 动态库
+    spdlog::spdlog
 
     # Google 全家桶 (静态库)
     protobuf::libprotobuf

@@ -6,16 +6,16 @@
 #include "CServer.h"
 #include "ConfigMgr.h"
 #include "LogicSystem.h"
-#include <iostream>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
+#include <spdlog/spdlog.h>
 
 int main()
 {
-    std::cout << "========================================" << std::endl;
-    std::cout << "GateServer Starting..." << std::endl;
-    std::cout << "========================================" << std::endl;
+    spdlog::info("========================================");
+    spdlog::info("GateServer Starting...");
+    spdlog::info("========================================");
 
     auto &gCfgMgr = ConfigMgr::GetInstance();
     std::string gate_port_str = gCfgMgr["GateServer"]["Port"];
@@ -24,16 +24,16 @@ int main()
     if (gate_port == 0)
     {
         gate_port = 8080;
-        std::cout << "[Warning] Config load failed or port invalid. Using default port: 8080" << std::endl;
+        spdlog::warn("Config load failed or port invalid. Using default port: 8080");
     }
     else
     {
-        std::cout << "[Info] GateServer will listen on port: " << gate_port << std::endl;
+        spdlog::info("GateServer will listen on port: {}", gate_port);
     }
 
     // 初始化 LogicSystem（触发路由注册）
     LogicSystem::GetInstance();
-    std::cout << "[Info] LogicSystem initialized, routes registered." << std::endl;
+    spdlog::info("LogicSystem initialized, routes registered.");
 
     try
     {
@@ -63,7 +63,7 @@ int main()
     }
     catch (std::exception const &exp)
     {
-        std::cerr << "Error: " << exp.what() << std::endl;
+        spdlog::error("Error: {}", exp.what());
         return EXIT_FAILURE;
     }
 }
