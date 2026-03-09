@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>image/mainwidow.ico</file>
+        <file>image/login.ico</file>
+        <file>image/login1.ico</file>
+        <file>style/stylesheet.qss</file>
+    </qresource>
+</RCC>
