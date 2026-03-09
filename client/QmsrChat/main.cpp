@@ -38,14 +38,17 @@ int main(int argc, char *argv[])
     // 优先读取本地配置文件
     QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
 
-    // 开发环境回退逻辑
     if (!QFile::exists(config_path))
     {
-        QString source_config = "e:/Study/Project/Chat/msrchat/client/QmsrChat/config.ini";
-        if (QFile::exists(source_config))
+        QString current_config = QDir::toNativeSeparators(QDir::currentPath() + QDir::separator() + "config.ini");
+        if (QFile::exists(current_config))
         {
-            config_path = source_config;
-            qDebug() << "Redirecting to source config:" << config_path;
+            config_path = current_config;
+            qDebug() << "Redirecting to current path config:" << config_path;
+        }
+        else
+        {
+            qDebug() << "Warning: config.ini not found in app dir or current path.";
         }
     }
 

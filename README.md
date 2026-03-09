@@ -1,11 +1,15 @@
 # msrChat (High Performance Distributed Instant Messaging System)
 
-![Language](https://img.shields.io/badge/language-C%2B%2B17-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)
-![Framework](https://img.shields.io/badge/framework-Qt%20%7C%20Boost.Asio%20%7C%20gRPC-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/language-C%2B%2B17-blue.svg" alt="Language">
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/framework-Qt%20%7C%20Boost.Asio%20%7C%20gRPC-orange.svg" alt="Framework">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
+</p>
 
 > **Note**: 本项目采用微服务架构设计，基于 C++17 和 Qt 开发，旨在构建一个高并发、低延迟的分布式即时通讯系统。
+
+---
 
 ## 📖 项目简介 (Introduction)
 
@@ -36,8 +40,25 @@ graph TD
 
 *   **GateServer**: HTTP 网关，负责用户注册、登录、负载均衡。
 *   **StatusServer**: 状态服务，维护 ChatServer 集群的健康状态和负载情况。
-*   **ChatServer**: (WIP) TCP 聊天服务器，负责消息推送、即时通讯。
+*   **ChatServer**: TCP 聊天服务器，负责消息推送、即时通讯。
 *   **Qt Client**: 跨平台客户端，集成 HTTP 和 TCP 通信模块。
+
+## 📂 目录结构 (Directory Structure)
+
+```
+msrChat/
+├── client/                 # 客户端源码
+│   └── QmsrChat/           # Qt 客户端工程
+├── server/                 # 服务端源码
+│   ├── GateServer/         # HTTP 网关服务器
+│   ├── ChatServer/         # TCP 聊天服务器
+│   └── StatusServer/       # gRPC 状态服务器
+├── shared/                 # 共享代码
+│   └── message.proto       # gRPC & Protobuf 定义文件
+├── googletest/             # 单元测试框架
+├── logs/                   # 运行日志
+└── CMakeLists.txt          # 项目根构建文件
+```
 
 ## ✨ 核心特性 (Key Features)
 

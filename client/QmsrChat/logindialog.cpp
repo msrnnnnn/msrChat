@@ -7,8 +7,11 @@
 #include "httpmanagement.h"
 #include "tcpmgr.h"
 #include "ui_logindialog.h"
+#include "usermgr.h"
+#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPushButton>
 
 /**
  * @brief 构造函数
@@ -37,20 +40,57 @@ LoginDialog::LoginDialog(QWidget *parent)
     ui->pass_visible->setCursor(Qt::PointingHandCursor);
     ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
     ui->pass_visible->setText(tr("显示"));
-    connect(ui->pass_visible, &ClickedLabel::clicked, this, [this]()
-    {
-        auto state = ui->pass_visible->GetCurState();
-        if (state == ClickLbState::Normal)
+    connect(
+        ui->pass_visible, &ClickedLabel::clicked, this,
+        [this]()
         {
-            ui->password_Edit->setEchoMode(QLineEdit::Password);
-            ui->pass_visible->setText(tr("显示"));
-        }
-        else
+            auto state = ui->pass_visible->GetCurState();
+            if (state == ClickLbState::Normal)
+            {
+                ui->password_Edit->setEchoMode(QLineEdit::Password);
+                ui->pass_visible->setText(tr("显示"));
+            }
+            else
+            {
+                ui->password_Edit->setEchoMode(QLineEdit::Normal);
+                ui->pass_visible->setText(tr("隐藏"));
+            }
+        });
+
+    // ========== Dev 模式按钮 (开发调试用) ==========
+    // 创建一个"Dev 模式"按钮，点击后直接设置 UserMgr 并连接 TCP 服务器
+    QPushButton *devBtn = new QPushButton(tr("开发模式"), this);
+    devBtn->setGeometry(280, 340, 80, 30); // 放置在登录按钮下方
+    devBtn->setStyleSheet(
+        "QPushButton { background-color: #FF9800; color: white; border: none; padding: 5px; }"
+        "QPushButton:hover { background-color: #F57C00; }");
+    devBtn->show();
+    connect(
+        devBtn, &QPushButton::clicked, this,
+        [this]()
         {
-            ui->password_Edit->setEchoMode(QLineEdit::Normal);
-            ui->pass_visible->setText(tr("隐藏"));
-        }
-    });
+            qDebug() << "Dev Mode activated - skipping HTTP login";
+
+            // 设置开发用户信息
+            int devUid = 1001;
+            QString devToken = "dev_token";
+            UserMgr::GetInstance()->SetUid(devUid);
+            UserMgr::GetInstance()->SetToken(devToken);
+            _uid = devUid;
+            _token = devToken;
+
+            showTip(tr("开发模式：直接连接 TCP..."), true);
+
+            // 直接发送 TCP 连接信号
+            ServerInfo si;
+            si.Uid = devUid;
+            si.Host = "192.168.226.129";
+            si.Port = "8080";
+            si.Token = devToken;
+
+            qDebug() << "Dev Mode: Connecting to" << si.Host << ":" << si.Port;
+            emit sig_connect_tcp(si);
+        });
 
     initHandlers();
 }
@@ -151,7 +191,17 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         QJsonDocument doc(jsonObj);
         QString jsonString = doc.toJson(QJsonDocument::Compact);
 
-        TcpMgr::GetInstance()->sig_send_data(RequestType::ID_CHAT_LOGIN, jsonString);
+        TcpMgr::GetInstance()->slot_send_data(RequestType::ID_CHAT_LOGIN, jsonString);
+
+        // 发送 UID 绑定消息 (1005)
+        QJsonObject bindObj;
+        bindObj["uid"] = _uid;
+        QJsonDocument bindDoc(bindObj);
+        QString bindString = bindDoc.toJson(QJsonDocument::Compact);
+        TcpMgr::GetInstance()->slot_send_data(1005, bindString);
+
+        // 发射登录成功信号
+        emit sig_login_success();
         return;
     }
 
@@ -170,17 +220,17 @@ void LoginDialog::initHandlers()
                 QString errStr = tr("登录失败");
                 switch (static_cast<ERRORCODES>(error))
                 {
-                case ERRORCODES::PasswdErr:
-                    errStr = tr("密码错误");
-                    break;
-                case ERRORCODES::UserNotExist:
-                    errStr = tr("用户不存在");
-                    break;
-                case ERRORCODES::RPCGetFailed:
-                    errStr = tr("状态服务不可用");
-                    break;
-                default:
-                    break;
+                    case ERRORCODES::PasswdErr:
+                        errStr = tr("密码错误");
+                        break;
+                    case ERRORCODES::UserNotExist:
+                        errStr = tr("用户不存在");
+                        break;
+                    case ERRORCODES::RPCGetFailed:
+                        errStr = tr("状态服务不可用");
+                        break;
+                    default:
+                        break;
                 }
                 showTip(errStr, false);
                 return;
@@ -194,6 +244,11 @@ void LoginDialog::initHandlers()
 
             _uid = si.Uid;
             _token = si.Token;
+
+            // 保存用户信息到 UserMgr 单例
+            UserMgr::GetInstance()->SetUid(_uid);
+            UserMgr::GetInstance()->SetToken(_token);
+
             showTip(tr("登录成功，连接聊天服务..."), true);
             emit sig_connect_tcp(si);
         });
