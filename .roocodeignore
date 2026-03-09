@@ -1,0 +1,13 @@
+# 排除依赖和构建产物
+node_modules/
+dist/
+build/
+.git/
+
+# 排除大型二进制文件
+*.png
+*.jpg
+*.pdf
+
+# 排除你自己生成的打包文件，防止它把这个 XML 又读一遍造成循环
+repomix-output.xml
