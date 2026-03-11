@@ -17,7 +17,8 @@ TcpMgr::TcpMgr()
       _reconnect_timer(nullptr),
       _reconnect_interval(3000),
       _is_first_connection(true),
-      _last_pong_time(0)
+      _last_pong_time(0),
+      _read_index(0)
 {
     // 初始化心跳定时器 (发送 Ping)
     _heartbeat_timer = new QTimer(this);
@@ -50,11 +51,12 @@ TcpMgr::TcpMgr()
 
     // 初始化重连定时器
     _reconnect_timer = new QTimer(this);
+    _reconnect_timer->setSingleShot(true);
     connect(
         _reconnect_timer, &QTimer::timeout,
         [this]()
         {
-            qDebug() << "Reconnecting to server... Interval:" << _reconnect_interval << "ms";
+            qDebug() << "Reconnecting...";
             _socket.connectToHost(_host, _port);
         });
 
@@ -109,17 +111,17 @@ TcpMgr::TcpMgr()
 
             while (true)
             {
+                int remain_len = _buffer.size() - _read_index;
                 // 解析头部
                 if (!_b_head_parsed)
                 {
-                    // 包头长度为 4 字节 (ID:2 + Len:2)
-                    if (_buffer.size() < 4)
+                    if (remain_len < 6)
                     {
-                        return;
+                        break;
                     }
-                    const char *data = _buffer.constData();
+                    const char *data = _buffer.constData() + _read_index;
                     _message_id = qFromBigEndian<quint16>(data);
-                    _message_len = qFromBigEndian<quint16>(data + 2);
+                    _message_len = qFromBigEndian<quint32>(data + 2);
 
                     // ========== 安全检查：包长拦截 ==========
                     if (_message_len > MAX_MESSAGE_LEN)
@@ -130,8 +132,7 @@ TcpMgr::TcpMgr()
                         return;
                     }
 
-                    // 移除已解析的头部 (性能优化：使用 remove 替代 mid)
-                    _buffer.remove(0, 4);
+                    _read_index += 6;
                     _b_head_parsed = true;
 
                     // 新增：处理消息长度为0的情况
@@ -147,11 +148,12 @@ TcpMgr::TcpMgr()
                 if (_b_head_parsed)
                 {
                     // 检查缓冲区是否包含完整的包体
-                    if (_buffer.size() < _message_len)
+                    remain_len = _buffer.size() - _read_index;
+                    if (remain_len < static_cast<int>(_message_len))
                     {
-                        return;
+                        break;
                     }
-                    QByteArray messageBody = _buffer.mid(0, _message_len);
+                    QByteArray messageBody = _buffer.mid(_read_index, static_cast<int>(_message_len));
                     qDebug() << "Recv Packet: ID=" << _message_id << " Len=" << _message_len;
 
                     // ========== 双向心跳：收到 Pong 回包时更新时间戳 ==========
@@ -165,10 +167,19 @@ TcpMgr::TcpMgr()
                     emit sig_msg_received(static_cast<RequestType>(_message_id), messageBody);
                     emit sig_msg_received(_message_id, messageBody);
 
-                    // 移除已解析的包体 (性能优化：使用 remove 替代 mid)
-                    _buffer.remove(0, _message_len);
+                    _read_index += static_cast<int>(_message_len);
                     _b_head_parsed = false;
+                    if (_read_index >= _buffer.size())
+                    {
+                        _buffer.clear();
+                        _read_index = 0;
+                    }
                 }
+            }
+            if (_read_index > 4096)
+            {
+                _buffer.remove(0, _read_index);
+                _read_index = 0;
             }
         });
 
@@ -193,13 +204,11 @@ TcpMgr::TcpMgr()
                 qDebug() << "Pong check timer stopped due to error";
             }
 
-            // 如果 socket 未连接，启动重连定时器
             if (_socket.state() != QAbstractSocket::ConnectedState)
             {
-                qDebug() << "Network disconnected, starting reconnect timer. Interval:" << _reconnect_interval << "ms";
+                qDebug() << "Reconnect scheduled from error. Interval:" << _reconnect_interval << "ms";
                 _reconnect_timer->start(_reconnect_interval);
 
-                // 指数退避：下次重连间隔翻倍，最大30秒
                 _reconnect_interval *= 2;
                 if (_reconnect_interval > 30000)
                 {
@@ -274,11 +283,14 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
     _is_first_connection = true;
     _reconnect_interval = 3000;
     _last_pong_time = 0;
+    _buffer.clear();
+    _read_index = 0;
+    _b_head_parsed = false;
 
     _socket.connectToHost(_host, _port);
 }
 
-void TcpMgr::slot_send_data(RequestType reqId, const QString& data)
+void TcpMgr::slot_send_data(RequestType reqId, const QString &data)
 {
     uint16_t id = static_cast<uint16_t>(reqId);
 
@@ -286,7 +298,7 @@ void TcpMgr::slot_send_data(RequestType reqId, const QString& data)
     QByteArray dataBytes = data.toUtf8();
 
     // 2. 计算包体长度
-    quint16 len = static_cast<quint16>(dataBytes.size());
+    quint32 len = static_cast<quint32>(dataBytes.size());
 
     // 3. 构建发送缓冲区
     QByteArray block;
@@ -295,7 +307,7 @@ void TcpMgr::slot_send_data(RequestType reqId, const QString& data)
     // 4. 设置网络字节序 (BigEndian)
     out.setByteOrder(QDataStream::BigEndian);
 
-    // 5. 写入头部：ID(2字节) + 长度(2字节)
+    // 5. 写入头部：ID(2字节) + 长度(4字节)
     out << id << len;
 
     // 6. 写入包体数据

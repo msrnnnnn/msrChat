@@ -24,6 +24,7 @@ namespace ChatApp
         UserNotExist = 1007,  ///< 用户不存在
         EmailNotMatch = 1008, ///< 邮箱不匹配
         PasswdUpFailed = 1009, ///< 密码更新失败
-        RPCGetFailed = 1010   ///< 获取状态服务失败
+        RPCGetFailed = 1010,  ///< 获取状态服务失败
+        ServerBusy = 1011
     };
 }

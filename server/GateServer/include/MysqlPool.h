@@ -5,8 +5,9 @@
  */
 #pragma once
 
-#include <atomic>             // std::atomic
-#include <condition_variable> // std::condition_variable
+#include <atomic>
+#include <condition_variable>
+#include <chrono>
 #include <spdlog/spdlog.h>
 #include <memory>             // std::unique_ptr
 #include <mutex>              // std::mutex, std::unique_lock
@@ -90,16 +91,20 @@ public:
         std::unique_lock<std::mutex> lock(mutex_);
         
         // 循环检查条件 (Predicate)，防止虚假唤醒 (Spurious Wakeup)。
-        cond_.wait(
-            lock,
-            [this]
-            {
-                if (b_stop_)
+        if (!cond_.wait_for(
+                lock, std::chrono::milliseconds(2000),
+                [this]
                 {
-                    return true;
-                }
-                return !pool_.empty();
-            });
+                    if (b_stop_)
+                    {
+                        return true;
+                    }
+                    return !pool_.empty();
+                }))
+        {
+            spdlog::warn("MySQL connection pool exhausted!");
+            return nullptr;
+        }
         if (b_stop_)
         {
             return nullptr;

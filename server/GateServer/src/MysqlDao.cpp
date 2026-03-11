@@ -12,7 +12,7 @@ MysqlDao::MysqlDao()
     const auto &host = cfg["Mysql"]["Host"];
     const auto &port = cfg["Mysql"]["Port"];
     const auto &pwd = cfg["Mysql"]["Passwd"];
-    const auto &schema = cfg["Mysql"]["Name"]; 
+    const auto &schema = cfg["Mysql"]["Name"];
     const auto &user = cfg["Mysql"]["User"];
 
     // 初始化连接池
@@ -24,38 +24,37 @@ MysqlDao::~MysqlDao()
     pool_->Close();
 }
 
-int MysqlDao::RegUser(const std::string &name, const std::string &email, const std::string &pwd, const std::string &icon)
+int MysqlDao::RegUser(
+    const std::string &name, const std::string &email, const std::string &pwd, const std::string &icon)
 {
     auto con = pool_->getConnection();
     if (con == nullptr)
     {
-        return 0;
+        return -2;
     }
 
     try
     {
-        // 检查用户或邮箱是否已存在
-        std::unique_ptr<sql::PreparedStatement> stmt(con->prepareStatement("SELECT uid FROM user WHERE name = ? OR email = ?"));
+        std::unique_ptr<sql::PreparedStatement> stmt(
+            con->prepareStatement("SELECT uid FROM user WHERE name = ? OR email = ?"));
         stmt->setString(1, name);
         stmt->setString(2, email);
-        
+
         std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
         if (res->next())
         {
             pool_->returnConnection(std::move(con));
-            return 0; // 用户名或邮箱重复
+            return 0;
         }
 
-        // 插入新用户
         stmt.reset(con->prepareStatement("INSERT INTO user (name, email, password) VALUES (?, ?, ?)"));
         stmt->setString(1, name);
         stmt->setString(2, email);
         stmt->setString(3, pwd);
-        
+
         int updateCount = stmt->executeUpdate();
         if (updateCount > 0)
         {
-            // 获取自增 UID
             std::unique_ptr<sql::Statement> stmtResult(con->createStatement());
             std::unique_ptr<sql::ResultSet> resUid(stmtResult->executeQuery("SELECT LAST_INSERT_ID()"));
             if (resUid->next())
@@ -68,17 +67,17 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email, const s
         }
 
         pool_->returnConnection(std::move(con));
-        return -1;
+        return 0;
     }
     catch (sql::SQLException &e)
     {
         pool_->returnConnection(std::move(con));
-        spdlog::error("SQLException: {}", e.what());
+        spdlog::error("SQLException in RegUser: {}", e.what());
         if (e.getErrorCode() == 1062) // Duplicate entry
         {
             return 0;
         }
-        return -1;
+        return -2;
     }
 }
 

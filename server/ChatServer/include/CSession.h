@@ -1,5 +1,7 @@
 #pragma once
+#include <atomic>
 #include <boost/asio.hpp>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -11,10 +13,10 @@ class CServer;
 class RecvNode
 {
 public:
-    short _msg_id;
-    int _total_len;
+    uint16_t _msg_id;
+    uint32_t _total_len;
     char *_data;
-    RecvNode(short max_len, short msg_id)
+    RecvNode(uint32_t max_len, uint16_t msg_id)
         : _total_len(max_len),
           _msg_id(msg_id)
     {
@@ -33,25 +35,21 @@ public:
 class SendNode
 {
 public:
-    short _msg_id;
-    int _total_len;
+    uint16_t _msg_id;
+    uint32_t _total_len;
     char *_data;
-    SendNode(const std::string &msg, short msg_id)
+    SendNode(const std::string &msg, uint16_t msg_id)
         : _msg_id(msg_id),
-          _total_len(msg.length())
+          _total_len(static_cast<uint32_t>(msg.length()))
     {
-        // 头部4字节 + 包体
-        _data = new char[_total_len + 4]();
-        // 写入消息ID (2字节，网络字节序)
-        short net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+        _data = new char[_total_len + 6]();
+        uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
         memcpy(_data, &net_msg_id, 2);
-        // 写入数据长度 (2字节，网络字节序)
-        short net_len = boost::asio::detail::socket_ops::host_to_network_short(static_cast<short>(_total_len));
-        memcpy(_data + 2, &net_len, 2);
-        // 写入包体数据
+        uint32_t net_len = boost::asio::detail::socket_ops::host_to_network_long(static_cast<unsigned long>(_total_len));
+        memcpy(_data + 2, &net_len, 4);
         if (_total_len > 0)
         {
-            memcpy(_data + 4, msg.data(), _total_len);
+            memcpy(_data + 6, msg.data(), _total_len);
         }
     }
     ~SendNode()
@@ -81,8 +79,10 @@ private:
     void AsyncReadHead(int total_len);
     void AsyncReadBody(int total_len);
     void AsyncWriteMsg();
+    void ResetReadDeadline();
 
     boost::asio::ip::tcp::socket _socket;
+    boost::asio::steady_timer _read_deadline;
     CServer *_server;
     std::string _uuid;
     std::shared_ptr<RecvNode> _recv_head_node;
@@ -95,4 +95,5 @@ private:
 
     // 用户UID
     int _user_uid = 0;
+    std::atomic<bool> _b_closed{false};
 };

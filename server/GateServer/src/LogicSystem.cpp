@@ -134,6 +134,14 @@ LogicSystem::LogicSystem()
                 "" // icon 默认为空
             );
 
+            if (uid == -2)
+            {
+                spdlog::critical("RegUser failed: database unavailable");
+                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::ServerBusy);
+                beast::ostream(connection->_response.body()) << response_json.toStyledString();
+                return true;
+            }
+
             // 如果 MySQL 返回 0 或 -1，说明用户名或邮箱已存在
             if (uid == 0 || uid == -1)
             {
