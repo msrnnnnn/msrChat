@@ -44,6 +44,10 @@ void HttpConnection::Start()
             catch (std::exception &exp)
             {
                 spdlog::error("exception is {}", exp.what());
+                beast::error_code close_ec;
+                self->_socket.shutdown(tcp::socket::shutdown_both, close_ec);
+                self->_socket.close(close_ec);
+                self->deadline_.cancel();
                 return;
             }
         });

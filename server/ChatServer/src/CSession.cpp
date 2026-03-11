@@ -1,12 +1,15 @@
 #include "CSession.h"
 #include "CServer.h"
 #include "const.h"
+#include <chrono>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
 
 CSession::CSession(boost::asio::io_context &ioc, CServer *server)
     : _socket(ioc),
+      _read_deadline(ioc),
       _server(server)
 {
     _uuid = std::to_string(CServer::s_session_id_allocator.fetch_add(1));
@@ -20,18 +23,42 @@ CSession::~CSession()
 
 void CSession::Close()
 {
-    // 如果已登录，从用户会话映射中移除
+    bool expected = false;
+    if (!_b_closed.compare_exchange_strong(expected, true))
+    {
+        return;
+    }
     if (_user_uid != 0)
     {
         _server->RemoveUserSession(_user_uid);
         _user_uid = 0;
     }
-    _socket.close();
+    boost::system::error_code ec;
+    _read_deadline.cancel(ec);
+    _socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+    _socket.close(ec);
 }
 
 void CSession::Start()
 {
+    ResetReadDeadline();
     AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::ResetReadDeadline()
+{
+    _read_deadline.expires_after(std::chrono::seconds(60));
+    auto self = shared_from_this();
+    _read_deadline.async_wait(
+        [this, self](const boost::system::error_code &ec)
+        {
+            if (ec)
+            {
+                return;
+            }
+            Close();
+            _server->ClearSession(_uuid);
+        });
 }
 
 void CSession::AsyncReadHead(int total_len)
@@ -53,11 +80,13 @@ void CSession::AsyncReadHead(int total_len)
                 _server->ClearSession(_uuid);
                 return;
             }
-            short msg_id = 0, msg_len = 0;
+            ResetReadDeadline();
+            uint16_t msg_id = 0;
+            uint32_t msg_len = 0;
             memcpy(&msg_id, _recv_head_node->_data, HEAD_ID_LEN);
             msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
             memcpy(&msg_len, _recv_head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
-            msg_len = boost::asio::detail::socket_ops::network_to_host_short(msg_len);
+            msg_len = boost::asio::detail::socket_ops::network_to_host_long(msg_len);
 
             if (msg_len == 0)
             {
@@ -72,7 +101,7 @@ void CSession::AsyncReadHead(int total_len)
                 return;
             }
             _recv_msg_node = std::make_shared<RecvNode>(msg_len, msg_id);
-            AsyncReadBody(msg_len);
+            AsyncReadBody(static_cast<int>(msg_len));
         });
 }
 
@@ -95,11 +124,12 @@ void CSession::AsyncReadBody(int total_len)
                 _server->ClearSession(_uuid);
                 return;
             }
+            ResetReadDeadline();
             _recv_msg_node->_data[total_len] = '\0';
             spdlog::info("[Recv] ID: {} Data: {}", _recv_msg_node->_msg_id, _recv_msg_node->_data);
 
             // 处理消息
-            short msg_id = _recv_msg_node->_msg_id;
+            uint16_t msg_id = _recv_msg_node->_msg_id;
             std::string body_data(_recv_msg_node->_data, total_len);
 
             try
@@ -161,14 +191,27 @@ void CSession::AsyncReadBody(int total_len)
 
 void CSession::Send(const std::string &msg, short msg_id)
 {
-    auto send_node = std::make_shared<SendNode>(msg, msg_id);
-    std::lock_guard<std::mutex> lock(_send_mtx);
-    _send_queue.push(send_node);
-    if (!_is_writing)
-    {
-        _is_writing = true;
-        AsyncWriteMsg();
-    }
+    auto send_node = std::make_shared<SendNode>(msg, static_cast<uint16_t>(msg_id));
+    auto self = shared_from_this();
+    boost::asio::post(
+        _socket.get_executor(),
+        [this, self, send_node]()
+        {
+            bool need_write = false;
+            {
+                std::lock_guard<std::mutex> lock(_send_mtx);
+                _send_queue.push(send_node);
+                if (!_is_writing)
+                {
+                    _is_writing = true;
+                    need_write = true;
+                }
+            }
+            if (need_write)
+            {
+                AsyncWriteMsg();
+            }
+        });
 }
 
 void CSession::AsyncWriteMsg()
@@ -188,7 +231,7 @@ void CSession::AsyncWriteMsg()
     // 释放锁后执行异步写操作
     auto self = shared_from_this();
     boost::asio::async_write(
-        _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 4),
+        _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
         [this, self](const boost::system::error_code &ec, std::size_t bytes)
         {
             if (ec)
@@ -209,18 +252,18 @@ void CSession::AsyncWriteMsg()
             {
                 std::lock_guard<std::mutex> lock(_send_mtx);
                 _send_queue.pop();
-                has_more = !_send_queue.empty();
+                if (_send_queue.empty())
+                {
+                    _is_writing = false;
+                    return;
+                }
+                has_more = true;
             }
 
             // 如果队列不为空，在锁外递归调用 AsyncWriteMsg
             if (has_more)
             {
                 AsyncWriteMsg();
-            }
-            else
-            {
-                std::lock_guard<std::mutex> lock(_send_mtx);
-                _is_writing = false;
             }
         });
 }

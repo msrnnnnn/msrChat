@@ -43,7 +43,7 @@ private:
     QByteArray _buffer;   ///< 接收缓冲区，用于缓存未处理完的数据
     bool _b_head_parsed;  ///< 标志位：当前包头是否已解析
     quint16 _message_id;  ///< 当前消息 ID
-    quint16 _message_len; ///< 当前消息体长度
+    quint32 _message_len; ///< 当前消息体长度
 
     // 心跳与重连相关成员
     QTimer *_heartbeat_timer;  ///< 心跳定时器 (发送 Ping)
@@ -52,9 +52,10 @@ private:
     int _reconnect_interval;   ///< 当前重连间隔(毫秒)
     bool _is_first_connection; ///< 标记是否为首次连接
     qint64 _last_pong_time;    ///< 上次收到 Pong 的时间戳 (毫秒)
+    int _read_index;
 
     // 安全常量
-    static const quint16 MAX_MESSAGE_LEN = 1024 * 1024; ///< 最大消息长度 1MB
+    static const quint32 MAX_MESSAGE_LEN = 1024 * 1024; ///< 最大消息长度 1MB
 
 public slots:
     /**
@@ -68,7 +69,7 @@ public slots:
      * @param reqId 请求类型 ID
      * @param data  发送的数据内容 (JSON 字符串)
      */
-    void slot_send_data(RequestType reqId, const QString& data);
+    void slot_send_data(RequestType reqId, const QString &data);
 
 signals:
     /**

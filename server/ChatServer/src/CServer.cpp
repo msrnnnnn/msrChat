@@ -1,5 +1,6 @@
 #include "CServer.h"
 #include "CSession.h"
+#include "AsioIOServicePool.h"
 #include "const.h"
 #include <spdlog/spdlog.h>
 #include <string>
@@ -18,7 +19,8 @@ void CServer::Start()
 
 void CServer::DoAccept()
 {
-    auto new_session = std::make_shared<CSession>(_io_context, this);
+    auto &pool = AsioIOServicePool::getInstance();
+    auto new_session = std::make_shared<CSession>(pool.GetIOService(), this);
     _acceptor.async_accept(
         new_session->GetSocket(),
         [this, new_session](const boost::system::error_code &ec)
