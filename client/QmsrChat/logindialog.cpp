@@ -29,8 +29,8 @@ LoginDialog::LoginDialog(QWidget *parent)
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
     connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &LoginDialog::slot_http_finish);
 
-    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
-    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance(), &TcpMgr::slot_tcp_connect);
+    connect(TcpMgr::GetInstance(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
 
     ui->forget_password_label->SetState("normal", "hover", "", "selected", "selected_hover", "");
     ui->forget_password_label->setCursor(Qt::PointingHandCursor);

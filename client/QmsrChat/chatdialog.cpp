@@ -41,7 +41,7 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     // 连接信号槽
     connect(
-        TcpMgr::GetInstance().get(),
+        TcpMgr::GetInstance(),
         static_cast<void (TcpMgr::*)(quint16, QByteArray)>(&TcpMgr::sig_msg_received),
         this,
         &ChatDialog::slot_recv_chat_msg);
@@ -67,7 +67,7 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     // 连接重连信号 - 断线重连后重新发送登录包
     connect(
-        TcpMgr::GetInstance().get(), &TcpMgr::sig_reconnected, this,
+        TcpMgr::GetInstance(), &TcpMgr::sig_reconnected, this,
         [this]()
         {
             qDebug() << "Detected reconnection, resending login packet (1005)";
