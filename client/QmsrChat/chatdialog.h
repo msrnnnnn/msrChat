@@ -8,6 +8,7 @@
 
 #include <QDialog>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -53,6 +54,7 @@ private:
     QLineEdit *_dest_uid_edit; ///< 目标 UID 输入框
     QLineEdit *_chat_edit;     ///< 消息输入框
     QPushButton *_send_btn;    ///< 发送按钮
+    QHash<QString, QString> _pending_messages;
 };
 
 #endif // CHATDIALOG_H

@@ -16,31 +16,25 @@ StatusServiceImpl::StatusServiceImpl()
     : _server_index(0)
 {
     auto &cfg = ConfigMgr::GetInstance();
-    ChatServer server1;
-    server1.host = cfg["ChatServer1"]["Host"];
-    server1.port = cfg["ChatServer1"]["Port"];
-    if (server1.host.empty())
+    for (int i = 1; i <= 2; ++i)
     {
-        server1.host = "127.0.0.1";
+        std::string section = "ChatServer" + std::to_string(i);
+        ChatServer server;
+        server.host = cfg[section]["Host"];
+        server.port = cfg[section]["Port"];
+        if (!server.host.empty() && !server.port.empty())
+        {
+            _servers.push_back(server);
+        }
     }
-    if (server1.port.empty())
-    {
-        server1.port = "8090";
-    }
-    _servers.push_back(server1);
 
-    ChatServer server2;
-    server2.host = cfg["ChatServer2"]["Host"];
-    server2.port = cfg["ChatServer2"]["Port"];
-    if (server2.host.empty())
+    if (_servers.empty())
     {
-        server2.host = "127.0.0.1";
+        ChatServer server;
+        server.host = "127.0.0.1";
+        server.port = "8080";
+        _servers.push_back(server);
     }
-    if (server2.port.empty())
-    {
-        server2.port = "8091";
-    }
-    _servers.push_back(server2);
 }
 
 grpc::Status StatusServiceImpl::GetChatServer(grpc::ServerContext *context, const message::GetChatServerReq *request,

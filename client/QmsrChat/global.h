@@ -37,11 +37,14 @@ extern std::function<void(QWidget *)> repolish;
  */
 enum class RequestType
 {
+    MSG_HELLO = 1000,
     ID_GET_VARIFY_CODE = 1001, ///< 获取验证码
     ID_REGISTER_USER = 1002,   ///< 用户注册
     ID_RESET_PWD = 1003,       ///< 重置密码
     ID_LOGIN_USER = 1004,      ///< 用户登录
-    ID_CHAT_LOGIN = 1005,      ///< 聊天服务登录
+    MSG_CHAT_LOGIN = 1005,
+    MSG_CHAT_TEXT = 1006,
+    MSG_CHAT_ACK = 1007,
 };
 
 Q_DECLARE_METATYPE(RequestType)
@@ -49,11 +52,12 @@ Q_DECLARE_METATYPE(RequestType)
 /**
  * @brief 服务器连接信息结构体
  */
-struct ServerInfo {
-    QString Host;   ///< 主机地址
-    QString Port;   ///< 端口号
-    QString Token;  ///< 认证令牌
-    int Uid;        ///< 用户 ID
+struct ServerInfo
+{
+    QString Host;  ///< 主机地址
+    QString Port;  ///< 端口号
+    QString Token; ///< 认证令牌
+    int Uid;       ///< 用户 ID
 };
 
 Q_DECLARE_METATYPE(ServerInfo)
@@ -73,9 +77,9 @@ enum class Modules
  */
 enum class ERRORCODES
 {
-    SUCCESS = 0,            ///< 操作成功
-    ERROR_JSON = 1001,      ///< JSON 解析失败
-    RPC_FAILED = 1002,      ///< RPC 调用失败
+    SUCCESS = 0,              ///< 操作成功
+    ERROR_JSON = 1001,        ///< JSON 解析失败
+    RPC_FAILED = 1002,        ///< RPC 调用失败
     VarifyCodeExpired = 1003, ///< 验证码已过期
     VarifyCodeErr = 1004,     ///< 验证码错误
     UserExist = 1005,         ///< 用户名已存在
@@ -106,8 +110,8 @@ enum class TipErr
  */
 enum class ClickLbState
 {
-    Normal = 0,   ///< 正常状态
-    Selected = 1  ///< 选中状态
+    Normal = 0,  ///< 正常状态
+    Selected = 1 ///< 选中状态
 };
 
 #endif // GLOBAL_H

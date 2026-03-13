@@ -1,12 +1,13 @@
 #ifndef CONST_H
 #define CONST_H
 
-// 心跳检测消息ID
-const int MSG_ID_HEARTBEAT = 1;
+#include <cstdint>
 
-// 聊天服务消息ID
-#define MSG_CHAT_LOGIN 1005
-#define MSG_CHAT_TEXT 1006
+constexpr uint16_t MSG_HELLO = 1000;
+constexpr uint16_t MSG_CHAT_LOGIN = 1005;
+constexpr uint16_t MSG_CHAT_TEXT = 1006;
+constexpr uint16_t MSG_CHAT_ACK = 1007;
+constexpr int MAX_CHAT_CONTENT_LEN = 512;
 
 // 协议头部常量
 const int HEAD_ID_LEN = 2;

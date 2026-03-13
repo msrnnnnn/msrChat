@@ -1,7 +1,12 @@
 #include "CServer.h"
-#include "CSession.h"
 #include "AsioIOServicePool.h"
+#include "CSession.h"
+#include "RedisMgr.h"
 #include "const.h"
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/beast/version.hpp>
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -71,7 +76,7 @@ void CServer::ClearSession(const std::string &uuid)
     }
 }
 
-void CServer::ForwardMessage(int target_uid, const std::string &msg_data)
+bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
 {
     std::shared_ptr<CSession> target_session;
     {
@@ -83,13 +88,92 @@ void CServer::ForwardMessage(int target_uid, const std::string &msg_data)
         }
     }
 
-    if (target_session)
+    if (!target_session)
     {
-        target_session->Send(msg_data, MSG_CHAT_TEXT);
-        spdlog::info("[CServer] Message forwarded to user {}", target_uid);
+        return false;
     }
-    else
+
+    target_session->Send(msg_data, MSG_CHAT_TEXT);
+    spdlog::info("[CServer] Message forwarded to user {}", target_uid);
+    return true;
+}
+
+void CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
+{
+    std::string key = "offline_msg:" + std::to_string(target_uid);
+    RedisMgr::GetInstance()->LPush(key, msg_data);
+}
+
+void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
+{
+    std::string key = "offline_msg:" + std::to_string(uid);
+    std::string msg;
+    while (RedisMgr::GetInstance()->LPop(key, msg))
     {
-        spdlog::warn("[CServer] User {} not found, message dropped.", target_uid);
+        if (!msg.empty())
+        {
+            session->Send(msg, MSG_CHAT_TEXT);
+        }
     }
+}
+
+bool CServer::ValidateToken(int uid, const std::string &token)
+{
+    if (_auth_host.empty() || _auth_port.empty())
+    {
+        return false;
+    }
+
+    try
+    {
+        namespace beast = boost::beast;
+        namespace http = beast::http;
+        namespace net = boost::asio;
+        using tcp = net::ip::tcp;
+
+        net::io_context ioc;
+        tcp::resolver resolver(ioc);
+        auto const results = resolver.resolve(_auth_host, _auth_port);
+
+        beast::tcp_stream stream(ioc);
+        stream.connect(results);
+
+        nlohmann::json req_json;
+        req_json["uid"] = uid;
+        req_json["token"] = token;
+
+        http::request<http::string_body> req{http::verb::post, "/verify_token", 11};
+        req.set(http::field::host, _auth_host);
+        req.set(http::field::content_type, "application/json");
+        req.body() = req_json.dump();
+        req.prepare_payload();
+
+        http::write(stream, req);
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        http::read(stream, buffer, res);
+
+        beast::error_code ec;
+        stream.socket().shutdown(tcp::socket::shutdown_both, ec);
+
+        auto resp_json = nlohmann::json::parse(res.body(), nullptr, false);
+        if (!resp_json.is_object())
+        {
+            return false;
+        }
+        int error = resp_json.value("error", 1);
+        return error == 0;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CServer] ValidateToken exception: {}", e.what());
+        return false;
+    }
+}
+
+void CServer::SetAuthServer(const std::string &host, const std::string &port)
+{
+    _auth_host = host;
+    _auth_port = port;
 }

@@ -207,7 +207,7 @@ void TcpWorker::slot_ready_read()
             QByteArray messageBody = readBytes(static_cast<qsizetype>(_message_len));
             qDebug() << "Recv Packet: ID=" << _message_id << " Len=" << _message_len;
 
-            if (_message_id == 1000)
+            if (_message_id == static_cast<quint16>(RequestType::MSG_HELLO))
             {
                 _last_pong_time = QDateTime::currentMSecsSinceEpoch();
                 qDebug() << "Pong received, updated _last_pong_time";
@@ -258,7 +258,7 @@ void TcpWorker::slot_disconnected()
 
 void TcpWorker::slot_send_ping()
 {
-    slot_send_data(static_cast<RequestType>(1000), "{}");
+    slot_send_data(RequestType::MSG_HELLO, "{}");
 }
 
 void TcpWorker::slot_pong_check()

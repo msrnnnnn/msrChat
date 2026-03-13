@@ -81,6 +81,7 @@ private slots:
      * @param bsuccess 连接是否成功
      */
     void slot_tcp_con_finish(bool bsuccess);
+    void slot_tcp_login_rsp(quint16 msg_id, QByteArray data);
 
 signals:
     /**
@@ -114,6 +115,7 @@ private:
 
     int _uid = 0;   ///< 用户 ID
     QString _token; ///< 登录令牌
+    bool _chat_login_ready = false;
 };
 
 #endif // LOGINDIALOG_H

@@ -266,6 +266,53 @@ LogicSystem::LogicSystem()
             response_json["token"] = reply.token();
             response_json["host"] = reply.host();
             response_json["port"] = reply.port();
+            RedisMgr::GetInstance()->Set("token:" + std::to_string(userInfo.uid), reply.token());
+            beast::ostream(connection->_response.body()) << response_json.toStyledString();
+            return true;
+        });
+
+    RegisterPost(
+        "/verify_token",
+        [](std::shared_ptr<HttpConnection> connection)
+        {
+            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+            connection->_response.set(http::field::content_type, "text/json");
+            Json::Value response_json;
+            Json::Value request_json;
+            Json::Reader reader;
+            bool parse_success = reader.parse(body_str, request_json);
+            if (!parse_success)
+            {
+                response_json["error"] = 1;
+                response_json["message"] = "invalid json";
+                beast::ostream(connection->_response.body()) << response_json.toStyledString();
+                return true;
+            }
+
+            int uid = request_json.get("uid", 0).asInt();
+            std::string token = request_json.get("token", "").asString();
+            if (uid <= 0 || token.empty())
+            {
+                response_json["error"] = 1;
+                response_json["message"] = "invalid params";
+                beast::ostream(connection->_response.body()) << response_json.toStyledString();
+                return true;
+            }
+
+            std::string stored_token;
+            bool ok = RedisMgr::GetInstance()->Get("token:" + std::to_string(uid), stored_token);
+            if (!ok || stored_token != token)
+            {
+                response_json["error"] = 1;
+                response_json["message"] = "token invalid";
+                response_json["uid"] = uid;
+                beast::ostream(connection->_response.body()) << response_json.toStyledString();
+                return true;
+            }
+
+            response_json["error"] = 0;
+            response_json["message"] = "login success";
+            response_json["uid"] = uid;
             beast::ostream(connection->_response.body()) << response_json.toStyledString();
             return true;
         });
