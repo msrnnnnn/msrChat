@@ -1,7 +1,7 @@
 [GateServer]
-host=127.0.0.1
+host=192.168.226.129
 port=8080
 
 [ChatServer]
-host=127.0.0.1
-port=8080
+host=192.168.226.129
+port=8081
