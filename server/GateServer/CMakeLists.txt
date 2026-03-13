@@ -36,9 +36,11 @@ find_package(gRPC REQUIRED)
 # 3.4 Find Threads
 find_package(Threads REQUIRED)
 
-include(FetchContent)
-FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
-FetchContent_MakeAvailable(spdlog)
+# include(FetchContent)
+# FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+# FetchContent_MakeAvailable(spdlog)
+
+find_package(spdlog REQUIRED)
 
 # 3.5 Find Redis (hiredis)
 find_path(HIREDIS_INCLUDE_DIR hiredis.h PATH_SUFFIXES hiredis)
