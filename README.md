@@ -19,6 +19,11 @@
 
 后端核心采用 **C++17** 标准，基于 **Boost.Asio** 异步网络库和 **gRPC** 框架，实现了高性能的网络通信和跨服务调用。前端使用 **Qt** 框架，打造了流畅且美观的用户界面。
 
+### 📅 最新进展 (Latest Updates)
+*   **重置密码功能**: 支持通过邮箱验证码重置用户密码，包含完整的客户端 UI 流程和后端逻辑。
+*   **状态服务集成**: 登录流程现已接入 `StatusServer`，通过 gRPC 动态获取负载最低的聊天服务器，实现智能负载均衡。
+*   **UI 体验优化**: 客户端新增登录、注册、重置密码页面的流畅切换，优化了错误提示和交互逻辑。
+
 ## 🏗️ 系统架构 (Architecture)
 
 ```mermaid
@@ -30,18 +35,19 @@ graph TD
     Redis[("Redis Cache")]
     MySQL[("MySQL DB")]
 
-    Client -- "1. HTTP Register/Login" --> Gate
-    Client -- "4. TCP Long Connection" --> Chat
-    Gate -- "2. gRPC GetChatServer" --> Status
-    Gate -- "3. Reg/Login Data" --> MySQL
+    Client -- "1. HTTP Register/Reset Pwd" --> Gate
+    Client -- "2. HTTP Login" --> Gate
+    Client -- "5. TCP Long Connection" --> Chat
+    Gate -- "3. gRPC GetChatServer (Load Balance)" --> Status
+    Gate -- "4. User Data (CRUD)" --> MySQL
     Gate -- "Verify Code/Token" --> Redis
     Status -- "Monitor Load" --> Chat
 ```
 
-*   **GateServer**: HTTP 网关，负责用户注册、登录、负载均衡。
-*   **StatusServer**: 状态服务，维护 ChatServer 集群的健康状态和负载情况。
+*   **GateServer**: HTTP 网关，负责用户注册、登录、重置密码、负载均衡分发。
+*   **StatusServer**: 状态服务，维护 ChatServer 集群的健康状态和负载情况，提供登录调度。
 *   **ChatServer**: TCP 聊天服务器，负责消息推送、即时通讯。
-*   **Qt Client**: 跨平台客户端，集成 HTTP 和 TCP 通信模块。
+*   **Qt Client**: 跨平台客户端，集成 HTTP 和 TCP 通信模块，支持异或加密传输。
 
 ## 📂 目录结构 (Directory Structure)
 
@@ -50,14 +56,15 @@ msrChat/
 ├── client/                 # 客户端源码
 │   └── QmsrChat/           # Qt 客户端工程
 ├── server/                 # 服务端源码
-│   ├── GateServer/         # HTTP 网关服务器
-│   ├── ChatServer/         # TCP 聊天服务器
-│   └── StatusServer/       # gRPC 状态服务器
+│   ├── GateServer/         # HTTP 网关服务器 (注册/登录/重置密码)
+│   ├── ChatServer/         # TCP 聊天服务器 (消息推送)
+│   └── StatusServer/       # gRPC 状态服务器 (负载均衡)
 ├── shared/                 # 共享代码
 │   └── message.proto       # gRPC & Protobuf 定义文件
-├── googletest/             # 单元测试框架
-├── logs/                   # 运行日志
-└── CMakeLists.txt          # 项目根构建文件
+├── googletest/             # GoogleTest 单元测试框架
+├── tests/                  # 项目单元测试代码
+├── docs/                   # 项目文档 (调试指南、学习指南)
+└── logs/                   # 运行日志
 ```
 
 ## ✨ 核心特性 (Key Features)
@@ -74,7 +81,8 @@ msrChat/
     *   **MySQL 连接池**: 基于 `std::queue` 和 `std::condition_variable` 实现的线程安全连接池，支持动态扩容与空闲回收，大幅减少连接建立开销。
     *   **Redis 缓存**: 缓存验证码、Session Token 等高频数据，减轻数据库压力。
 
-*   **🛡️ 工程化实践**：
+*   **🛡️ 安全与工程化**：
+    *   **密码安全**: 注册与登录密码采用 XOR 异或编码传输，增强安全性。
     *   **RAII 资源管理**: 全面使用智能指针 (`std::shared_ptr`, `std::unique_ptr`) 管理内存和资源，杜绝内存泄漏。
     *   **Singleton 单例模式**: 统一管理全局配置、网络连接池等核心组件。
 
@@ -105,23 +113,43 @@ msrChat/
 ### 2. 服务端编译 (Server)
 
 ```bash
-# 1. 编译 GateServer
+# 编译 GateServer
 cd server/GateServer
-mkdir build && cd build
-cmake ..
-make -j4
+mkdir -p build && cd build
+cmake .. && make -j4
 
-# 2. 运行
-./GateServer
+# 编译 ChatServer
+cd ../../ChatServer
+mkdir -p build && cd build
+cmake .. && make -j4
+
+# 编译 StatusServer
+cd ../../StatusServer
+mkdir -p build && cd build
+cmake .. && make -j4
 ```
 
-### 3. 客户端编译 (Client)
+### 3. 运行服务 (Run Services)
+
+确保 MySQL 和 Redis 服务已启动，并且配置文件 (`config.ini`) 已正确配置。
+
+```bash
+# 启动 StatusServer
+./server/StatusServer/build/StatusServer &
+
+# 启动 GateServer
+./server/GateServer/build/GateServer &
+
+# 启动 ChatServer
+./server/ChatServer/build/ChatServer &
+```
+
+### 4. 客户端编译 (Client)
 
 ```bash
 cd client/QmsrChat
-mkdir build && cd build
-cmake ..
-make -j4
+mkdir -p build && cd build
+cmake .. && make -j4
 ./QmsrChat
 ```
 
