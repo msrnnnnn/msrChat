@@ -36,7 +36,12 @@ public:
     void ClearSession(const std::string &uuid);
 
     // 转发消息到指定UID
-    void ForwardMessage(int target_uid, const std::string &msg_data);
+    bool ForwardMessage(int target_uid, const std::string &msg_data);
+    void StoreOfflineMessage(int target_uid, const std::string &msg_data);
+    void SendOfflineMessages(int uid, std::shared_ptr<CSession> session);
+    bool ValidateToken(int uid, const std::string &token);
+
+    void SetAuthServer(const std::string &host, const std::string &port);
 
 private:
     // 接受新连接
@@ -53,6 +58,8 @@ private:
     // Boost.Asio 相关
     boost::asio::io_context &_io_context;
     boost::asio::ip::tcp::acceptor _acceptor;
+    std::string _auth_host;
+    std::string _auth_port;
 };
 
 #endif // CSERVER_H

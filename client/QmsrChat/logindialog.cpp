@@ -8,10 +8,14 @@
 #include "tcpmgr.h"
 #include "ui_logindialog.h"
 #include "usermgr.h"
+#include <QCoreApplication>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPushButton>
+#include <QSettings>
 
 /**
  * @brief 构造函数
@@ -31,6 +35,9 @@ LoginDialog::LoginDialog(QWidget *parent)
 
     connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance(), &TcpMgr::slot_tcp_connect);
     connect(TcpMgr::GetInstance(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+    connect(
+        TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(quint16, QByteArray)>(&TcpMgr::sig_msg_received), this,
+        &LoginDialog::slot_tcp_login_rsp);
 
     ui->forget_password_label->SetState("normal", "hover", "", "selected", "selected_hover", "");
     ui->forget_password_label->setCursor(Qt::PointingHandCursor);
@@ -78,15 +85,32 @@ LoginDialog::LoginDialog(QWidget *parent)
             UserMgr::GetInstance()->SetToken(devToken);
             _uid = devUid;
             _token = devToken;
+            _chat_login_ready = false;
 
             showTip(tr("开发模式：直接连接 TCP..."), true);
 
-            // 直接发送 TCP 连接信号
             ServerInfo si;
             si.Uid = devUid;
-            si.Host = "192.168.226.129";
-            si.Port = "8080";
             si.Token = devToken;
+            QString app_path = QCoreApplication::applicationDirPath();
+            QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+            if (!QFile::exists(config_path))
+            {
+                QString current_config =
+                    QDir::toNativeSeparators(QDir::currentPath() + QDir::separator() + "config.ini");
+                if (QFile::exists(current_config))
+                {
+                    config_path = current_config;
+                }
+            }
+            QSettings settings(config_path, QSettings::IniFormat);
+            si.Host = settings.value("ChatServer/host", "").toString();
+            si.Port = settings.value("ChatServer/port", "").toString();
+            if (si.Host.isEmpty() || si.Port.isEmpty())
+            {
+                showTip(tr("ChatServer 配置缺失"), false);
+                return;
+            }
 
             qDebug() << "Dev Mode: Connecting to" << si.Host << ":" << si.Port;
             emit sig_connect_tcp(si);
@@ -184,6 +208,11 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
     if (bsuccess)
     {
         showTip(tr("聊天服务连接成功，正在登录..."), true);
+        if (_uid <= 0 || _token.isEmpty())
+        {
+            showTip(tr("登录信息无效"), false);
+            return;
+        }
         QJsonObject jsonObj;
         jsonObj["uid"] = _uid;
         jsonObj["token"] = _token;
@@ -191,21 +220,42 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         QJsonDocument doc(jsonObj);
         QString jsonString = doc.toJson(QJsonDocument::Compact);
 
-        TcpMgr::GetInstance()->slot_send_data(RequestType::ID_CHAT_LOGIN, jsonString);
-
-        // 发送 UID 绑定消息 (1005)
-        QJsonObject bindObj;
-        bindObj["uid"] = _uid;
-        QJsonDocument bindDoc(bindObj);
-        QString bindString = bindDoc.toJson(QJsonDocument::Compact);
-        TcpMgr::GetInstance()->slot_send_data(static_cast<RequestType>(1005), bindString);
-
-        // 发射登录成功信号
-        emit sig_login_success();
+        TcpMgr::GetInstance()->slot_send_data(RequestType::MSG_CHAT_LOGIN, jsonString);
         return;
     }
 
     showTip(tr("聊天服务未启动或不可用"), false);
+}
+
+void LoginDialog::slot_tcp_login_rsp(quint16 msg_id, QByteArray data)
+{
+    if (msg_id != static_cast<quint16>(RequestType::MSG_CHAT_LOGIN))
+    {
+        return;
+    }
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject())
+    {
+        showTip(tr("聊天登录响应解析失败"), false);
+        return;
+    }
+    QJsonObject obj = doc.object();
+    int error = obj.value("error").toInt(1);
+    QString message = obj.value("message").toString();
+    if (error != 0)
+    {
+        if (message.isEmpty())
+        {
+            message = tr("聊天登录失败");
+        }
+        showTip(message, false);
+        return;
+    }
+    if (!_chat_login_ready)
+    {
+        _chat_login_ready = true;
+        emit sig_login_success();
+    }
 }
 
 void LoginDialog::initHandlers()
@@ -244,6 +294,7 @@ void LoginDialog::initHandlers()
 
             _uid = si.Uid;
             _token = si.Token;
+            _chat_login_ready = false;
 
             // 保存用户信息到 UserMgr 单例
             UserMgr::GetInstance()->SetUid(_uid);

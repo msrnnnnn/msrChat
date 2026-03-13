@@ -11,6 +11,10 @@ MaxConnections = 1000
 # 调试模式 (0=关闭, 1=开启)
 DebugMode = 1
 
+[GateServer]
+Host = 127.0.0.1
+Port = 8080
+
 [Log]
 # 日志级别: DEBUG, INFO, WARNING, ERROR
 Level = INFO

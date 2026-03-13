@@ -136,38 +136,102 @@ void CSession::AsyncReadBody(int total_len)
             {
                 if (msg_id == MSG_CHAT_LOGIN)
                 {
-                    // 解析登录 JSON
                     auto json_data = nlohmann::json::parse(body_data);
                     int uid = json_data.value("uid", 0);
                     std::string token = json_data.value("token", "");
 
                     spdlog::info("[CSession] Login request - uid: {}, token: {}", uid, token);
 
-                    // 添加用户会话映射
-                    _server->AddUserSession(uid, shared_from_this());
-                    _user_uid = uid;
-
-                    // 组装成功回复
                     nlohmann::json response;
-                    response["code"] = 0;
-                    response["msg"] = "login success";
-                    response["uid"] = uid;
-                    std::string response_str = response.dump();
-
-                    Send(response_str, MSG_CHAT_LOGIN);
+                    if (uid <= 0 || token.empty())
+                    {
+                        response["error"] = 1;
+                        response["message"] = "invalid login";
+                        response["uid"] = uid;
+                        Send(response.dump(), MSG_CHAT_LOGIN);
+                    }
+                    else if (_user_uid != 0)
+                    {
+                        response["error"] = 1;
+                        response["message"] = "already login";
+                        response["uid"] = _user_uid;
+                        Send(response.dump(), MSG_CHAT_LOGIN);
+                    }
+                    else if (!_server->ValidateToken(uid, token))
+                    {
+                        spdlog::warn("[CSession] Token invalid for uid {}", uid);
+                        response["error"] = 1;
+                        response["message"] = "token invalid";
+                        response["uid"] = uid;
+                        Send(response.dump(), MSG_CHAT_LOGIN);
+                    }
+                    else
+                    {
+                        _server->AddUserSession(uid, shared_from_this());
+                        _user_uid = uid;
+                        response["error"] = 0;
+                        response["message"] = "login success";
+                        response["uid"] = uid;
+                        Send(response.dump(), MSG_CHAT_LOGIN);
+                        _server->SendOfflineMessages(uid, shared_from_this());
+                    }
                 }
                 else if (msg_id == MSG_CHAT_TEXT)
                 {
-                    // 解析聊天消息 JSON
                     auto json_data = nlohmann::json::parse(body_data);
                     int from_uid = json_data.value("from_uid", 0);
                     int to_uid = json_data.value("to_uid", 0);
                     std::string content = json_data.value("content", "");
+                    std::string client_msg_id = json_data.value("client_msg_id", "");
 
-                    spdlog::info("[CSession] Chat message - from: {}, to: {}, content: {}", from_uid, to_uid, content);
+                    if (_user_uid == 0)
+                    {
+                        nlohmann::json ack;
+                        ack["error"] = 1;
+                        ack["message"] = "not login";
+                        ack["to_uid"] = to_uid;
+                        ack["client_msg_id"] = client_msg_id;
+                        Send(ack.dump(), MSG_CHAT_ACK);
+                        AsyncReadHead(HEAD_TOTAL_LEN);
+                        return;
+                    }
+                    if (from_uid != 0 && from_uid != _user_uid)
+                    {
+                        spdlog::warn("[CSession] from_uid mismatch client: {} server: {}", from_uid, _user_uid);
+                    }
+                    if (to_uid <= 0 || content.empty() || content.size() > MAX_CHAT_CONTENT_LEN)
+                    {
+                        nlohmann::json ack;
+                        ack["error"] = 1;
+                        ack["message"] = "invalid message";
+                        ack["to_uid"] = to_uid;
+                        ack["client_msg_id"] = client_msg_id;
+                        Send(ack.dump(), MSG_CHAT_ACK);
+                        AsyncReadHead(HEAD_TOTAL_LEN);
+                        return;
+                    }
 
-                    // 转发消息到目标用户
-                    _server->ForwardMessage(to_uid, body_data);
+                    nlohmann::json forward;
+                    forward["from_uid"] = _user_uid;
+                    forward["to_uid"] = to_uid;
+                    forward["content"] = content;
+                    if (!client_msg_id.empty())
+                    {
+                        forward["client_msg_id"] = client_msg_id;
+                    }
+
+                    bool delivered = _server->ForwardMessage(to_uid, forward.dump());
+                    if (!delivered)
+                    {
+                        _server->StoreOfflineMessage(to_uid, forward.dump());
+                    }
+
+                    nlohmann::json ack;
+                    ack["error"] = delivered ? 0 : 1;
+                    ack["message"] = delivered ? "delivered" : "stored";
+                    ack["to_uid"] = to_uid;
+                    ack["client_msg_id"] = client_msg_id;
+                    Send(ack.dump(), MSG_CHAT_ACK);
                 }
                 else
                 {
@@ -178,10 +242,9 @@ void CSession::AsyncReadBody(int total_len)
             catch (const std::exception &e)
             {
                 spdlog::error("[CSession] JSON parse error: {}", e.what());
-                // 解析失败，发送错误回复
                 nlohmann::json error_response;
-                error_response["code"] = -1;
-                error_response["msg"] = std::string("parse error: ") + e.what();
+                error_response["error"] = 1;
+                error_response["message"] = std::string("parse error: ") + e.what();
                 Send(error_response.dump(), msg_id);
             }
 

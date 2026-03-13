@@ -32,6 +32,7 @@ set(SERVER_SOURCES
     src/AsioIOServicePool.cpp
     src/CServer.cpp
     src/CSession.cpp
+    ../GateServer/src/RedisMgr.cpp
 )
 
 # =============================================================
@@ -39,6 +40,7 @@ set(SERVER_SOURCES
 # =============================================================
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../GateServer/include
     ${Boost_INCLUDE_DIRS}
     ${GTEST_INCLUDE_DIRS}
 )

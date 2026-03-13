@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Singleton.h"
+#include <deque>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -109,6 +110,8 @@ public:
 private:
     RedisMgr();
 
-    std::unordered_map<std::string, std::string> _string_cache; ///< 模拟 Redis 存储
-    std::mutex _mtx;                                            ///< 保护 map 线程安全
+    std::unordered_map<std::string, std::string> _string_cache;
+    std::unordered_map<std::string, std::deque<std::string>> _list_cache;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> _hash_cache;
+    std::mutex _mtx;
 };
