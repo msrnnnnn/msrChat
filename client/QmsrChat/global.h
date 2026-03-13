@@ -7,6 +7,7 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
+#include <QMetaType>
 #include <QString>
 #include <QWidget>
 #include <functional>
@@ -43,6 +44,8 @@ enum class RequestType
     ID_CHAT_LOGIN = 1005,      ///< 聊天服务登录
 };
 
+Q_DECLARE_METATYPE(RequestType)
+
 /**
  * @brief 服务器连接信息结构体
  */
@@ -52,6 +55,8 @@ struct ServerInfo {
     QString Token;  ///< 认证令牌
     int Uid;        ///< 用户 ID
 };
+
+Q_DECLARE_METATYPE(ServerInfo)
 
 /**
  * @brief 功能模块标识枚举

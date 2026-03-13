@@ -6,6 +6,7 @@
 
 #include "global.h"
 #include "mainwindow.h"
+#include "tcpmgr.h"
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
@@ -63,5 +64,7 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     w.show();
-    return a.exec();
+    int exit_code = a.exec();
+    TcpMgr::DestroyInstance();
+    return exit_code;
 }

@@ -8,12 +8,11 @@
 #define TCPMGR_H
 
 #include "global.h"
-#include "singleton.h"
-#include <QByteArray>
-#include <QDateTime>
 #include <QObject>
-#include <QTcpSocket>
-#include <QTimer>
+#include <QMutex>
+#include <QThread>
+
+class TcpWorker;
 
 /**
  * @class TcpMgr
@@ -21,41 +20,24 @@
  * @details 管理 QTcpSocket 对象，处理 socket 状态及数据收发。
  *          支持心跳保活和自动重连功能。
  */
-class TcpMgr : public QObject, public Singleton<TcpMgr>
+class TcpMgr : public QObject
 {
     Q_OBJECT
-    friend class Singleton<TcpMgr>;
 
 public:
+    static TcpMgr *GetInstance();
+    static void DestroyInstance();
     ~TcpMgr();
 
 private:
-    /**
-     * @brief 私有构造函数
-     * @details 初始化 socket 并连接相关信号槽。
-     */
-    TcpMgr();
+    explicit TcpMgr(QObject *parent = nullptr);
+    void init_thread();
 
-    QTcpSocket _socket; ///< TCP 套接字对象
-    QString _host;      ///< 服务器主机地址
-    uint16_t _port;     ///< 服务器端口号
+    static QMutex _mutex;
+    static TcpMgr *_instance;
 
-    QByteArray _buffer;   ///< 接收缓冲区，用于缓存未处理完的数据
-    bool _b_head_parsed;  ///< 标志位：当前包头是否已解析
-    quint16 _message_id;  ///< 当前消息 ID
-    quint32 _message_len; ///< 当前消息体长度
-
-    // 心跳与重连相关成员
-    QTimer *_heartbeat_timer;  ///< 心跳定时器 (发送 Ping)
-    QTimer *_pong_check_timer; ///< Pong 超时检测定时器
-    QTimer *_reconnect_timer;  ///< 重连定时器
-    int _reconnect_interval;   ///< 当前重连间隔(毫秒)
-    bool _is_first_connection; ///< 标记是否为首次连接
-    qint64 _last_pong_time;    ///< 上次收到 Pong 的时间戳 (毫秒)
-    int _read_index;
-
-    // 安全常量
-    static const quint32 MAX_MESSAGE_LEN = 1024 * 1024; ///< 最大消息长度 1MB
+    QThread *_netThread;
+    TcpWorker *_worker;
 
 public slots:
     /**
@@ -112,4 +94,4 @@ signals:
     void sig_reconnected();
 };
 
-#endif // TCPMGR_H
+#endif

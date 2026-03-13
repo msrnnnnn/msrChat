@@ -29,6 +29,8 @@ set(PROJECT_SOURCES
         usermgr.cpp usermgr.h
         timerbtn.cpp timerbtn.h
         clickedlabel.cpp clickedlabel.h
+        tcpmgr.cpp tcpmgr.h
+        tcpworker.cpp tcpworker.h
         singleton.h
         resources.qrc
         config.ini
@@ -40,7 +42,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         .gitignore
-        tcpmgr.h tcpmgr.cpp
     )
 # Qt5 / Android Build Path
 else()
