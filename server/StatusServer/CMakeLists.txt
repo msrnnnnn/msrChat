@@ -16,9 +16,10 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 find_package(Threads REQUIRED)
 
-include(FetchContent)
-FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
-FetchContent_MakeAvailable(spdlog)
+# include(FetchContent)
+# FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+# FetchContent_MakeAvailable(spdlog)
+find_package(spdlog REQUIRED)
 
 set(SERVER_SOURCES
     src/StatusServer.cpp

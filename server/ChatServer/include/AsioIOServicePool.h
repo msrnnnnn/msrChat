@@ -7,7 +7,7 @@
 #ifndef ASIOIOSERVICEPOOL_H
 #define ASIOIOSERVICEPOOL_H
 
-#include "Singleton.h"
+#include "CSingleton.h"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <memory>
@@ -21,9 +21,9 @@
  * 使用 Boss-Worker 线程池模型，每个线程运行一个 io_context
  * 使用轮试算法分配 io_context 给新的连接
  */
-class AsioIOServicePool : public Singleton<AsioIOServicePool>
+class AsioIOServicePool : public CSingleton<AsioIOServicePool>
 {
-    friend class Singleton<AsioIOServicePool>;
+    friend class CSingleton<AsioIOServicePool>;
 
 public:
     using IOService = boost::asio::io_context;

@@ -18,11 +18,14 @@ find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 
 # 引入 nlohmann_json
-include(FetchContent)
-FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
-FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
-FetchContent_MakeAvailable(json)
-FetchContent_MakeAvailable(spdlog)
+# include(FetchContent)
+# FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+# FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
+# FetchContent_MakeAvailable(json)
+# FetchContent_MakeAvailable(spdlog)
+
+find_package(nlohmann_json REQUIRED)
+find_package(spdlog REQUIRED)
 
 # =============================================================
 # 3. 源文件列表 (Source Files)
