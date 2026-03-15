@@ -69,8 +69,8 @@ LoginDialog::LoginDialog(QWidget *parent)
     // 创建一个"Dev 模式"按钮，点击后直接设置 UserMgr 并连接 TCP 服务器
     QPushButton *devBtn = new QPushButton(tr("开发模式"), this);
     devBtn->setFixedSize(80, 30);
-    int dev_x = std::max(10, width() - devBtn->width() - 20);
-    devBtn->setGeometry(dev_x, 340, devBtn->width(), devBtn->height());
+    int dev_x = std::max(10, width() - devBtn->width() - 10);
+    devBtn->setGeometry(dev_x, 370, devBtn->width(), devBtn->height());
     devBtn->setStyleSheet(
         "QPushButton { background-color: #FF9800; color: white; border: none; padding: 5px; }"
         "QPushButton:hover { background-color: #F57C00; }");

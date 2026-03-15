@@ -139,28 +139,28 @@ selection-color: rgb(0, 85, 255);</string>
          </property>
         </widget>
        </item>
-      <item>
-       <widget class="ClickedLabel" name="pass_visible">
-        <property name="minimumSize">
-         <size>
-          <width>30</width>
-          <height>25</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>60</width>
-          <height>25</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>显示</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignmentFlag::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
+       <item>
+        <widget class="ClickedLabel" name="pass_visible">
+         <property name="minimumSize">
+          <size>
+           <width>30</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>60</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>显示</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>
