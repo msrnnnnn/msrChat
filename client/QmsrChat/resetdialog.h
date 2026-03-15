@@ -22,30 +22,86 @@ class ResetDialog : public QDialog
     Q_OBJECT
 
 public:
+    /**
+     * @brief 构造函数
+     * @param parent 父窗口
+     */
     explicit ResetDialog(QWidget *parent = nullptr);
+    /**
+     * @brief 析构函数
+     */
     ~ResetDialog();
 
 signals:
+    /**
+     * @brief 返回登录界面信号
+     */
     void switchLogin();
 
 private slots:
+    /**
+     * @brief 获取验证码按钮点击槽
+     */
     void on_varify_btn_clicked();
+    /**
+     * @brief 确认重置按钮点击槽
+     */
     void on_sure_btn_clicked();
+    /**
+     * @brief HTTP 回包处理槽
+     * @param req_type 请求类型
+     * @param res 响应内容
+     * @param err 错误码
+     * @param mod 模块标识
+     */
     void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
 
 private:
+    /**
+     * @brief 校验用户名合法性
+     * @return bool 是否有效
+     */
     bool checkUserValid();
+    /**
+     * @brief 校验邮箱合法性
+     * @return bool 是否有效
+     */
     bool checkEmailValid();
+    /**
+     * @brief 校验密码合法性
+     * @return bool 是否有效
+     */
     bool checkPassValid();
+    /**
+     * @brief 校验验证码合法性
+     * @return bool 是否有效
+     */
     bool checkVarifyValid();
+    /**
+     * @brief 显示提示信息
+     * @param str 提示文本
+     * @param isCorrect 是否为成功提示
+     */
     void showTip(QString str, bool isCorrect);
+    /**
+     * @brief 初始化回包处理器
+     */
     void initHandlers();
+    /**
+     * @brief 记录错误提示
+     * @param te 错误类型
+     * @param tips 提示文本
+     */
     void AddTipErr(TipErr te, QString tips);
+    /**
+     * @brief 移除错误提示
+     * @param te 错误类型
+     */
     void DelTipErr(TipErr te);
 
-    Ui::ResetDialog *ui;
-    QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
-    QMap<TipErr, QString> _tip_errs;
+    Ui::ResetDialog *ui; ///< UI 指针
+    QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers; ///< 回包处理器
+    QMap<TipErr, QString> _tip_errs; ///< 错误提示集合
 };
 
 

@@ -1,3 +1,8 @@
+/**
+ * @file tcpmgr.cpp
+ * @brief TCP 管理单例实现
+ * @details 负责初始化网络线程与工作对象，转发外部发送/连接请求。
+ */
 #include "tcpmgr.h"
 #include "tcpworker.h"
 #include <QMetaObject>
@@ -6,6 +11,10 @@
 QMutex TcpMgr::_mutex;
 TcpMgr *TcpMgr::_instance = nullptr;
 
+/**
+ * @brief 获取单例实例
+ * @return TcpMgr* 单例指针
+ */
 TcpMgr *TcpMgr::GetInstance()
 {
     if (_instance)
@@ -20,6 +29,9 @@ TcpMgr *TcpMgr::GetInstance()
     return _instance;
 }
 
+/**
+ * @brief 销毁单例实例
+ */
 void TcpMgr::DestroyInstance()
 {
     QMutexLocker locker(&_mutex);
@@ -30,6 +42,10 @@ void TcpMgr::DestroyInstance()
     }
 }
 
+/**
+ * @brief 构造函数
+ * @param parent 父对象
+ */
 TcpMgr::TcpMgr(QObject *parent)
     : QObject(parent),
       _netThread(new QThread(this)),
@@ -40,6 +56,9 @@ TcpMgr::TcpMgr(QObject *parent)
     init_thread();
 }
 
+/**
+ * @brief 析构函数
+ */
 TcpMgr::~TcpMgr()
 {
     if (_worker)
@@ -55,6 +74,9 @@ TcpMgr::~TcpMgr()
     }
 }
 
+/**
+ * @brief 初始化网络线程与信号连接
+ */
 void TcpMgr::init_thread()
 {
     _worker->moveToThread(_netThread);
@@ -72,6 +94,10 @@ void TcpMgr::init_thread()
     _netThread->start();
 }
 
+/**
+ * @brief 发送连接请求到工作线程
+ * @param si 服务器连接信息
+ */
 void TcpMgr::slot_tcp_connect(ServerInfo si)
 {
     if (!_worker)
@@ -81,6 +107,11 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
     QMetaObject::invokeMethod(_worker, "slot_tcp_connect", Qt::QueuedConnection, Q_ARG(ServerInfo, si));
 }
 
+/**
+ * @brief 发送数据到工作线程
+ * @param reqId 请求类型
+ * @param data 数据内容
+ */
 void TcpMgr::slot_send_data(RequestType reqId, const QString &data)
 {
     if (!_worker)

@@ -10,6 +10,7 @@
 #include "logindialog.h"
 #include "registerdialog.h"
 #include "resetdialog.h"
+#include <QCloseEvent>
 #include <QMainWindow>
 
 QT_BEGIN_NAMESPACE
@@ -62,6 +63,12 @@ public slots:
     void slotLoginSuccess();
 
 private:
+    /**
+     * @brief 关闭事件
+     * @details 统一在点击窗口关闭按钮时退出整个程序。
+     */
+    void closeEvent(QCloseEvent *event) override;
+
     Ui::MainWindow *ui; ///< UI 指针
 
     LoginDialog *_login_dialog;       ///< 登录对话框实例

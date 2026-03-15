@@ -64,6 +64,7 @@ public:
      * @return  true 验证通过
      */
     bool CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo);
+    bool UserExistsByUid(int uid);
 
 private:
     std::unique_ptr<MySqlPool> pool_;

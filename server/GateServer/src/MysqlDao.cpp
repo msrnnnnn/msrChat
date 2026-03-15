@@ -209,3 +209,32 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
         return false;
     }
 }
+
+bool MysqlDao::UserExistsByUid(int uid)
+{
+    if (uid <= 0)
+    {
+        return false;
+    }
+    auto con = pool_->getConnection();
+    if (con == nullptr)
+    {
+        return false;
+    }
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> stmt(
+            con->prepareStatement("SELECT uid FROM user WHERE uid = ?"));
+        stmt->setInt(1, uid);
+        std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+        bool exists = res->next();
+        pool_->returnConnection(std::move(con));
+        return exists;
+    }
+    catch (sql::SQLException &e)
+    {
+        pool_->returnConnection(std::move(con));
+        spdlog::error("SQLException: {}", e.what());
+        return false;
+    }
+}

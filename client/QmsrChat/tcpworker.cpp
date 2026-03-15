@@ -1,7 +1,13 @@
+/**
+ * @file tcpworker.cpp
+ * @brief TCP 工作线程实现
+ * @details 负责长连接生命周期、协议解包、心跳检测与自动重连。
+ */
 #include "tcpworker.h"
 #include <QAbstractSocket>
 #include <QDataStream>
 #include <QDebug>
+#include <QRandomGenerator>
 #include <QtEndian>
 #include <cstring>
 
@@ -397,12 +403,13 @@ void TcpWorker::schedule_reconnect()
         return;
     }
 
-    _reconnect_timer->start(_reconnect_interval);
-    _reconnect_interval *= 2;
-    if (_reconnect_interval > 30000)
-    {
-        _reconnect_interval = 30000;
-    }
+    int current_backoff = qMin(_reconnect_interval, 30000);
+    int half_backoff = qMax(1, current_backoff / 2);
+    int jitter = QRandomGenerator::global()->bounded(half_backoff + 1);
+    int reconnect_delay = half_backoff + jitter;
+
+    _reconnect_timer->start(reconnect_delay);
+    _reconnect_interval = qMin(current_backoff * 2, 30000);
 }
 
 void TcpWorker::reset_buffer()

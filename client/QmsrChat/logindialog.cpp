@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QPushButton>
 #include <QSettings>
+#include <algorithm>
 
 /**
  * @brief 构造函数
@@ -67,7 +68,9 @@ LoginDialog::LoginDialog(QWidget *parent)
     // ========== Dev 模式按钮 (开发调试用) ==========
     // 创建一个"Dev 模式"按钮，点击后直接设置 UserMgr 并连接 TCP 服务器
     QPushButton *devBtn = new QPushButton(tr("开发模式"), this);
-    devBtn->setGeometry(280, 340, 80, 30); // 放置在登录按钮下方
+    devBtn->setFixedSize(80, 30);
+    int dev_x = std::max(10, width() - devBtn->width() - 20);
+    devBtn->setGeometry(dev_x, 340, devBtn->width(), devBtn->height());
     devBtn->setStyleSheet(
         "QPushButton { background-color: #FF9800; color: white; border: none; padding: 5px; }"
         "QPushButton:hover { background-color: #F57C00; }");
@@ -149,6 +152,9 @@ bool LoginDialog::checkPwdValid()
     return true;
 }
 
+/**
+ * @brief 登录按钮点击处理
+ */
 void LoginDialog::on_login_Button_clicked()
 {
     if (checkUserValid() == false)
@@ -171,6 +177,13 @@ void LoginDialog::on_login_Button_clicked()
         QUrl(gate_url_prefix + "/user_login"), json_obj, RequestType::ID_LOGIN_USER, Modules::LOGINMOD);
 }
 
+/**
+ * @brief HTTP 回包处理
+ * @param req_type 请求类型
+ * @param res 响应内容
+ * @param err 错误码
+ * @param mod 模块标识
+ */
 void LoginDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
 {
     if (mod != Modules::LOGINMOD)
@@ -198,11 +211,18 @@ void LoginDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES
     it.value()(jsonDocument.object());
 }
 
+/**
+ * @brief 忘记密码点击处理
+ */
 void LoginDialog::slot_forget_pwd()
 {
     emit switchReset();
 }
 
+/**
+ * @brief TCP 连接完成回调
+ * @param bsuccess 是否连接成功
+ */
 void LoginDialog::slot_tcp_con_finish(bool bsuccess)
 {
     if (bsuccess)
@@ -227,6 +247,11 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
     showTip(tr("聊天服务未启动或不可用"), false);
 }
 
+/**
+ * @brief TCP 登录回包处理
+ * @param msg_id 消息类型
+ * @param data 消息体
+ */
 void LoginDialog::slot_tcp_login_rsp(quint16 msg_id, QByteArray data)
 {
     if (msg_id != static_cast<quint16>(RequestType::MSG_CHAT_LOGIN))
@@ -258,6 +283,9 @@ void LoginDialog::slot_tcp_login_rsp(quint16 msg_id, QByteArray data)
     }
 }
 
+/**
+ * @brief 初始化登录回包处理器
+ */
 void LoginDialog::initHandlers()
 {
     _handlers.insert(
@@ -305,6 +333,11 @@ void LoginDialog::initHandlers()
         });
 }
 
+/**
+ * @brief 显示提示信息
+ * @param str 提示文本
+ * @param isCorrect 是否为成功提示
+ */
 void LoginDialog::showTip(QString str, bool isCorrect)
 {
     if (isCorrect)

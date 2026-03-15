@@ -10,6 +10,10 @@
 #include <QJsonObject>
 #include <QUuid>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 ChatDialog::ChatDialog(QWidget *parent)
     : QDialog(parent)
 {
@@ -51,10 +55,18 @@ ChatDialog::ChatDialog(QWidget *parent)
         [this]() { _chat_show->append(tr("[系统]: 网络已重连")); });
 }
 
+/**
+ * @brief 析构函数
+ */
 ChatDialog::~ChatDialog()
 {
 }
 
+/**
+ * @brief 接收聊天消息并更新显示
+ * @param msg_id 消息类型
+ * @param data 消息体数据
+ */
 void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
 {
     if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_TEXT))
@@ -110,6 +122,9 @@ void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
     }
 }
 
+/**
+ * @brief 发送按钮点击处理
+ */
 void ChatDialog::slot_send_btn_clicked()
 {
     QString content = _chat_edit->text();

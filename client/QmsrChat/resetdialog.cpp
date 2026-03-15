@@ -10,6 +10,10 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 ResetDialog::ResetDialog(QWidget *parent)
     : QDialog(parent),
       ui(new Ui::ResetDialog)
@@ -35,11 +39,18 @@ ResetDialog::ResetDialog(QWidget *parent)
     ui->varify_btn->setAutoStart(false);
 }
 
+/**
+ * @brief 析构函数
+ */
 ResetDialog::~ResetDialog()
 {
     delete ui;
 }
 
+/**
+ * @brief 校验用户名合法性
+ * @return bool 是否有效
+ */
 bool ResetDialog::checkUserValid()
 {
     if (ui->user_edit->text().isEmpty())
@@ -51,6 +62,10 @@ bool ResetDialog::checkUserValid()
     return true;
 }
 
+/**
+ * @brief 校验密码合法性
+ * @return bool 是否有效
+ */
 bool ResetDialog::checkPassValid()
 {
     auto pass = ui->pwd_edit->text();
@@ -69,6 +84,10 @@ bool ResetDialog::checkPassValid()
     return true;
 }
 
+/**
+ * @brief 校验邮箱合法性
+ * @return bool 是否有效
+ */
 bool ResetDialog::checkEmailValid()
 {
     auto email = ui->email_edit->text();
@@ -82,6 +101,10 @@ bool ResetDialog::checkEmailValid()
     return true;
 }
 
+/**
+ * @brief 校验验证码合法性
+ * @return bool 是否有效
+ */
 bool ResetDialog::checkVarifyValid()
 {
     auto pass = ui->varify_edit->text();
@@ -94,6 +117,9 @@ bool ResetDialog::checkVarifyValid()
     return true;
 }
 
+/**
+ * @brief 获取验证码按钮点击处理
+ */
 void ResetDialog::on_varify_btn_clicked()
 {
     auto bcheck = checkEmailValid();
@@ -108,6 +134,9 @@ void ResetDialog::on_varify_btn_clicked()
         QUrl(gate_url_prefix + "/get_varifycode"), json_obj, RequestType::ID_GET_VARIFY_CODE, Modules::RESETMOD);
 }
 
+/**
+ * @brief 确认重置按钮点击处理
+ */
 void ResetDialog::on_sure_btn_clicked()
 {
     bool valid = checkUserValid();
@@ -140,6 +169,13 @@ void ResetDialog::on_sure_btn_clicked()
         QUrl(gate_url_prefix + "/reset_pwd"), json_obj, RequestType::ID_RESET_PWD, Modules::RESETMOD);
 }
 
+/**
+ * @brief HTTP 回包处理
+ * @param req_type 请求类型
+ * @param res 响应内容
+ * @param err 错误码
+ * @param mod 模块标识
+ */
 void ResetDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
 {
     if (mod != Modules::RESETMOD)
@@ -167,6 +203,9 @@ void ResetDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES
     it.value()(jsonDoc.object());
 }
 
+/**
+ * @brief 初始化业务处理器
+ */
 void ResetDialog::initHandlers()
 {
     _handlers.insert(
@@ -215,12 +254,21 @@ void ResetDialog::initHandlers()
         });
 }
 
+/**
+ * @brief 记录输入错误并提示
+ * @param te 错误类型
+ * @param tips 提示文本
+ */
 void ResetDialog::AddTipErr(TipErr te, QString tips)
 {
     _tip_errs[te] = tips;
     showTip(tips, false);
 }
 
+/**
+ * @brief 移除输入错误并刷新提示
+ * @param te 错误类型
+ */
 void ResetDialog::DelTipErr(TipErr te)
 {
     _tip_errs.remove(te);
@@ -234,6 +282,11 @@ void ResetDialog::DelTipErr(TipErr te)
     showTip(_tip_errs.first(), false);
 }
 
+/**
+ * @brief 显示提示信息
+ * @param str 提示文本
+ * @param isCorrect 是否为成功提示
+ */
 void ResetDialog::showTip(QString str, bool isCorrect)
 {
     if (isCorrect)

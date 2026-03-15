@@ -1,3 +1,7 @@
+/**
+ * @file CServer.cpp
+ * @brief 聊天服务 TCP 入口实现
+ */
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "CSession.h"
@@ -22,6 +26,9 @@ void CServer::Start()
     DoAccept();
 }
 
+/**
+ * @brief 持续异步接收新连接
+ */
 void CServer::DoAccept()
 {
     auto &pool = AsioIOServicePool::getInstance();
@@ -104,6 +111,9 @@ void CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
     RedisMgr::GetInstance()->LPush(key, msg_data);
 }
 
+/**
+ * @brief 将 Redis 中离线消息逐条转发给当前会话
+ */
 void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
 {
     std::string key = "offline_msg:" + std::to_string(uid);

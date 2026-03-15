@@ -31,6 +31,7 @@ public:
     int ResetPwd(const std::string &name, const std::string &email, const std::string &pwd);
     int LoginUser(const std::string &name, const std::string &pwd);
     bool CheckPwd(const std::string &name, const std::string &pwd, UserInfo &userInfo);
+    bool UserExistsByUid(int uid);
 
 private:
     MysqlMgr();
