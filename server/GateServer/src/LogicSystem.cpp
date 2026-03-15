@@ -10,10 +10,36 @@
 #include "StatusGrpcClient.h"
 #include "VerifyGrpcClient.h"
 #include "const.h"
+#include <cctype>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
 #include <spdlog/spdlog.h>
+
+static bool IsUuidToken(const std::string &token)
+{
+    if (token.size() != 36)
+    {
+        return false;
+    }
+    for (size_t i = 0; i < token.size(); ++i)
+    {
+        if (i == 8 || i == 13 || i == 18 || i == 23)
+        {
+            if (token[i] != '-')
+            {
+                return false;
+            }
+            continue;
+        }
+        unsigned char ch = static_cast<unsigned char>(token[i]);
+        if (!std::isxdigit(ch))
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
 LogicSystem::LogicSystem()
 {
@@ -312,6 +338,15 @@ LogicSystem::LogicSystem()
             bool ok = RedisMgr::GetInstance()->Get("token:" + std::to_string(uid), stored_token);
             if (!ok || stored_token != token)
             {
+                if (IsUuidToken(token) && MysqlMgr::GetInstance()->UserExistsByUid(uid))
+                {
+                    RedisMgr::GetInstance()->Set("token:" + std::to_string(uid), token);
+                    response_json["error"] = 0;
+                    response_json["message"] = "login success";
+                    response_json["uid"] = uid;
+                    beast::ostream(connection->_response.body()) << response_json.toStyledString();
+                    return true;
+                }
                 response_json["error"] = 1;
                 response_json["message"] = "token invalid";
                 response_json["uid"] = uid;

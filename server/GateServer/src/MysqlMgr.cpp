@@ -27,3 +27,8 @@ bool MysqlMgr::CheckPwd(const std::string &name, const std::string &pwd, UserInf
 {
     return _dao.CheckPwd(name, pwd, userInfo);
 }
+
+bool MysqlMgr::UserExistsByUid(int uid)
+{
+    return _dao.UserExistsByUid(uid);
+}

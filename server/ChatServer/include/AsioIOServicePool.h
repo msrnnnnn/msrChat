@@ -1,7 +1,7 @@
 /**
  * @file AsioIOServicePool.h
  * @brief Boost.Asio I/O 线程池
- * @details 使用 executor_work_guard 和原字变量实现轮试的 I/O 线程池
+ * @details 使用 executor_work_guard 和原子变量实现轮询的 I/O 线程池
  */
 
 #ifndef ASIOIOSERVICEPOOL_H
@@ -34,8 +34,7 @@ public:
     /**
      * @brief 获取一个 io_context
      * @return boost::asio::io_context& io_context 的引用
-     *
-     * 使用轮试算法分配 io_context，确保货发平衡
+     * @details 使用轮询算法分配 io_context，确保负载均衡
      */
     boost::asio::io_context &GetIOService();
 
@@ -44,15 +43,10 @@ public:
      */
     void Stop();
 
-    /**
-     * @brief 加入分割线程池大小
-     * @param size 线程池大小
-     */
-
 private:
     /**
-     * @brief 构造函
-     * @param size 线程池大小，默认为 CPU 根心数
+     * @brief 构造函数
+     * @param size 线程池大小，默认为 CPU 核心数
      */
     AsioIOServicePool(std::size_t size = std::thread::hardware_concurrency());
 

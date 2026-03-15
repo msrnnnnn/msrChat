@@ -1,3 +1,8 @@
+/**
+ * @file CSession.cpp
+ * @brief TCP 会话实现
+ * @details 负责协议解析、登录鉴权、消息转发与离线消息处理。
+ */
 #include "CSession.h"
 #include "CServer.h"
 #include "const.h"
@@ -7,6 +12,11 @@
 #include <spdlog/spdlog.h>
 #include <string>
 
+/**
+ * @brief 构造函数
+ * @param ioc io_context 引用
+ * @param server 所属服务器指针
+ */
 CSession::CSession(boost::asio::io_context &ioc, CServer *server)
     : _socket(ioc),
       _read_deadline(ioc),
@@ -16,11 +26,17 @@ CSession::CSession(boost::asio::io_context &ioc, CServer *server)
     _recv_head_node = std::make_shared<RecvNode>(HEAD_TOTAL_LEN, 0);
 }
 
+/**
+ * @brief 析构函数
+ */
 CSession::~CSession()
 {
     spdlog::info("~CSession: {}", _uuid);
 }
 
+/**
+ * @brief 关闭连接并清理会话状态
+ */
 void CSession::Close()
 {
     bool expected = false;
@@ -39,12 +55,18 @@ void CSession::Close()
     _socket.close(ec);
 }
 
+/**
+ * @brief 启动读循环
+ */
 void CSession::Start()
 {
     ResetReadDeadline();
     AsyncReadHead(HEAD_TOTAL_LEN);
 }
 
+/**
+ * @brief 重置读超时定时器
+ */
 void CSession::ResetReadDeadline()
 {
     _read_deadline.expires_after(std::chrono::seconds(60));
@@ -61,6 +83,10 @@ void CSession::ResetReadDeadline()
         });
 }
 
+/**
+ * @brief 异步读取消息头
+ * @param total_len 头部长度
+ */
 void CSession::AsyncReadHead(int total_len)
 {
     auto self = shared_from_this();
@@ -83,6 +109,7 @@ void CSession::AsyncReadHead(int total_len)
             ResetReadDeadline();
             uint16_t msg_id = 0;
             uint32_t msg_len = 0;
+            // 解析消息头
             memcpy(&msg_id, _recv_head_node->_data, HEAD_ID_LEN);
             msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
             memcpy(&msg_len, _recv_head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
@@ -105,6 +132,10 @@ void CSession::AsyncReadHead(int total_len)
         });
 }
 
+/**
+ * @brief 异步读取消息体
+ * @param total_len 消息体长度
+ */
 void CSession::AsyncReadBody(int total_len)
 {
     auto self = shared_from_this();
@@ -128,7 +159,7 @@ void CSession::AsyncReadBody(int total_len)
             _recv_msg_node->_data[total_len] = '\0';
             spdlog::info("[Recv] ID: {} Data: {}", _recv_msg_node->_msg_id, _recv_msg_node->_data);
 
-            // 处理消息
+            // 处理业务消息
             uint16_t msg_id = _recv_msg_node->_msg_id;
             std::string body_data(_recv_msg_node->_data, total_len);
 
@@ -136,6 +167,7 @@ void CSession::AsyncReadBody(int total_len)
             {
                 if (msg_id == MSG_CHAT_LOGIN)
                 {
+                    // 登录请求处理
                     auto json_data = nlohmann::json::parse(body_data);
                     int uid = json_data.value("uid", 0);
                     std::string token = json_data.value("token", "");
@@ -178,6 +210,7 @@ void CSession::AsyncReadBody(int total_len)
                 }
                 else if (msg_id == MSG_CHAT_TEXT)
                 {
+                    // 文本消息处理
                     auto json_data = nlohmann::json::parse(body_data);
                     int from_uid = json_data.value("from_uid", 0);
                     int to_uid = json_data.value("to_uid", 0);
@@ -226,6 +259,7 @@ void CSession::AsyncReadBody(int total_len)
                         _server->StoreOfflineMessage(to_uid, forward.dump());
                     }
 
+                    // 回复发送结果
                     nlohmann::json ack;
                     ack["error"] = delivered ? 0 : 1;
                     ack["message"] = delivered ? "delivered" : "stored";
@@ -252,6 +286,11 @@ void CSession::AsyncReadBody(int total_len)
         });
 }
 
+/**
+ * @brief 发送消息
+ * @param msg 消息体
+ * @param msg_id 消息类型
+ */
 void CSession::Send(const std::string &msg, short msg_id)
 {
     auto send_node = std::make_shared<SendNode>(msg, static_cast<uint16_t>(msg_id));
@@ -277,6 +316,9 @@ void CSession::Send(const std::string &msg, short msg_id)
         });
 }
 
+/**
+ * @brief 异步发送队列中的消息
+ */
 void CSession::AsyncWriteMsg()
 {
     // 在锁内获取队首元素拷贝

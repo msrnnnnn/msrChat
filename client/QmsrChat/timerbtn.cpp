@@ -6,6 +6,10 @@
 #include "timerbtn.h"
 #include <QMouseEvent>
 
+/**
+ * @brief 构造函数
+ * @param parent 父窗口
+ */
 TimerBtn::TimerBtn(QWidget *parent)
     : QPushButton(parent),
       _timer(new QTimer(this)),
@@ -26,16 +30,27 @@ TimerBtn::TimerBtn(QWidget *parent)
             });
 }
 
+/**
+ * @brief 析构函数
+ */
 TimerBtn::~TimerBtn()
 {
     stopCountdown();
 }
 
+/**
+ * @brief 设置是否自动启动倒计时
+ * @param autoStart 是否自动启动
+ */
 void TimerBtn::setAutoStart(bool autoStart)
 {
     _autoStart = autoStart;
 }
 
+/**
+ * @brief 启动倒计时
+ * @param seconds 倒计时秒数
+ */
 void TimerBtn::startCountdown(int seconds)
 {
     if (seconds <= 0)
@@ -58,6 +73,9 @@ void TimerBtn::startCountdown(int seconds)
     }
 }
 
+/**
+ * @brief 停止倒计时并恢复默认文本
+ */
 void TimerBtn::stopCountdown()
 {
     if (_timer->isActive())
@@ -70,6 +88,10 @@ void TimerBtn::stopCountdown()
     setEnabled(true);
 }
 
+/**
+ * @brief 鼠标释放事件
+ * @param e 鼠标事件
+ */
 void TimerBtn::mouseReleaseEvent(QMouseEvent *e)
 {
     if (e->button() == Qt::LeftButton && _autoStart)
@@ -79,6 +101,9 @@ void TimerBtn::mouseReleaseEvent(QMouseEvent *e)
     QPushButton::mouseReleaseEvent(e);
 }
 
+/**
+ * @brief 更新按钮文本显示
+ */
 void TimerBtn::updateText()
 {
     if (_counter > 0)

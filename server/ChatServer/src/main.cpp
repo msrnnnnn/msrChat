@@ -1,3 +1,8 @@
+/**
+ * @file main.cpp
+ * @brief ChatServer 程序入口
+ * @details 初始化 IO 线程池、读取配置、启动 TCP 监听并注册退出信号。
+ */
 #include "AsioIOServicePool.h"
 #include "CServer.h"
 #include <boost/asio.hpp>
@@ -8,6 +13,10 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 
+/**
+ * @brief 程序入口
+ * @return int 进程退出码
+ */
 int main()
 {
     try
@@ -16,6 +25,7 @@ int main()
         boost::asio::io_context io_context;
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 
+        // 捕获终止信号，执行优雅退出
         signals.async_wait(
             [&io_context](const boost::system::error_code &, int)
             {
@@ -24,6 +34,7 @@ int main()
                 AsioIOServicePool::getInstance().Stop();
             });
 
+        // 默认配置（可被 config.ini 覆盖）
         short port = 8080;
         std::string gate_host = "127.0.0.1";
         std::string gate_port = "8080";

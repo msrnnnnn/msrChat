@@ -4,6 +4,8 @@
  */
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include <QApplication>
+#include <QCloseEvent>
 #include <QIcon>
 
 /**
@@ -87,6 +89,9 @@ void MainWindow::slotSwitchLogin()
     _login_dialog->show();
 }
 
+/**
+ * @brief 切换到重置密码界面
+ */
 void MainWindow::slotSwitchReset()
 {
     _login_dialog->hide();
@@ -94,6 +99,9 @@ void MainWindow::slotSwitchReset()
     _reset_dialog->show();
 }
 
+/**
+ * @brief 处理登录成功，切换到聊天界面
+ */
 void MainWindow::slotLoginSuccess()
 {
     // 隐藏登录相关对话框
@@ -105,11 +113,22 @@ void MainWindow::slotLoginSuccess()
     if (_chat_dialog == nullptr)
     {
         _chat_dialog = new ChatDialog(this);
-        _chat_dialog->setFixedSize(600, 500);
-        _chat_dialog->move(this->pos());
+        _chat_dialog->setWindowFlags(Qt::Widget);
+        setCentralWidget(_chat_dialog);
     }
 
-    // 调整主窗口大小以适应聊天窗口
+    // 调整主窗口大小并显示嵌入式聊天界面
     setFixedSize(600, 500);
+    show();
     _chat_dialog->show();
+}
+
+/**
+ * @brief 处理窗口关闭事件
+ * @param event 关闭事件
+ */
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    QMainWindow::closeEvent(event);
+    QApplication::quit();
 }

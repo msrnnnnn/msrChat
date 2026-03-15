@@ -81,6 +81,11 @@ private slots:
      * @param bsuccess 连接是否成功
      */
     void slot_tcp_con_finish(bool bsuccess);
+    /**
+     * @brief TCP 登录回包处理槽
+     * @param msg_id 消息类型
+     * @param data 消息体
+     */
     void slot_tcp_login_rsp(quint16 msg_id, QByteArray data);
 
 signals:
