@@ -3,6 +3,7 @@
  * @brief 聊天对话框实现
  */
 #include "chatdialog.h"
+#include "ui_chatdialog.h"
 #include "tcpmgr.h"
 #include "usermgr.h"
 #include <QDebug>
@@ -14,45 +15,21 @@
  * @brief 构造函数
  * @param parent 父窗口
  */
-ChatDialog::ChatDialog(QWidget *parent)
-    : QDialog(parent)
+ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog)
 {
-    // 设置窗口标题
-    setWindowTitle(tr("聊天窗口"));
+    ui->setupUi(this);
+    // 把按钮的父对象改成输入框
+    ui->pushButton->setParent(ui->chat_edit);
+    // 使按钮显示在最上层
+    ui->pushButton->raise();
+    ui->chat_edit->installEventFilter(this);
+           // 连接信号槽
+    connect(TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(quint16, QByteArray)>(&TcpMgr::sig_msg_received), this,
+            &ChatDialog::slot_recv_chat_msg);
+    connect(ui->pushButton, &QPushButton::clicked, this, &ChatDialog::slot_send_btn_clicked);
 
-    // 创建主布局
-    QVBoxLayout *main_layout = new QVBoxLayout(this);
-
-    // 顶部：聊天显示区域
-    _chat_show = new QTextEdit(this);
-    _chat_show->setReadOnly(true);
-    main_layout->addWidget(_chat_show);
-
-    // 中间：目标 UID 输入
-    QHBoxLayout *dest_layout = new QHBoxLayout();
-    QLabel *dest_label = new QLabel(tr("目标UID:"), this);
-    _dest_uid_edit = new QLineEdit(this);
-    dest_layout->addWidget(dest_label);
-    dest_layout->addWidget(_dest_uid_edit);
-    main_layout->addLayout(dest_layout);
-
-    // 底部：消息输入和发送按钮
-    QHBoxLayout *input_layout = new QHBoxLayout();
-    _chat_edit = new QLineEdit(this);
-    _send_btn = new QPushButton(tr("发送"), this);
-    input_layout->addWidget(_chat_edit);
-    input_layout->addWidget(_send_btn);
-    main_layout->addLayout(input_layout);
-
-    // 连接信号槽
-    connect(
-        TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(quint16, QByteArray)>(&TcpMgr::sig_msg_received), this,
-        &ChatDialog::slot_recv_chat_msg);
-    connect(_send_btn, &QPushButton::clicked, this, &ChatDialog::slot_send_btn_clicked);
-
-    connect(
-        TcpMgr::GetInstance(), &TcpMgr::sig_reconnected, this,
-        [this]() { _chat_show->append(tr("[系统]: 网络已重连")); });
+    connect(TcpMgr::GetInstance(), &TcpMgr::sig_reconnected, this,
+            [this]() { ui->chat_show->append(tr("[系统]: 网络已重连")); });
 }
 
 /**
@@ -60,6 +37,7 @@ ChatDialog::ChatDialog(QWidget *parent)
  */
 ChatDialog::~ChatDialog()
 {
+    delete ui;
 }
 
 /**
@@ -82,8 +60,8 @@ void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
         int from_uid = obj["from_uid"].toInt();
         QString content = obj["content"].toString();
 
-        QString msg = tr("[用户 \"") + QString::number(from_uid) + tr("\"]: ") + content;
-        _chat_show->append(msg);
+        QString msg = QString("<div style='text-align: left; color: #333333;'>[用户 %1]: %2</div>").arg(from_uid).arg(content);
+        ui->chat_show->append(msg);
         return;
     }
     if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_ACK))
@@ -109,7 +87,7 @@ void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
         }
         if (error == 0)
         {
-            _chat_show->append(tr("[我]: ") + content);
+            ui->chat_show->append(QString("<div style='text-align: right; color: #07C160;'>%1 :[我]</div>").arg(content));
         }
         else
         {
@@ -117,7 +95,7 @@ void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
             {
                 message = tr("发送失败");
             }
-            _chat_show->append(tr("[系统]: ") + message);
+            ui->chat_show->append(tr("[系统]: ") + message);
         }
     }
 }
@@ -127,11 +105,11 @@ void ChatDialog::slot_recv_chat_msg(quint16 msg_id, QByteArray data)
  */
 void ChatDialog::slot_send_btn_clicked()
 {
-    QString content = _chat_edit->text();
-    int to_uid = _dest_uid_edit->text().toInt();
+    QString content = ui->chat_edit->toPlainText();
+    int to_uid = ui->dest_uid_edit->text().toInt();
     if (to_uid <= 0)
     {
-        _chat_show->append(tr("[系统]: 目标UID无效"));
+        ui->chat_show->append(tr("[系统]: 目标UID无效"));
         return;
     }
     if (content.isEmpty())
@@ -140,7 +118,7 @@ void ChatDialog::slot_send_btn_clicked()
     }
     if (content.size() > 512)
     {
-        _chat_show->append(tr("[系统]: 内容过长"));
+        ui->chat_show->append(tr("[系统]: 内容过长"));
         return;
     }
 
@@ -159,5 +137,18 @@ void ChatDialog::slot_send_btn_clicked()
     _pending_messages.insert(client_msg_id, content);
     TcpMgr::GetInstance()->slot_send_data(RequestType::MSG_CHAT_TEXT, QString(json_data));
 
-    _chat_edit->clear();
+    ui->chat_edit->clear();
+}
+
+
+bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    // 如果是输入框的大小发生了改变
+    if (watched == ui->chat_edit && event->type() == QEvent::Resize) {
+        // 动态计算按钮的位置：输入框宽度 - 按钮宽度 - 10像素右边距
+        int x = ui->chat_edit->width() - ui->pushButton->width() - 10;
+        int y = ui->chat_edit->height() - ui->pushButton->height() - 10;
+        ui->pushButton->move(x, y);
+    }
+    return QDialog::eventFilter(watched, event);
 }

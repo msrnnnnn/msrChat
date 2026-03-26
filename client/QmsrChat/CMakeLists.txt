@@ -42,6 +42,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         .gitignore
+        chatdialog.h chatdialog.cpp chatdialog.ui
+
+
     )
 # Qt5 / Android Build Path
 else()
