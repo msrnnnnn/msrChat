@@ -6,13 +6,12 @@
 #ifndef CSERVER_H
 #define CSERVER_H
 
+#include "ShardedMap.h"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <unordered_map>
 
 // 前向声明 CSession 类
 class CSession;
@@ -100,12 +99,10 @@ private:
     void DoAccept();
 
     // UID到会话的映射表
-    std::unordered_map<int, std::shared_ptr<CSession>> _uid_sessions;
-    std::mutex _session_mtx;
+    ShardedMap<int, std::shared_ptr<CSession>> _uid_sessions{32};
 
     // UUID到会话的映射（用于管理连接）
-    std::unordered_map<std::string, std::shared_ptr<CSession>> _uuid_sessions;
-    std::mutex _uuid_session_mtx;
+    ShardedMap<std::string, std::shared_ptr<CSession>> _uuid_sessions{32};
 
     // Boost.Asio 相关
     boost::asio::io_context &_io_context;

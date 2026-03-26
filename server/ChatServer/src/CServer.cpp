@@ -192,10 +192,7 @@ void CServer::DoAccept()
             if (!ec)
             {
                 spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
-                {
-                    std::lock_guard<std::mutex> lock(_uuid_session_mtx);
-                    _uuid_sessions[new_session->GetUuid()] = new_session;
-                }
+                _uuid_sessions.Insert(new_session->GetUuid(), new_session);
                 new_session->Start();
             }
             else
@@ -208,45 +205,29 @@ void CServer::DoAccept()
 
 void CServer::AddUserSession(int uid, std::shared_ptr<CSession> session)
 {
-    std::lock_guard<std::mutex> lock(_session_mtx);
-    _uid_sessions[uid] = session;
+    _uid_sessions.Insert(uid, std::move(session));
     spdlog::info("[CServer] User {} session added.", uid);
 }
 
 void CServer::RemoveUserSession(int uid)
 {
-    std::lock_guard<std::mutex> lock(_session_mtx);
-    auto it = _uid_sessions.find(uid);
-    if (it != _uid_sessions.end())
+    if (_uid_sessions.Erase(uid))
     {
-        _uid_sessions.erase(it);
         spdlog::info("[CServer] User {} session removed.", uid);
     }
 }
 
 void CServer::ClearSession(const std::string &uuid)
 {
-    std::lock_guard<std::mutex> lock(_uuid_session_mtx);
-    auto it = _uuid_sessions.find(uuid);
-    if (it != _uuid_sessions.end())
+    if (_uuid_sessions.Erase(uuid))
     {
-        _uuid_sessions.erase(it);
         spdlog::info("[CServer] Session {} cleared.", uuid);
     }
 }
 
 bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
 {
-    std::shared_ptr<CSession> target_session;
-    {
-        std::lock_guard<std::mutex> lock(_session_mtx);
-        auto it = _uid_sessions.find(target_uid);
-        if (it != _uid_sessions.end())
-        {
-            target_session = it->second;
-        }
-    }
-
+    auto target_session = _uid_sessions.Find(target_uid).value_or(nullptr);
     if (!target_session)
     {
         return false;
