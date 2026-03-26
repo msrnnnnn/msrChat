@@ -28,7 +28,7 @@ VerifyGrpcClient::VerifyGrpcClient()
     spdlog::info("VerifyGrpcClient config - Host: {}, Port: {}", host, port);
 
     // 初始化 gRPC 连接池
-    pool_ = std::make_unique<RPConPool>(5, host, port);
+    pool_ = std::make_unique<RPConPool>(100, host, port);
 
     spdlog::info("VerifyGrpcClient initialized with connection pool.");
 }
