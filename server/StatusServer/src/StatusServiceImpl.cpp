@@ -16,7 +16,7 @@ StatusServiceImpl::StatusServiceImpl()
     : _server_index(0)
 {
     auto &cfg = ConfigMgr::GetInstance();
-    for (int i = 1; i <= 2; ++i)
+    for (int i = 1; i <= 16; ++i)
     {
         std::string section = "ChatServer" + std::to_string(i);
         ChatServer server;

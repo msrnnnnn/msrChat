@@ -7,11 +7,32 @@
 #include "const.h"
 #include <iostream>
 
+namespace
+{
+int ParsePositiveInt(const std::string &value, int fallback)
+{
+    if (value.empty())
+    {
+        return fallback;
+    }
+    try
+    {
+        int parsed = std::stoi(value);
+        return parsed > 0 ? parsed : fallback;
+    }
+    catch (const std::exception &)
+    {
+        return fallback;
+    }
+}
+} // namespace
+
 StatusGrpcClient::StatusGrpcClient()
 {
     auto &gCfgMgr = ConfigMgr::GetInstance();
     std::string host = gCfgMgr["StatusServer"]["Host"];
     std::string port = gCfgMgr["StatusServer"]["Port"];
+    int pool_size = ParsePositiveInt(gCfgMgr["StatusServer"]["PoolSize"], 256);
     
     // 默认配置回退
     if (host.empty())
@@ -23,8 +44,7 @@ StatusGrpcClient::StatusGrpcClient()
         port = "50052";
     }
     
-    // 初始化 gRPC 连接池
-    pool_ = std::make_unique<StatusConPool>(5, host, port);
+    pool_ = std::make_unique<StatusConPool>(static_cast<size_t>(pool_size), host, port);
 }
 
 GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)

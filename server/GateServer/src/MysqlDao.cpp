@@ -4,7 +4,28 @@
  */
 
 #include "MysqlDao.h"
+#include <chrono>
 #include <spdlog/spdlog.h>
+
+namespace
+{
+int ParsePositiveInt(const std::string &value, int fallback)
+{
+    if (value.empty())
+    {
+        return fallback;
+    }
+    try
+    {
+        int parsed = std::stoi(value);
+        return parsed > 0 ? parsed : fallback;
+    }
+    catch (const std::exception &)
+    {
+        return fallback;
+    }
+}
+} // namespace
 
 MysqlDao::MysqlDao()
 {
@@ -14,9 +35,11 @@ MysqlDao::MysqlDao()
     const auto &pwd = cfg["Mysql"]["Passwd"];
     const auto &schema = cfg["Mysql"]["Name"];
     const auto &user = cfg["Mysql"]["User"];
+    const int pool_size = ParsePositiveInt(cfg["Mysql"]["PoolSize"], 256);
+    const int wait_timeout_ms = ParsePositiveInt(cfg["Mysql"]["WaitTimeoutMs"], 30000);
 
-    // 初始化连接池
-    pool_.reset(new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, 20));
+    pool_.reset(
+        new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, pool_size, std::chrono::milliseconds(wait_timeout_ms)));
 }
 
 MysqlDao::~MysqlDao()
@@ -168,7 +191,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
     auto con = pool_->getConnection();
     if (con == nullptr)
     {
-        userInfo.uid = -1;
+        userInfo.uid = -2;
         return false;
     }
 
@@ -178,8 +201,12 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
             con->prepareStatement("SELECT uid, email, password FROM user WHERE name = ?"));
         stmt->setString(1, name);
         std::unique_ptr<sql::ResultSet> res(stmt->executeQuery());
+
         if (!res->next())
         {
+            //归还连接前，先强制销毁结果集和游标
+            res.reset();
+            stmt.reset();
             pool_->returnConnection(std::move(con));
             userInfo.uid = 0;
             return false;
@@ -188,6 +215,9 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
         int uid = res->getInt("uid");
         std::string db_pwd = res->getString("password");
         std::string email = res->getString("email");
+
+        res.reset();
+        stmt.reset();
         pool_->returnConnection(std::move(con));
 
         if (db_pwd != pwd)
@@ -205,7 +235,7 @@ bool MysqlDao::CheckPwd(const std::string &name, const std::string &pwd, UserInf
     {
         pool_->returnConnection(std::move(con));
         spdlog::error("SQLException: {}", e.what());
-        userInfo.uid = -1;
+        userInfo.uid = -2;
         return false;
     }
 }

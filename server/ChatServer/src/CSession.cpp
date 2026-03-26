@@ -11,6 +11,133 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
+#include <string_view>
+
+namespace
+{
+void AppendEscapedJsonString(std::string &output, std::string_view value)
+{
+    output.push_back('"');
+    for (unsigned char ch : value)
+    {
+        switch (ch)
+        {
+            case '"':
+                output += "\\\"";
+                break;
+            case '\\':
+                output += "\\\\";
+                break;
+            case '\b':
+                output += "\\b";
+                break;
+            case '\f':
+                output += "\\f";
+                break;
+            case '\n':
+                output += "\\n";
+                break;
+            case '\r':
+                output += "\\r";
+                break;
+            case '\t':
+                output += "\\t";
+                break;
+            default:
+                if (ch < 0x20)
+                {
+                    static constexpr char kHexDigits[] = "0123456789abcdef";
+                    output += "\\u00";
+                    output.push_back(kHexDigits[(ch >> 4) & 0x0F]);
+                    output.push_back(kHexDigits[ch & 0x0F]);
+                }
+                else
+                {
+                    output.push_back(static_cast<char>(ch));
+                }
+                break;
+        }
+    }
+    output.push_back('"');
+}
+
+void AppendJsonFieldName(std::string &output, std::string_view key)
+{
+    AppendEscapedJsonString(output, key);
+    output.push_back(':');
+}
+
+void AppendJsonStringField(std::string &output, std::string_view key, std::string_view value, bool with_comma)
+{
+    if (with_comma)
+    {
+        output.push_back(',');
+    }
+    AppendJsonFieldName(output, key);
+    AppendEscapedJsonString(output, value);
+}
+
+void AppendJsonIntField(std::string &output, std::string_view key, int value, bool with_comma)
+{
+    if (with_comma)
+    {
+        output.push_back(',');
+    }
+    AppendJsonFieldName(output, key);
+    output += std::to_string(value);
+}
+
+std::string BuildAckResponse(int error, std::string_view message, int to_uid, std::string_view client_msg_id)
+{
+    std::string output;
+    output.reserve(96 + client_msg_id.size());
+    output.push_back('{');
+    AppendJsonIntField(output, "error", error, false);
+    AppendJsonStringField(output, "message", message, true);
+    AppendJsonIntField(output, "to_uid", to_uid, true);
+    AppendJsonStringField(output, "client_msg_id", client_msg_id, true);
+    output.push_back('}');
+    return output;
+}
+
+std::string BuildLoginResponse(int error, std::string_view message, int uid)
+{
+    std::string output;
+    output.reserve(64);
+    output.push_back('{');
+    AppendJsonIntField(output, "error", error, false);
+    AppendJsonStringField(output, "message", message, true);
+    AppendJsonIntField(output, "uid", uid, true);
+    output.push_back('}');
+    return output;
+}
+
+std::string BuildForwardMessage(int from_uid, int to_uid, std::string_view content, std::string_view client_msg_id)
+{
+    std::string output;
+    output.reserve(96 + content.size() + client_msg_id.size());
+    output.push_back('{');
+    AppendJsonIntField(output, "from_uid", from_uid, false);
+    AppendJsonIntField(output, "to_uid", to_uid, true);
+    AppendJsonStringField(output, "content", content, true);
+    if (!client_msg_id.empty())
+    {
+        AppendJsonStringField(output, "client_msg_id", client_msg_id, true);
+    }
+    output.push_back('}');
+    return output;
+}
+
+const std::string *GetOptionalStringRef(const nlohmann::json &json_data, const char *key)
+{
+    auto it = json_data.find(key);
+    if (it == json_data.end() || !it->is_string())
+    {
+        return nullptr;
+    }
+    return &it->get_ref<const std::string &>();
+}
+} // namespace
 
 /**
  * @brief 构造函数
@@ -163,7 +290,6 @@ void CSession::AsyncReadBody(int total_len)
             // spdlog::info("[Recv] ID: {} Data: {}", recv_msg_node->_msg_id, recv_msg_node->_data);
 
             uint16_t msg_id = recv_msg_node->_msg_id;
-            std::string body_data(recv_msg_node->_data, total_len);
             bool continue_read = true;
 
             try
@@ -171,24 +297,21 @@ void CSession::AsyncReadBody(int total_len)
                 if (msg_id == MSG_CHAT_LOGIN)
                 {
                     continue_read = false;
-                    HandleLoginRequest(body_data);
+                    HandleLoginRequest(std::string_view(recv_msg_node->_data, static_cast<std::size_t>(total_len)));
                 }
                 else if (msg_id == MSG_CHAT_TEXT)
                 {
-                    auto json_data = nlohmann::json::parse(body_data);
+                    auto json_data = nlohmann::json::parse(recv_msg_node->_data, recv_msg_node->_data + total_len);
                     int from_uid = json_data.value("from_uid", 0);
                     int to_uid = json_data.value("to_uid", 0);
-                    std::string content = json_data.value("content", "");
-                    std::string client_msg_id = json_data.value("client_msg_id", "");
+                    const std::string *content = GetOptionalStringRef(json_data, "content");
+                    const std::string *client_msg_id = GetOptionalStringRef(json_data, "client_msg_id");
+                    const std::string_view client_msg_id_view =
+                        client_msg_id ? std::string_view(*client_msg_id) : std::string_view();
 
                     if (_user_uid == 0)
                     {
-                        nlohmann::json ack;
-                        ack["error"] = 1;
-                        ack["message"] = "not login";
-                        ack["to_uid"] = to_uid;
-                        ack["client_msg_id"] = client_msg_id;
-                        Send(ack.dump(), MSG_CHAT_ACK);
+                        Send(BuildAckResponse(1, "not login", to_uid, client_msg_id_view), MSG_CHAT_ACK);
                         AsyncReadHead(HEAD_TOTAL_LEN);
                         return;
                     }
@@ -196,46 +319,27 @@ void CSession::AsyncReadBody(int total_len)
                     {
                         spdlog::warn("[CSession] from_uid mismatch client: {} server: {}", from_uid, _user_uid);
                     }
-                    if (to_uid <= 0 || content.empty() || content.size() > MAX_CHAT_CONTENT_LEN)
+                    if (to_uid <= 0 || content == nullptr || content->empty() || content->size() > MAX_CHAT_CONTENT_LEN)
                     {
-                        nlohmann::json ack;
-                        ack["error"] = 1;
-                        ack["message"] = "invalid message";
-                        ack["to_uid"] = to_uid;
-                        ack["client_msg_id"] = client_msg_id;
-                        Send(ack.dump(), MSG_CHAT_ACK);
+                        Send(BuildAckResponse(1, "invalid message", to_uid, client_msg_id_view), MSG_CHAT_ACK);
                         AsyncReadHead(HEAD_TOTAL_LEN);
                         return;
                     }
 
-                    nlohmann::json forward;
-                    forward["from_uid"] = _user_uid;
-                    forward["to_uid"] = to_uid;
-                    forward["content"] = content;
-                    if (!client_msg_id.empty())
-                    {
-                        forward["client_msg_id"] = client_msg_id;
-                    }
-
-                    std::string forward_data = forward.dump();
+                    std::string forward_data = BuildForwardMessage(_user_uid, to_uid, *content, client_msg_id_view);
                     bool delivered = _server->ForwardMessage(to_uid, forward_data);
                     if (!delivered)
                     {
                         _server->StoreOfflineMessage(to_uid, forward_data);
                     }
 
-                    // 回复发送结果
-                    nlohmann::json ack;
-                    ack["error"] = delivered ? 0 : 1;
-                    ack["message"] = delivered ? "delivered" : "stored";
-                    ack["to_uid"] = to_uid;
-                    ack["client_msg_id"] = client_msg_id;
-                    Send(ack.dump(), MSG_CHAT_ACK);
+                    Send(
+                        BuildAckResponse(delivered ? 0 : 1, delivered ? "delivered" : "stored", to_uid, client_msg_id_view),
+                        MSG_CHAT_ACK);
                 }
                 else
                 {
-                    // 其他消息类型，原样回显 (Echo)
-                    Send(body_data, msg_id);
+                    Send(std::string(recv_msg_node->_data, static_cast<std::size_t>(total_len)), msg_id);
                 }
             }
             catch (const std::exception &e)
@@ -254,41 +358,30 @@ void CSession::AsyncReadBody(int total_len)
         });
 }
 
-void CSession::HandleLoginRequest(const std::string &body_data)
+void CSession::HandleLoginRequest(std::string_view body_data)
 {
-    auto json_data = nlohmann::json::parse(body_data, nullptr, false);
-    nlohmann::json response;
+    auto json_data = nlohmann::json::parse(body_data.begin(), body_data.end(), nullptr, false);
 
     if (json_data.is_discarded())
     {
-        response["error"] = 1;
-        response["message"] = "invalid login payload";
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "invalid login payload", 0), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
 
     int uid = json_data.value("uid", 0);
-    std::string token = json_data.value("token", "");
+    const std::string *token = GetOptionalStringRef(json_data, "token");
 
-    spdlog::info("[CSession] Login request - uid: {}, token: {}", uid, token);
-
-    if (uid <= 0 || token.empty())
+    if (uid <= 0 || token == nullptr || token->empty())
     {
-        response["error"] = 1;
-        response["message"] = "invalid login";
-        response["uid"] = uid;
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "invalid login", uid), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
 
     if (_user_uid != 0)
     {
-        response["error"] = 1;
-        response["message"] = "already login";
-        response["uid"] = _user_uid;
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "already login", _user_uid), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
@@ -296,17 +389,14 @@ void CSession::HandleLoginRequest(const std::string &body_data)
     bool expected = false;
     if (!_login_in_progress.compare_exchange_strong(expected, true))
     {
-        response["error"] = 1;
-        response["message"] = "login in progress";
-        response["uid"] = uid;
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "login in progress", uid), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
 
     auto weak_self = std::weak_ptr<CSession>(shared_from_this());
     _server->ValidateTokenAsync(
-        _socket.get_executor(), uid, token,
+        _socket.get_executor(), uid, *token,
         [weak_self, uid](bool valid)
         {
             auto self = weak_self.lock();
@@ -327,24 +417,17 @@ void CSession::OnLoginValidated(int uid, bool valid)
         return;
     }
 
-    nlohmann::json response;
     if (!valid)
     {
         spdlog::warn("[CSession] Token invalid for uid {}", uid);
-        response["error"] = 1;
-        response["message"] = "token invalid";
-        response["uid"] = uid;
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "token invalid", uid), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
 
     if (_user_uid != 0)
     {
-        response["error"] = 1;
-        response["message"] = "already login";
-        response["uid"] = _user_uid;
-        Send(response.dump(), MSG_CHAT_LOGIN);
+        Send(BuildLoginResponse(1, "already login", _user_uid), MSG_CHAT_LOGIN);
         AsyncReadHead(HEAD_TOTAL_LEN);
         return;
     }
@@ -352,10 +435,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     _server->AddUserSession(uid, shared_from_this());
     _user_uid = uid;
 
-    response["error"] = 0;
-    response["message"] = "login success";
-    response["uid"] = uid;
-    Send(response.dump(), MSG_CHAT_LOGIN);
+    Send(BuildLoginResponse(0, "login success", uid), MSG_CHAT_LOGIN);
     _server->SendOfflineMessages(uid, shared_from_this());
     AsyncReadHead(HEAD_TOTAL_LEN);
 }
