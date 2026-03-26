@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Singleton.h"
+#include <boost/asio/thread_pool.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -26,7 +27,7 @@ class LogicSystem : public Singleton<LogicSystem>
     friend class Singleton<LogicSystem>;
 
 public:
-    ~LogicSystem() = default;
+    ~LogicSystem();
 
     /**
      * @brief   查找并执行 GET 请求对应的 Handler
@@ -60,8 +61,10 @@ public:
 
 private:
     LogicSystem();
+    void DispatchBusinessTask(std::shared_ptr<HttpConnection> connection, std::function<std::string()> task);
+    void WriteJsonResponse(std::shared_ptr<HttpConnection> connection, std::string body);
 
-    // 使用 Hash Map 存储路由表，查询时间复杂度 O(1)
     std::unordered_map<std::string, HttpHandler> _registerPost;
     std::unordered_map<std::string, HttpHandler> _registerGet;
+    boost::asio::thread_pool _business_pool;
 };

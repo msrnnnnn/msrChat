@@ -4,6 +4,7 @@
  * @details 负责创建 io_context 列表、工作守护对象和工作线程。
  */
 #include "AsioIOServicePool.h"
+#include <algorithm>
 #include <iostream>
 
 /**
@@ -14,7 +15,10 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
     : nextIOService_(0)
 {
     if (size == 0)
-        size = 2;
+    {
+        const std::size_t hardware_threads = std::thread::hardware_concurrency();
+        size = std::max<std::size_t>(4, hardware_threads == 0 ? 4 : hardware_threads);
+    }
     for (std::size_t i = 0; i < size; ++i)
     {
         ioServices_.emplace_back(std::make_shared<IOService>());

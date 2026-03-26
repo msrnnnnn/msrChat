@@ -10,18 +10,31 @@
 #include "StatusGrpcClient.h"
 #include "VerifyGrpcClient.h"
 #include "const.h"
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/post.hpp>
+#include <algorithm>
 #include <cctype>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
 #include <spdlog/spdlog.h>
+#include <thread>
 
-static bool IsUuidToken(const std::string &token)
+namespace
+{
+std::size_t GetBusinessThreadCount()
+{
+    const std::size_t hardware_threads = std::thread::hardware_concurrency();
+    return std::max<std::size_t>(4, hardware_threads == 0 ? 4 : hardware_threads);
+}
+
+bool IsUuidToken(const std::string &token)
 {
     if (token.size() != 36)
     {
         return false;
     }
+
     for (size_t i = 0; i < token.size(); ++i)
     {
         if (i == 8 || i == 13 || i == 18 || i == 23)
@@ -32,368 +45,404 @@ static bool IsUuidToken(const std::string &token)
             }
             continue;
         }
-        unsigned char ch = static_cast<unsigned char>(token[i]);
+
+        const unsigned char ch = static_cast<unsigned char>(token[i]);
         if (!std::isxdigit(ch))
         {
             return false;
         }
     }
+
     return true;
 }
+} // namespace
 
 LogicSystem::LogicSystem()
+    : _business_pool(GetBusinessThreadCount())
 {
-    // 注册测试路由
     RegisterGet(
         "/get_test",
         [](std::shared_ptr<HttpConnection> connection)
         {
+            connection->_response.result(http::status::ok);
+            connection->_response.set(http::field::server, "GateServer");
+            connection->_response.set(http::field::content_type, "text/plain");
             beast::ostream(connection->_response.body()) << "receive get_test req " << std::endl;
-            int i = 0;
-            for (auto &elem : connection->_get_params)
+
+            int index = 0;
+            for (const auto &elem : connection->_get_params)
             {
-                i++;
-                beast::ostream(connection->_response.body()) << "param" << i << " key is " << elem.first;
-                beast::ostream(connection->_response.body()) << ", " << " value is " << elem.second << std::endl;
+                ++index;
+                beast::ostream(connection->_response.body()) << "param" << index << " key is " << elem.first;
+                beast::ostream(connection->_response.body()) << ", value is " << elem.second << std::endl;
             }
+
+            connection->WriteResponse();
         });
 
-    // 注册获取验证码路由
     RegisterPost(
         "/get_varifycode",
-        [](std::shared_ptr<HttpConnection> connection)
+        [this](std::shared_ptr<HttpConnection> connection)
         {
-            // 读取请求体并将 buffer 转换为 string
-            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+            const auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
             spdlog::info("receive body is {}", body_str);
 
-            connection->_response.set(http::field::content_type, "text/json");
-            Json::Value response_json;
             Json::Value request_json;
             Json::Reader reader;
-
-            // 解析 JSON 数据
-            bool parse_success = reader.parse(body_str, request_json);
-            if (!parse_success)
+            if (!reader.parse(body_str, request_json))
             {
-                spdlog::warn("Failed to parse JSON data!");
+                Json::Value response_json;
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
-                std::string jsonstr = response_json.toStyledString();
-                beast::ostream(connection->_response.body()) << jsonstr;
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            // 提取 email 字段
-            auto email = request_json["email"].asString();
-            spdlog::info("email is {}", email);
-
-            // 调用 gRPC 客户端获取验证码
-            GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
-            std::string code = rsp.code();
-            spdlog::info("get varify code is {}", code);
-            
-            response_json["code"] = code;
-            response_json["email"] = email;
-            
-            // 将验证码写入 Redis
-            RedisMgr::GetInstance()->Set(email, code);
-
-            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
-            std::string jsonstr = response_json.toStyledString();
-            beast::ostream(connection->_response.body()) << jsonstr;
-            return true;
+            const std::string email = request_json["email"].asString();
+            DispatchBusinessTask(
+                connection,
+                [email]()
+                {
+                    Json::Value response_json;
+                    GetVerifyResponse rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
+                    const std::string code = rsp.code();
+                    RedisMgr::GetInstance()->Set(email, code);
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
+                    response_json["code"] = code;
+                    response_json["email"] = email;
+                    return response_json.toStyledString();
+                });
         });
 
     RegisterPost(
         "/user_register",
-        [](std::shared_ptr<HttpConnection> connection)
+        [this](std::shared_ptr<HttpConnection> connection)
         {
-            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+            const auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
             spdlog::info("receive body is {}", body_str);
-            
-            connection->_response.set(http::field::content_type, "text/json");
-            Json::Value response_json;
+
             Json::Value request_json;
             Json::Reader reader;
-            
-            bool parse_success = reader.parse(body_str, request_json);
-            if (!parse_success)
+            if (!reader.parse(body_str, request_json))
             {
-                spdlog::warn("Failed to parse JSON data!");
+                Json::Value response_json;
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
-                std::string jsonstr = response_json.toStyledString();
-                beast::ostream(connection->_response.body()) << jsonstr;
-                return true;
-            }
-            // 验证码校验
-            std::string varify_code;
-            bool b_get_varify = RedisMgr::GetInstance()->Get(request_json["email"].asString(), varify_code);
-            if (!b_get_varify)
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
-                std::string jsonstr = response_json.toStyledString();
-                beast::ostream(connection->_response.body()) << jsonstr;
-                return true;
-            }
-            if (varify_code != request_json["varifycode"].asString())
-            {
-                spdlog::warn("varify code error");
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
-                std::string jsonstr = response_json.toStyledString();
-                beast::ostream(connection->_response.body()) << jsonstr;
-                return true;
-            }
-            // 访问redis查找
-            bool b_usr_exist = RedisMgr::GetInstance()->ExistsKey(request_json["user"].asString());
-            if (b_usr_exist)
-            {
-                spdlog::info("user exist");
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
-                std::string jsonstr = response_json.toStyledString();
-                beast::ostream(connection->_response.body()) << jsonstr;
-                return true;
-            }
-            // 查找数据库判断用户是否存在
-            // 5. 【核心修正】真正写入 MySQL
-            int uid = MysqlMgr::GetInstance()->RegUser(
-                request_json["user"].asString(), request_json["email"].asString(), request_json["passwd"].asString(),
-                "" // icon 默认为空
-            );
-
-            if (uid == -2)
-            {
-                spdlog::critical("RegUser failed: database unavailable");
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::ServerBusy);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            // 如果 MySQL 返回 0 或 -1，说明用户名或邮箱已存在
-            if (uid == 0 || uid == -1)
-            {
-                spdlog::warn("User or email exist in DB");
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
+            const std::string user = request_json["user"].asString();
+            const std::string email = request_json["email"].asString();
+            const std::string passwd = request_json["passwd"].asString();
+            const std::string verify_code = request_json["varifycode"].asString();
 
-            // 6. 返回成功 (带上生成的 uid)
-            spdlog::info("Register Success, uid: {}", uid);
-            response_json["error"] = 0;
-            response_json["uid"] = uid; // 把 uid 给客户端
-            response_json["email"] = request_json["email"];
-            response_json["user"] = request_json["user"];
-            // 不要返回密码
-            beast::ostream(connection->_response.body()) << response_json.toStyledString();
-            return true;
+            DispatchBusinessTask(
+                connection,
+                [user, email, passwd, verify_code]()
+                {
+                    Json::Value response_json;
+                    std::string stored_verify_code;
+                    if (!RedisMgr::GetInstance()->Get(email, stored_verify_code))
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
+                        return response_json.toStyledString();
+                    }
+
+                    if (stored_verify_code != verify_code)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
+                        return response_json.toStyledString();
+                    }
+
+                    if (RedisMgr::GetInstance()->ExistsKey(user))
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
+                        return response_json.toStyledString();
+                    }
+
+                    const int uid = MysqlMgr::GetInstance()->RegUser(user, email, passwd, "");
+                    if (uid == -2)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::ServerBusy);
+                        return response_json.toStyledString();
+                    }
+
+                    if (uid == 0 || uid == -1)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserExist);
+                        return response_json.toStyledString();
+                    }
+
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
+                    response_json["uid"] = uid;
+                    response_json["email"] = email;
+                    response_json["user"] = user;
+                    return response_json.toStyledString();
+                });
         });
 
     RegisterPost(
         "/reset_pwd",
-        [](std::shared_ptr<HttpConnection> connection)
+        [this](std::shared_ptr<HttpConnection> connection)
         {
-            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            connection->_response.set(http::field::content_type, "text/json");
-            Json::Value response_json;
+            const auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+
             Json::Value request_json;
             Json::Reader reader;
-            bool parse_success = reader.parse(body_str, request_json);
-            if (!parse_success)
+            if (!reader.parse(body_str, request_json))
             {
+                Json::Value response_json;
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            std::string varify_code;
-            bool b_get_varify = RedisMgr::GetInstance()->Get(request_json["email"].asString(), varify_code);
-            if (!b_get_varify)
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
-            if (varify_code != request_json["varifycode"].asString())
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
+            const std::string user = request_json["user"].asString();
+            const std::string email = request_json["email"].asString();
+            const std::string passwd = request_json["passwd"].asString();
+            const std::string verify_code = request_json["varifycode"].asString();
 
-            int uid = MysqlMgr::GetInstance()->ResetPwd(
-                request_json["user"].asString(), request_json["email"].asString(), request_json["passwd"].asString());
-            if (uid == 0)
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::EmailNotMatch);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
-            if (uid == -1)
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdUpFailed);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
+            DispatchBusinessTask(
+                connection,
+                [user, email, passwd, verify_code]()
+                {
+                    Json::Value response_json;
+                    std::string stored_verify_code;
+                    if (!RedisMgr::GetInstance()->Get(email, stored_verify_code))
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyExpired);
+                        return response_json.toStyledString();
+                    }
 
-            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
-            response_json["uid"] = uid;
-            response_json["email"] = request_json["email"];
-            response_json["user"] = request_json["user"];
-            beast::ostream(connection->_response.body()) << response_json.toStyledString();
-            return true;
+                    if (stored_verify_code != verify_code)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::VarifyCodeErr);
+                        return response_json.toStyledString();
+                    }
+
+                    const int uid = MysqlMgr::GetInstance()->ResetPwd(user, email, passwd);
+                    if (uid == 0)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::EmailNotMatch);
+                        return response_json.toStyledString();
+                    }
+
+                    if (uid == -1)
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdUpFailed);
+                        return response_json.toStyledString();
+                    }
+
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
+                    response_json["uid"] = uid;
+                    response_json["email"] = email;
+                    response_json["user"] = user;
+                    return response_json.toStyledString();
+                });
         });
 
     RegisterPost(
         "/user_login",
-        [](std::shared_ptr<HttpConnection> connection)
+        [this](std::shared_ptr<HttpConnection> connection)
         {
-            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            connection->_response.set(http::field::content_type, "text/json");
-            Json::Value response_json;
+            const auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+
             Json::Value request_json;
             Json::Reader reader;
-            bool parse_success = reader.parse(body_str, request_json);
-            if (!parse_success)
+            if (!reader.parse(body_str, request_json))
             {
+                Json::Value response_json;
                 response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Error_Json);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            auto name = request_json["user"].asString();
-            auto pwd = request_json["passwd"].asString();
-            UserInfo userInfo;
-            bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(name, pwd, userInfo);
-            if (!pwd_valid)
-            {
-                if (userInfo.uid == 0)
+            const std::string user = request_json["user"].asString();
+            const std::string passwd = request_json["passwd"].asString();
+
+            DispatchBusinessTask(
+                connection,
+                [user, passwd]()
                 {
-                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserNotExist);
-                }
-                else
-                {
-                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdErr);
-                }
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
+                    Json::Value response_json;
+                    UserInfo user_info;
+                    if (!MysqlMgr::GetInstance()->CheckPwd(user, passwd, user_info))
+                    {
+                        if (user_info.uid == 0)
+                        {
+                            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserNotExist);
+                        }
+                        else
+                        {
+                            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdErr);
+                        }
+                        return response_json.toStyledString();
+                    }
 
-            GetChatServerRsp reply = StatusGrpcClient::GetInstance()->GetChatServer(userInfo.uid);
-            if (reply.error() != static_cast<int>(ChatApp::ErrorCode::Success))
-            {
-                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
+                    GetChatServerRsp reply = StatusGrpcClient::GetInstance()->GetChatServer(user_info.uid);
+                    if (reply.error() != static_cast<int>(ChatApp::ErrorCode::Success))
+                    {
+                        response_json["error"] = static_cast<int>(ChatApp::ErrorCode::RPCGetFailed);
+                        return response_json.toStyledString();
+                    }
 
-            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
-            response_json["user"] = name;
-            response_json["uid"] = userInfo.uid;
-            response_json["token"] = reply.token();
-            response_json["host"] = reply.host();
-            response_json["port"] = reply.port();
-            RedisMgr::GetInstance()->Set("token:" + std::to_string(userInfo.uid), reply.token());
-            beast::ostream(connection->_response.body()) << response_json.toStyledString();
-            return true;
+                    RedisMgr::GetInstance()->Set("token:" + std::to_string(user_info.uid), reply.token());
+                    response_json["error"] = static_cast<int>(ChatApp::ErrorCode::Success);
+                    response_json["user"] = user;
+                    response_json["uid"] = user_info.uid;
+                    response_json["token"] = reply.token();
+                    response_json["host"] = reply.host();
+                    response_json["port"] = reply.port();
+                    return response_json.toStyledString();
+                });
         });
 
     RegisterPost(
         "/verify_token",
-        [](std::shared_ptr<HttpConnection> connection)
+        [this](std::shared_ptr<HttpConnection> connection)
         {
-            auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-            connection->_response.set(http::field::content_type, "text/json");
-            Json::Value response_json;
+            const auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+
             Json::Value request_json;
+            Json::Value response_json;
             Json::Reader reader;
-            bool parse_success = reader.parse(body_str, request_json);
-            if (!parse_success)
+            if (!reader.parse(body_str, request_json))
             {
                 response_json["error"] = 1;
                 response_json["message"] = "invalid json";
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            int uid = request_json.get("uid", 0).asInt();
-            std::string token = request_json.get("token", "").asString();
+            const int uid = request_json.get("uid", 0).asInt();
+            const std::string token = request_json.get("token", "").asString();
             if (uid <= 0 || token.empty())
             {
                 response_json["error"] = 1;
                 response_json["message"] = "invalid params";
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                WriteJsonResponse(connection, response_json.toStyledString());
+                return;
             }
 
-            if (token == "dev_token")
-            {
-                response_json["error"] = 0;
-                response_json["message"] = "login success";
-                response_json["uid"] = uid;
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
-            }
-
-            std::string stored_token;
-            bool ok = RedisMgr::GetInstance()->Get("token:" + std::to_string(uid), stored_token);
-            if (!ok || stored_token != token)
-            {
-                if (IsUuidToken(token) && MysqlMgr::GetInstance()->UserExistsByUid(uid))
+            DispatchBusinessTask(
+                connection,
+                [uid, token]()
                 {
-                    RedisMgr::GetInstance()->Set("token:" + std::to_string(uid), token);
+                    Json::Value response_json;
+                    if (token == "dev_token")
+                    {
+                        response_json["error"] = 0;
+                        response_json["message"] = "login success";
+                        response_json["uid"] = uid;
+                        return response_json.toStyledString();
+                    }
+
+                    std::string stored_token;
+                    const bool ok = RedisMgr::GetInstance()->Get("token:" + std::to_string(uid), stored_token);
+                    if (!ok || stored_token != token)
+                    {
+                        if (IsUuidToken(token) && MysqlMgr::GetInstance()->UserExistsByUid(uid))
+                        {
+                            RedisMgr::GetInstance()->Set("token:" + std::to_string(uid), token);
+                            response_json["error"] = 0;
+                            response_json["message"] = "login success";
+                            response_json["uid"] = uid;
+                            return response_json.toStyledString();
+                        }
+
+                        response_json["error"] = 1;
+                        response_json["message"] = "token invalid";
+                        response_json["uid"] = uid;
+                        return response_json.toStyledString();
+                    }
+
                     response_json["error"] = 0;
                     response_json["message"] = "login success";
                     response_json["uid"] = uid;
-                    beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                    return true;
-                }
-                response_json["error"] = 1;
-                response_json["message"] = "token invalid";
-                response_json["uid"] = uid;
-                beast::ostream(connection->_response.body()) << response_json.toStyledString();
-                return true;
+                    return response_json.toStyledString();
+                });
+        });
+}
+
+LogicSystem::~LogicSystem()
+{
+    _business_pool.join();
+}
+
+void LogicSystem::DispatchBusinessTask(std::shared_ptr<HttpConnection> connection, std::function<std::string()> task)
+{
+    boost::asio::post(
+        _business_pool,
+        [this, connection, task = std::move(task)]() mutable
+        {
+            std::string body;
+            try
+            {
+                body = task();
+            }
+            catch (const std::exception &exp)
+            {
+                spdlog::error("business task failed: {}", exp.what());
+                Json::Value response_json;
+                response_json["error"] = static_cast<int>(ChatApp::ErrorCode::ServerBusy);
+                body = response_json.toStyledString();
             }
 
-            response_json["error"] = 0;
-            response_json["message"] = "login success";
-            response_json["uid"] = uid;
-            beast::ostream(connection->_response.body()) << response_json.toStyledString();
-            return true;
+            WriteJsonResponse(connection, std::move(body));
+        });
+}
+
+void LogicSystem::WriteJsonResponse(std::shared_ptr<HttpConnection> connection, std::string body)
+{
+    boost::asio::dispatch(
+        connection->_socket.get_executor(),
+        [connection, body = std::move(body)]() mutable
+        {
+            if (!connection->_socket.is_open())
+            {
+                return;
+            }
+
+            connection->_response = {};
+            connection->_response.version(connection->_request.version());
+            connection->_response.keep_alive(connection->_request.keep_alive());
+            connection->_response.result(http::status::ok);
+            connection->_response.set(http::field::server, "GateServer");
+            connection->_response.set(http::field::content_type, "text/json");
+            beast::ostream(connection->_response.body()) << body;
+            connection->WriteResponse();
         });
 }
 
 void LogicSystem::RegisterGet(std::string url, HttpHandler handler)
 {
-    _registerGet.emplace(url, handler);
+    _registerGet.emplace(std::move(url), std::move(handler));
 }
 
 void LogicSystem::RegisterPost(std::string url, HttpHandler handler)
 {
-    _registerPost.emplace(url, handler);
+    _registerPost.emplace(std::move(url), std::move(handler));
 }
 
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<HttpConnection> connection)
 {
-    if (_registerGet.find(path) != _registerGet.end())
-    {
-        _registerGet[path](connection);
-        return true;
-    }
-    else
+    auto it = _registerGet.find(path);
+    if (it == _registerGet.end())
     {
         return false;
     }
+
+    it->second(std::move(connection));
+    return true;
 }
 
 bool LogicSystem::HandlePost(std::string path, std::shared_ptr<HttpConnection> connection)
 {
-    if (_registerPost.find(path) != _registerPost.end())
-    {
-        _registerPost[path](connection);
-        return true;
-    }
-    else
+    auto it = _registerPost.find(path);
+    if (it == _registerPost.end())
     {
         return false;
     }
+
+    it->second(std::move(connection));
+    return true;
 }
