@@ -24,8 +24,7 @@ namespace
 {
 std::size_t GetBusinessThreadCount()
 {
-    const std::size_t hardware_threads = std::thread::hardware_concurrency();
-    return std::max<std::size_t>(4, hardware_threads == 0 ? 4 : hardware_threads);
+    return 200;
 }
 
 bool IsUuidToken(const std::string &token)
@@ -271,9 +270,13 @@ LogicSystem::LogicSystem()
                         {
                             response_json["error"] = static_cast<int>(ChatApp::ErrorCode::UserNotExist);
                         }
-                        else
+                        else if (user_info.uid == -1)
                         {
                             response_json["error"] = static_cast<int>(ChatApp::ErrorCode::PasswdErr);
+                        }
+                        else
+                        {
+                            response_json["error"] = static_cast<int>(ChatApp::ErrorCode::ServerBusy);
                         }
                         return response_json.toStyledString();
                     }

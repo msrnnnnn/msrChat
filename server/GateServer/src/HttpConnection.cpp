@@ -20,8 +20,7 @@ void HttpConnection::Start()
     // 在异步回调链中传递 self，确保在回调执行前 HttpConnection 对象不会被析构。
     auto self = shared_from_this();
 
-    // 更新超时定时器：60秒
-    deadline_.expires_after(std::chrono::seconds(60));
+    deadline_.expires_after(std::chrono::seconds(300));
 
     // 启动超时检测
     self->CheckDeadline();
@@ -35,8 +34,6 @@ void HttpConnection::Start()
             {
                 if (ec)
                 {
-                    // 对端关闭连接或其他错误
-                    spdlog::warn("http read is {}", ec.what());
                     return;
                 }
                 self->HandleRequest();
@@ -55,19 +52,13 @@ void HttpConnection::Start()
 
 void HttpConnection::HandleRequest()
 {
-    // 打印请求信息（调试用）
-    spdlog::info("[HTTP Request] Method: {}, Target: {}", _request.method_string(), _request.target());
-
-    // 设置 HTTP 版本 (1.0 或 1.1)
     _response.version(_request.version());
-    // 设置 Keep-Alive 属性
     bool keep_alive = _request.keep_alive();
     _response.keep_alive(keep_alive);
 
     if (_request.method() == http::verb::get)
     {
         PreParseGetParam();
-        spdlog::info("[Routing] GET request to: {}", _get_url);
         bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
         if (!success)
         {
@@ -83,7 +74,6 @@ void HttpConnection::HandleRequest()
 
     if (_request.method() == http::verb::post)
     {
-        spdlog::info("[Routing] POST request to: {}", _request.target());
         bool success = LogicSystem::GetInstance()->HandlePost(_request.target(), shared_from_this());
         if (!success)
         {
@@ -117,9 +107,7 @@ void HttpConnection::WriteResponse()
         {
             if (ec)
             {
-                // 发送失败，关闭连接
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
-                spdlog::warn("socket shutdown");
                 return;
             }
 
@@ -134,7 +122,6 @@ void HttpConnection::WriteResponse()
             else
             {
                 self->_socket.shutdown(tcp::socket::shutdown_send, ec);
-                spdlog::warn("socket shutdown");
                 self->deadline_.cancel();
             }
         });
@@ -150,9 +137,8 @@ void HttpConnection::CheckDeadline()
         {
             if (!ec)
             {
-                // 真正的超时发生了，硬关闭 Socket
-                spdlog::warn("socket close");
-                self->_socket.close();
+                beast::error_code close_ec;
+                self->_socket.close(close_ec);
             }
         });
 }

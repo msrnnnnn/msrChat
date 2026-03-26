@@ -6,6 +6,7 @@
 #pragma once
 
 #include <atomic>
+#include <algorithm>
 #include <condition_variable>
 #include <chrono>
 #include <spdlog/spdlog.h>
@@ -41,12 +42,13 @@ public:
      */
     MySqlPool(
         const std::string &url, const std::string &user, const std::string &pass, const std::string &schema,
-        int poolSize)
+        int poolSize, std::chrono::milliseconds waitTimeout)
         : url_(url),
           user_(user),
           pass_(pass),
           schema_(schema),
-          poolSize_(poolSize),
+          poolSize_(std::max(1, poolSize)),
+          wait_timeout_(waitTimeout),
           b_stop_(false)
     {
         try
@@ -86,25 +88,27 @@ public:
      */
     std::unique_ptr<sql::Connection> getConnection()
     {
-        // 使用 RAII 锁 (unique_lock) 自动管理互斥量，
-        // 配合 condition_variable 实现线程安全的等待机制。
         std::unique_lock<std::mutex> lock(mutex_);
-        
-        // 循环检查条件 (Predicate)，防止虚假唤醒 (Spurious Wakeup)。
-        if (!cond_.wait_for(
-                lock, std::chrono::milliseconds(2000),
-                [this]
-                {
-                    if (b_stop_)
-                    {
-                        return true;
-                    }
-                    return !pool_.empty();
-                }))
+
+        auto can_acquire = [this]
         {
-            spdlog::warn("MySQL connection pool exhausted!");
+            if (b_stop_)
+            {
+                return true;
+            }
+            return !pool_.empty();
+        };
+
+        if (wait_timeout_.count() <= 0)
+        {
+            cond_.wait(lock, can_acquire);
+        }
+        else if (!cond_.wait_for(lock, wait_timeout_, can_acquire))
+        {
+            spdlog::warn("MySQL connection pool wait timed out after {} ms", wait_timeout_.count());
             return nullptr;
         }
+
         if (b_stop_)
         {
             return nullptr;
@@ -145,6 +149,7 @@ private:
     std::string pass_;                                  ///< 数据库密码
     std::string schema_;                                ///< 数据库名
     int poolSize_;                                      ///< 连接池大小
+    std::chrono::milliseconds wait_timeout_;            ///< 获取连接等待时间
     std::queue<std::unique_ptr<sql::Connection>> pool_; ///< 连接队列
     std::mutex mutex_;                                  ///< 互斥锁
     std::condition_variable cond_;                      ///< 条件变量
