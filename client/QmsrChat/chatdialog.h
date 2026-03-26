@@ -7,13 +7,11 @@
 #define CHATDIALOG_H
 
 #include <QDialog>
-#include <QHBoxLayout>
 #include <QHash>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QTextEdit>
-#include <QVBoxLayout>
+
+namespace Ui {
+class ChatDialog;
+}
 
 /**
  * @class ChatDialog
@@ -36,6 +34,10 @@ public:
      */
     ~ChatDialog();
 
+protected:
+// 拦截事件的函数
+bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
     /**
      * @brief 接收聊天消息槽
@@ -50,10 +52,7 @@ private slots:
     void slot_send_btn_clicked();
 
 private:
-    QTextEdit *_chat_show;     ///< 聊天显示区域
-    QLineEdit *_dest_uid_edit; ///< 目标 UID 输入框
-    QLineEdit *_chat_edit;     ///< 消息输入框
-    QPushButton *_send_btn;    ///< 发送按钮
+    Ui::ChatDialog *ui;
     QHash<QString, QString> _pending_messages;
 };
 
