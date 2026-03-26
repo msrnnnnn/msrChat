@@ -19,6 +19,7 @@ class CSession;
 
 // 路由处理函数类型定义
 using RouteHandler = std::function<void(CSession *)>;
+using TokenValidationHandler = std::function<void(bool)>;
 
 class CServer : public std::enable_shared_from_this<CServer>
 {
@@ -84,7 +85,8 @@ public:
      * @param token 用户 Token
      * @return true 验证通过
      */
-    bool ValidateToken(int uid, const std::string &token);
+    void ValidateTokenAsync(
+        const boost::asio::any_io_executor &executor, int uid, const std::string &token, TokenValidationHandler handler);
 
     /**
      * @brief 设置认证服务地址

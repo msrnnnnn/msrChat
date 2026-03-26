@@ -68,20 +68,16 @@ void HttpConnection::HandleRequest()
     {
         PreParseGetParam();
         spdlog::info("[Routing] GET request to: {}", _get_url);
-        // 路由分发
         bool success = LogicSystem::GetInstance()->HandleGet(_get_url, shared_from_this());
         if (!success)
         {
             spdlog::warn("[Routing] Route not found: {}", _get_url);
             _response.result(http::status::not_found);
             _response.set(http::field::content_type, "text/plain");
+            _response.set(http::field::server, "GateServer");
             beast::ostream(_response.body()) << "url not found\r\n";
             WriteResponse();
-            return;
         }
-        _response.result(http::status::ok);
-        _response.set(http::field::server, "GateServer");
-        WriteResponse();
         return;
     }
 
@@ -94,16 +90,18 @@ void HttpConnection::HandleRequest()
             spdlog::warn("[Routing] Route not found: {}", _request.target());
             _response.result(http::status::not_found);
             _response.set(http::field::content_type, "text/plain");
+            _response.set(http::field::server, "GateServer");
             beast::ostream(_response.body()) << "url not found\r\n";
             WriteResponse();
-            return;
         }
-
-        _response.result(http::status::ok);
-        _response.set(http::field::server, "GateServer");
-        WriteResponse();
         return;
     }
+
+    _response.result(http::status::method_not_allowed);
+    _response.set(http::field::server, "GateServer");
+    _response.set(http::field::content_type, "text/plain");
+    beast::ostream(_response.body()) << "method not allowed\r\n";
+    WriteResponse();
 }
 
 void HttpConnection::WriteResponse()

@@ -16,7 +16,7 @@ MysqlDao::MysqlDao()
     const auto &user = cfg["Mysql"]["User"];
 
     // 初始化连接池
-    pool_.reset(new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, 5));
+    pool_.reset(new MySqlPool("tcp://" + host + ":" + port, user, pwd, schema, 20));
 }
 
 MysqlDao::~MysqlDao()

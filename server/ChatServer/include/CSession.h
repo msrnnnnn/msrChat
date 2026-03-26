@@ -142,6 +142,9 @@ public:
     }
 
 private:
+    void HandleLoginRequest(const std::string &body_data);
+    void OnLoginValidated(int uid, bool valid);
+
     /**
      * @brief 异步读取消息头
      * @param total_len 头部长度
@@ -175,5 +178,6 @@ private:
 
     // 用户UID
     int _user_uid = 0;                 ///< 已登录用户 UID
+    std::atomic<bool> _login_in_progress{false};
     std::atomic<bool> _b_closed{false}; ///< 关闭状态
 };
