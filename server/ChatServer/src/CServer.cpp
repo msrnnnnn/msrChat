@@ -234,7 +234,7 @@ bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
     }
 
     target_session->Send(msg_data, MSG_CHAT_TEXT);
-    spdlog::info("[CServer] Message forwarded to user {}", target_uid);
+    // spdlog::info("[CServer] Message forwarded to user {}", target_uid);
     return true;
 }
 

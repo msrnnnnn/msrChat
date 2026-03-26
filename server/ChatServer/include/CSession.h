@@ -10,9 +10,8 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <deque>
 #include <memory>
-#include <mutex>
-#include <queue>
 #include <string>
 #include <vector>
 
@@ -200,8 +199,7 @@ private:
     std::shared_ptr<RecvNode> _recv_msg_node;  ///< 消息体缓冲
 
     // 发送队列相关
-    std::queue<std::shared_ptr<SendNode>> _send_queue;
-    std::mutex _send_mtx;
+    std::deque<std::shared_ptr<SendNode>> _send_queue;
     bool _is_writing = false;
 
     // 用户UID

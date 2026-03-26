@@ -5,38 +5,12 @@
  */
 #include "CSession.h"
 #include "CServer.h"
-#include "ObjectPool.h"
 #include "const.h"
 #include <chrono>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
-
-namespace
-{
-ObjectPool<RecvNode> &GetRecvNodePool()
-{
-    static ObjectPool<RecvNode> pool(10000, 2048);
-    return pool;
-}
-
-ObjectPool<SendNode> &GetSendNodePool()
-{
-    static ObjectPool<SendNode> pool(10000, 2048);
-    return pool;
-}
-
-std::shared_ptr<RecvNode> AcquireRecvNode(uint32_t total_len, uint16_t msg_id)
-{
-    return GetRecvNodePool().Acquire(total_len, msg_id);
-}
-
-std::shared_ptr<SendNode> AcquireSendNode(const std::string &msg, uint16_t msg_id)
-{
-    return GetSendNodePool().Acquire(msg, msg_id);
-}
-} // namespace
 
 /**
  * @brief 构造函数
@@ -49,7 +23,9 @@ CSession::CSession(boost::asio::io_context &ioc, CServer *server)
       _server(server)
 {
     _uuid = std::to_string(CServer::s_session_id_allocator.fetch_add(1));
-    _recv_head_node = AcquireRecvNode(HEAD_TOTAL_LEN, 0);
+    _recv_head_node = std::make_shared<RecvNode>();
+    _recv_head_node->Reset(HEAD_TOTAL_LEN, 0);
+    _recv_msg_node = std::make_shared<RecvNode>();
 }
 
 /**
@@ -95,7 +71,7 @@ void CSession::Start()
  */
 void CSession::ResetReadDeadline()
 {
-    _read_deadline.expires_after(std::chrono::seconds(60));
+    _read_deadline.expires_after(std::chrono::seconds(300));
     auto self = shared_from_this();
     _read_deadline.async_wait(
         [this, self](const boost::system::error_code &ec)
@@ -153,7 +129,7 @@ void CSession::AsyncReadHead(int total_len)
                 _server->ClearSession(_uuid);
                 return;
             }
-            _recv_msg_node = AcquireRecvNode(msg_len, msg_id);
+            _recv_msg_node->Reset(msg_len, msg_id);
             AsyncReadBody(static_cast<int>(msg_len));
         });
 }
@@ -184,7 +160,7 @@ void CSession::AsyncReadBody(int total_len)
             }
             ResetReadDeadline();
             recv_msg_node->_data[total_len] = '\0';
-            spdlog::info("[Recv] ID: {} Data: {}", recv_msg_node->_msg_id, recv_msg_node->_data);
+            // spdlog::info("[Recv] ID: {} Data: {}", recv_msg_node->_msg_id, recv_msg_node->_data);
 
             uint16_t msg_id = recv_msg_node->_msg_id;
             std::string body_data(recv_msg_node->_data, total_len);
@@ -241,10 +217,11 @@ void CSession::AsyncReadBody(int total_len)
                         forward["client_msg_id"] = client_msg_id;
                     }
 
-                    bool delivered = _server->ForwardMessage(to_uid, forward.dump());
+                    std::string forward_data = forward.dump();
+                    bool delivered = _server->ForwardMessage(to_uid, forward_data);
                     if (!delivered)
                     {
-                        _server->StoreOfflineMessage(to_uid, forward.dump());
+                        _server->StoreOfflineMessage(to_uid, forward_data);
                     }
 
                     // 回复发送结果
@@ -390,26 +367,20 @@ void CSession::OnLoginValidated(int uid, bool valid)
  */
 void CSession::Send(const std::string &msg, short msg_id)
 {
-    auto send_node = AcquireSendNode(msg, static_cast<uint16_t>(msg_id));
+    auto send_node = std::make_shared<SendNode>();
+    send_node->Reset(msg, static_cast<uint16_t>(msg_id));
     auto self = shared_from_this();
-    boost::asio::post(
+    boost::asio::dispatch(
         _socket.get_executor(),
         [this, self, send_node]()
         {
-            bool need_write = false;
+            _send_queue.push_back(send_node);
+            if (_is_writing)
             {
-                std::lock_guard<std::mutex> lock(_send_mtx);
-                _send_queue.push(send_node);
-                if (!_is_writing)
-                {
-                    _is_writing = true;
-                    need_write = true;
-                }
+                return;
             }
-            if (need_write)
-            {
-                AsyncWriteMsg();
-            }
+            _is_writing = true;
+            AsyncWriteMsg();
         });
 }
 
@@ -418,19 +389,12 @@ void CSession::Send(const std::string &msg, short msg_id)
  */
 void CSession::AsyncWriteMsg()
 {
-    // 在锁内获取队首元素拷贝
-    std::shared_ptr<SendNode> send_node;
+    if (_send_queue.empty())
     {
-        std::lock_guard<std::mutex> lock(_send_mtx);
-        if (_send_queue.empty())
-        {
-            _is_writing = false;
-            return;
-        }
-        send_node = _send_queue.front();
+        _is_writing = false;
+        return;
     }
-
-    // 释放锁后执行异步写操作
+    auto send_node = _send_queue.front();
     auto self = shared_from_this();
     boost::asio::async_write(
         _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
@@ -449,23 +413,12 @@ void CSession::AsyncWriteMsg()
                 return;
             }
 
-            // 在锁内执行 pop 操作
-            bool has_more = false;
+            _send_queue.pop_front();
+            if (_send_queue.empty())
             {
-                std::lock_guard<std::mutex> lock(_send_mtx);
-                _send_queue.pop();
-                if (_send_queue.empty())
-                {
-                    _is_writing = false;
-                    return;
-                }
-                has_more = true;
+                _is_writing = false;
+                return;
             }
-
-            // 如果队列不为空，在锁外递归调用 AsyncWriteMsg
-            if (has_more)
-            {
-                AsyncWriteMsg();
-            }
+            AsyncWriteMsg();
         });
 }
