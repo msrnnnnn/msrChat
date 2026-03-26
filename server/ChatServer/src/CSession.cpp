@@ -5,12 +5,38 @@
  */
 #include "CSession.h"
 #include "CServer.h"
+#include "ObjectPool.h"
 #include "const.h"
 #include <chrono>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
+
+namespace
+{
+ObjectPool<RecvNode> &GetRecvNodePool()
+{
+    static ObjectPool<RecvNode> pool(10000, 2048);
+    return pool;
+}
+
+ObjectPool<SendNode> &GetSendNodePool()
+{
+    static ObjectPool<SendNode> pool(10000, 2048);
+    return pool;
+}
+
+std::shared_ptr<RecvNode> AcquireRecvNode(uint32_t total_len, uint16_t msg_id)
+{
+    return GetRecvNodePool().Acquire(total_len, msg_id);
+}
+
+std::shared_ptr<SendNode> AcquireSendNode(const std::string &msg, uint16_t msg_id)
+{
+    return GetSendNodePool().Acquire(msg, msg_id);
+}
+} // namespace
 
 /**
  * @brief 构造函数
@@ -23,7 +49,7 @@ CSession::CSession(boost::asio::io_context &ioc, CServer *server)
       _server(server)
 {
     _uuid = std::to_string(CServer::s_session_id_allocator.fetch_add(1));
-    _recv_head_node = std::make_shared<RecvNode>(HEAD_TOTAL_LEN, 0);
+    _recv_head_node = AcquireRecvNode(HEAD_TOTAL_LEN, 0);
 }
 
 /**
@@ -90,9 +116,10 @@ void CSession::ResetReadDeadline()
 void CSession::AsyncReadHead(int total_len)
 {
     auto self = shared_from_this();
+    auto head_node = _recv_head_node;
     boost::asio::async_read(
-        _socket, boost::asio::buffer(_recv_head_node->_data, HEAD_TOTAL_LEN),
-        [this, self](const boost::system::error_code &ec, std::size_t bytes)
+        _socket, boost::asio::buffer(head_node->_data, HEAD_TOTAL_LEN),
+        [this, self, head_node](const boost::system::error_code &ec, std::size_t bytes)
         {
             if (ec)
             {
@@ -109,10 +136,9 @@ void CSession::AsyncReadHead(int total_len)
             ResetReadDeadline();
             uint16_t msg_id = 0;
             uint32_t msg_len = 0;
-            // 解析消息头
-            memcpy(&msg_id, _recv_head_node->_data, HEAD_ID_LEN);
+            memcpy(&msg_id, head_node->_data, HEAD_ID_LEN);
             msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
-            memcpy(&msg_len, _recv_head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
+            memcpy(&msg_len, head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
             msg_len = boost::asio::detail::socket_ops::network_to_host_long(msg_len);
 
             if (msg_len == 0)
@@ -127,7 +153,7 @@ void CSession::AsyncReadHead(int total_len)
                 _server->ClearSession(_uuid);
                 return;
             }
-            _recv_msg_node = std::make_shared<RecvNode>(msg_len, msg_id);
+            _recv_msg_node = AcquireRecvNode(msg_len, msg_id);
             AsyncReadBody(static_cast<int>(msg_len));
         });
 }
@@ -139,9 +165,10 @@ void CSession::AsyncReadHead(int total_len)
 void CSession::AsyncReadBody(int total_len)
 {
     auto self = shared_from_this();
+    auto recv_msg_node = _recv_msg_node;
     boost::asio::async_read(
-        _socket, boost::asio::buffer(_recv_msg_node->_data, total_len),
-        [this, self, total_len](const boost::system::error_code &ec, std::size_t bytes)
+        _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
+        [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, std::size_t bytes)
         {
             if (ec)
             {
@@ -156,12 +183,11 @@ void CSession::AsyncReadBody(int total_len)
                 return;
             }
             ResetReadDeadline();
-            _recv_msg_node->_data[total_len] = '\0';
-            spdlog::info("[Recv] ID: {} Data: {}", _recv_msg_node->_msg_id, _recv_msg_node->_data);
+            recv_msg_node->_data[total_len] = '\0';
+            spdlog::info("[Recv] ID: {} Data: {}", recv_msg_node->_msg_id, recv_msg_node->_data);
 
-            // 处理业务消息
-            uint16_t msg_id = _recv_msg_node->_msg_id;
-            std::string body_data(_recv_msg_node->_data, total_len);
+            uint16_t msg_id = recv_msg_node->_msg_id;
+            std::string body_data(recv_msg_node->_data, total_len);
             bool continue_read = true;
 
             try
@@ -364,7 +390,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
  */
 void CSession::Send(const std::string &msg, short msg_id)
 {
-    auto send_node = std::make_shared<SendNode>(msg, static_cast<uint16_t>(msg_id));
+    auto send_node = AcquireSendNode(msg, static_cast<uint16_t>(msg_id));
     auto self = shared_from_this();
     boost::asio::post(
         _socket.get_executor(),
@@ -408,7 +434,7 @@ void CSession::AsyncWriteMsg()
     auto self = shared_from_this();
     boost::asio::async_write(
         _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
-        [this, self](const boost::system::error_code &ec, std::size_t bytes)
+        [this, self, send_node](const boost::system::error_code &ec, std::size_t bytes)
         {
             if (ec)
             {

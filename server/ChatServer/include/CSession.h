@@ -4,14 +4,17 @@
  * @details 包含协议收包节点、发包节点以及会话类声明。
  */
 #pragma once
+#include "const.h"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <vector>
 
 class CServer;
 
@@ -22,34 +25,50 @@ class CServer;
 class RecvNode
 {
 public:
-    uint16_t _msg_id;   ///< 消息 ID
-    uint32_t _total_len; ///< 消息体长度
-    char *_data;        ///< 数据缓冲
+    uint16_t _msg_id;
+    uint32_t _total_len;
+    char *_data;
+    std::vector<char> _buffer;
 
-    /**
-     * @brief 构造函数
-     * @param max_len 最大消息长度
-     * @param msg_id 消息 ID
-     */
-    RecvNode(uint32_t max_len, uint16_t msg_id)
-        : _total_len(max_len),
-          _msg_id(msg_id)
+    RecvNode()
+        : _msg_id(0),
+          _total_len(0),
+          _data(nullptr),
+          _buffer(HEAD_TOTAL_LEN + 1)
     {
-        _data = new char[_total_len + 1]();
+        _data = _buffer.data();
     }
-    /**
-     * @brief 析构函数
-     */
-    ~RecvNode()
+
+    void Reset()
     {
-        delete[] _data;
+        _msg_id = 0;
+        _total_len = 0;
+        _data = _buffer.data();
+        if (!_buffer.empty())
+        {
+            _buffer[0] = '\0';
+        }
     }
-    /**
-     * @brief 清空缓冲区
-     */
+
+    void Reset(uint32_t max_len, uint16_t msg_id)
+    {
+        _msg_id = msg_id;
+        _total_len = max_len;
+        if (_buffer.size() < static_cast<std::size_t>(_total_len) + 1)
+        {
+            _buffer.resize(static_cast<std::size_t>(_total_len) + 1);
+        }
+        _data = _buffer.data();
+        _data[_total_len] = '\0';
+    }
+
     void Clear()
     {
-        ::memset(_data, 0, _total_len + 1);
+        if (!_buffer.empty())
+        {
+            ::memset(_buffer.data(), 0, _buffer.size());
+            _data = _buffer.data();
+        }
     }
 };
 
@@ -60,20 +79,36 @@ public:
 class SendNode
 {
 public:
-    uint16_t _msg_id;    ///< 消息 ID
-    uint32_t _total_len; ///< 消息体长度
-    char *_data;         ///< 数据缓冲
+    uint16_t _msg_id;
+    uint32_t _total_len;
+    char *_data;
+    std::vector<char> _buffer;
 
-    /**
-     * @brief 构造函数
-     * @param msg 发送数据
-     * @param msg_id 消息 ID
-     */
-    SendNode(const std::string &msg, uint16_t msg_id)
-        : _msg_id(msg_id),
-          _total_len(static_cast<uint32_t>(msg.length()))
+    SendNode()
+        : _msg_id(0),
+          _total_len(0),
+          _data(nullptr),
+          _buffer(HEAD_TOTAL_LEN)
     {
-        _data = new char[_total_len + 6]();
+        _data = _buffer.data();
+    }
+
+    void Reset()
+    {
+        _msg_id = 0;
+        _total_len = 0;
+        _data = _buffer.data();
+    }
+
+    void Reset(const std::string &msg, uint16_t msg_id)
+    {
+        _msg_id = msg_id;
+        _total_len = static_cast<uint32_t>(msg.length());
+        if (_buffer.size() < static_cast<std::size_t>(_total_len) + HEAD_TOTAL_LEN)
+        {
+            _buffer.resize(static_cast<std::size_t>(_total_len) + HEAD_TOTAL_LEN);
+        }
+        _data = _buffer.data();
         uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
         memcpy(_data, &net_msg_id, 2);
         uint32_t net_len = boost::asio::detail::socket_ops::host_to_network_long(static_cast<unsigned long>(_total_len));
@@ -82,13 +117,6 @@ public:
         {
             memcpy(_data + 6, msg.data(), _total_len);
         }
-    }
-    /**
-     * @brief 析构函数
-     */
-    ~SendNode()
-    {
-        delete[] _data;
     }
 };
 
