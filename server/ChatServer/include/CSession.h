@@ -13,7 +13,6 @@
 #include <deque>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <vector>
 
 class CServer;
@@ -170,7 +169,7 @@ public:
     }
 
 private:
-    void HandleLoginRequest(std::string_view body_data);
+    void HandleLoginRequest(const std::string &body_data);
     void OnLoginValidated(int uid, bool valid);
 
     /**
