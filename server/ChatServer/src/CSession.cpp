@@ -5,6 +5,7 @@
  */
 #include "CSession.h"
 #include "CServer.h"
+#include "SQLiteMgr.h"
 #include "const.h"
 #include <chrono>
 #include <cstdint>
@@ -173,6 +174,26 @@ void CSession::AsyncReadBody(int total_len)
                     continue_read = false;
                     HandleLoginRequest(body_data);
                 }
+                else if (msg_id == ID_REGISTER_USER)
+                {
+                    continue_read = false;
+                    HandleRegisterRequest(body_data);
+                }
+                else if (msg_id == ID_LOGIN_USER)
+                {
+                    continue_read = false;
+                    HandleLoginAuthRequest(body_data);
+                }
+                else if (msg_id == ID_GET_VARIFY_CODE)
+                {
+                    continue_read = false;
+                    HandleGetVerifyCodeRequest(body_data);
+                }
+                else if (msg_id == ID_RESET_PWD)
+                {
+                    continue_read = false;
+                    HandleResetPwdRequest(body_data);
+                }
                 else if (msg_id == MSG_CHAT_TEXT)
                 {
                     auto json_data = nlohmann::json::parse(body_data);
@@ -302,18 +323,7 @@ void CSession::HandleLoginRequest(const std::string &body_data)
         return;
     }
 
-    auto weak_self = std::weak_ptr<CSession>(shared_from_this());
-    _server->ValidateTokenAsync(
-        _socket.get_executor(), uid, token,
-        [weak_self, uid](bool valid)
-        {
-            auto self = weak_self.lock();
-            if (!self)
-            {
-                return;
-            }
-            self->OnLoginValidated(uid, valid);
-        });
+    OnLoginValidated(uid, _server->CheckToken(uid, token));
 }
 
 void CSession::OnLoginValidated(int uid, bool valid)
@@ -355,6 +365,149 @@ void CSession::OnLoginValidated(int uid, bool valid)
     response["uid"] = uid;
     Send(response.dump(), MSG_CHAT_LOGIN);
     _server->SendOfflineMessages(uid, shared_from_this());
+    AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::HandleRegisterRequest(const std::string &body_data)
+{
+    nlohmann::json response;
+    try
+    {
+        auto json_data = nlohmann::json::parse(body_data);
+        std::string username = json_data.value("user", "");
+        std::string password_hash = json_data.value("passwd", "");
+        std::string email = json_data.value("email", "");
+
+        if (username.empty() || password_hash.empty() || email.empty())
+        {
+            response["error"] = 1;
+            Send(response.dump(), ID_REGISTER_USER);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
+        }
+
+        AuthResult result = SQLiteMgr::Instance().RegisterUser(username, password_hash, email);
+        response["error"] = result.error;
+        if (result.error == 0)
+        {
+            response["uid"] = result.uid;
+            response["username"] = result.username;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CSession] Register error: {}", e.what());
+        response["error"] = 1;
+    }
+
+    Send(response.dump(), ID_REGISTER_USER);
+    AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::HandleLoginAuthRequest(const std::string &body_data)
+{
+    nlohmann::json response;
+    try
+    {
+        auto json_data = nlohmann::json::parse(body_data);
+        std::string username = json_data.value("user", "");
+        std::string password_hash = json_data.value("passwd", "");
+
+        if (username.empty() || password_hash.empty())
+        {
+            response["error"] = 1;
+            Send(response.dump(), ID_LOGIN_USER);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
+        }
+
+        AuthResult result = SQLiteMgr::Instance().LoginUser(username, password_hash);
+        response["error"] = result.error;
+        if (result.error == 0)
+        {
+            _server->SetToken(result.uid, result.token);
+            response["uid"] = result.uid;
+            response["username"] = result.username;
+            response["token"] = result.token;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CSession] LoginAuth error: {}", e.what());
+        response["error"] = 1;
+    }
+
+    Send(response.dump(), ID_LOGIN_USER);
+    AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::HandleGetVerifyCodeRequest(const std::string &body_data)
+{
+    nlohmann::json response;
+    try
+    {
+        auto json_data = nlohmann::json::parse(body_data);
+        std::string email = json_data.value("email", "");
+
+        if (email.empty())
+        {
+            response["error"] = 1;
+            Send(response.dump(), ID_GET_VARIFY_CODE);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
+        }
+
+        bool success = SQLiteMgr::Instance().SendVerifyCode(email);
+        response["error"] = success ? 0 : 1;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CSession] GetVerifyCode error: {}", e.what());
+        response["error"] = 1;
+    }
+
+    Send(response.dump(), ID_GET_VARIFY_CODE);
+    AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::HandleResetPwdRequest(const std::string &body_data)
+{
+    nlohmann::json response;
+    try
+    {
+        auto json_data = nlohmann::json::parse(body_data);
+        std::string username = json_data.value("user", "");
+        std::string email = json_data.value("email", "");
+        std::string code = json_data.value("varifycode", "");
+        std::string new_password_hash = json_data.value("passwd", "");
+
+        if (username.empty() || email.empty() || code.empty() || new_password_hash.empty())
+        {
+            response["error"] = 1;
+            Send(response.dump(), ID_RESET_PWD);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
+        }
+
+        int verify_result = SQLiteMgr::Instance().CheckVerifyCode(email, code);
+        if (verify_result != 0)
+        {
+            response["error"] = verify_result;
+            Send(response.dump(), ID_RESET_PWD);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
+        }
+
+        bool success = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
+        response["error"] = success ? 0 : 1009;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CSession] ResetPwd error: {}", e.what());
+        response["error"] = 1;
+    }
+
+    Send(response.dump(), ID_RESET_PWD);
     AsyncReadHead(HEAD_TOTAL_LEN);
 }
 

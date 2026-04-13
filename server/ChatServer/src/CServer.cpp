@@ -3,168 +3,12 @@
  * @brief 聊天服务 TCP 入口实现
  */
 #include "CServer.h"
-#include "AsioIOServicePool.h"
 #include "CSession.h"
-#include "RedisMgr.h"
+#include "SQLiteMgr.h"
 #include "const.h"
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <chrono>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
-
-namespace
-{
-namespace beast = boost::beast;
-namespace http = beast::http;
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
-
-class TokenValidationRequest : public std::enable_shared_from_this<TokenValidationRequest>
-{
-public:
-    TokenValidationRequest(
-        const net::any_io_executor &executor, std::string host, std::string port, int uid, std::string token,
-        TokenValidationHandler handler)
-        : resolver_(executor),
-          stream_(executor),
-          host_(std::move(host)),
-          port_(std::move(port)),
-          handler_(std::move(handler))
-    {
-        nlohmann::json req_json;
-        req_json["uid"] = uid;
-        req_json["token"] = std::move(token);
-
-        request_.version(11);
-        request_.method(http::verb::post);
-        request_.target("/verify_token");
-        request_.set(http::field::host, host_);
-        request_.set(http::field::content_type, "application/json");
-        request_.body() = req_json.dump();
-        request_.prepare_payload();
-    }
-
-    void Start()
-    {
-        resolver_.async_resolve(
-            host_, port_,
-            [self = shared_from_this()](const boost::system::error_code &ec, const tcp::resolver::results_type &results)
-            {
-                self->OnResolve(ec, results);
-            });
-    }
-
-private:
-    void OnResolve(const boost::system::error_code &ec, const tcp::resolver::results_type &results)
-    {
-        if (ec)
-        {
-            spdlog::warn("[CServer] ValidateToken resolve failed: {}", ec.message());
-            Complete(false);
-            return;
-        }
-
-        stream_.expires_after(std::chrono::seconds(5));
-        stream_.async_connect(
-            results,
-            [self = shared_from_this()](
-                const boost::system::error_code &connect_ec, const tcp::resolver::results_type::endpoint_type &)
-            {
-                self->OnConnect(connect_ec);
-            });
-    }
-
-    void OnConnect(const boost::system::error_code &ec)
-    {
-        if (ec)
-        {
-            spdlog::warn("[CServer] ValidateToken connect failed: {}", ec.message());
-            Complete(false);
-            return;
-        }
-
-        stream_.expires_after(std::chrono::seconds(5));
-        http::async_write(
-            stream_, request_,
-            [self = shared_from_this()](const boost::system::error_code &write_ec, std::size_t)
-            {
-                self->OnWrite(write_ec);
-            });
-    }
-
-    void OnWrite(const boost::system::error_code &ec)
-    {
-        if (ec)
-        {
-            spdlog::warn("[CServer] ValidateToken write failed: {}", ec.message());
-            Complete(false);
-            return;
-        }
-
-        stream_.expires_after(std::chrono::seconds(5));
-        http::async_read(
-            stream_, buffer_, response_,
-            [self = shared_from_this()](const boost::system::error_code &read_ec, std::size_t)
-            {
-                self->OnRead(read_ec);
-            });
-    }
-
-    void OnRead(const boost::system::error_code &ec)
-    {
-        if (ec)
-        {
-            spdlog::warn("[CServer] ValidateToken read failed: {}", ec.message());
-            Complete(false);
-            return;
-        }
-
-        auto resp_json = nlohmann::json::parse(response_.body(), nullptr, false);
-        if (!resp_json.is_object())
-        {
-            Complete(false);
-            return;
-        }
-
-        Complete(resp_json.value("error", 1) == 0);
-    }
-
-    void Complete(bool valid)
-    {
-        if (completed_)
-        {
-            return;
-        }
-        completed_ = true;
-
-        beast::error_code ec;
-        if (stream_.socket().is_open())
-        {
-            stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
-            stream_.socket().close(ec);
-        }
-
-        if (handler_)
-        {
-            auto handler = std::move(handler_);
-            handler(valid);
-        }
-    }
-
-    tcp::resolver resolver_;
-    beast::tcp_stream stream_;
-    beast::flat_buffer buffer_;
-    http::request<http::string_body> request_;
-    http::response<http::string_body> response_;
-    std::string host_;
-    std::string port_;
-    TokenValidationHandler handler_;
-    bool completed_ = false;
-};
-} // namespace
 
 CServer::CServer(boost::asio::io_context &io_context, short port)
     : _io_context(io_context),
@@ -178,13 +22,9 @@ void CServer::Start()
     DoAccept();
 }
 
-/**
- * @brief 持续异步接收新连接
- */
 void CServer::DoAccept()
 {
-    auto &pool = AsioIOServicePool::getInstance();
-    auto new_session = std::make_shared<CSession>(pool.GetIOService(), this);
+    auto new_session = std::make_shared<CSession>(_io_context, this);
     _acceptor.async_accept(
         new_session->GetSocket(),
         [this, new_session](const boost::system::error_code &ec)
@@ -232,53 +72,59 @@ bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
     {
         return false;
     }
-
     target_session->Send(msg_data, MSG_CHAT_TEXT);
-    // spdlog::info("[CServer] Message forwarded to user {}", target_uid);
     return true;
 }
 
 void CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 {
-    std::string key = "offline_msg:" + std::to_string(target_uid);
-    RedisMgr::GetInstance()->LPush(key, msg_data);
+    try
+    {
+        auto json_data = nlohmann::json::parse(msg_data);
+        ChatMessage msg;
+        msg.from_uid = json_data.value("from_uid", 0);
+        msg.to_uid = target_uid;
+        msg.content = json_data.value("content", "");
+        msg.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        msg.status = 0;
+        SQLiteMgr::Instance().SaveOfflineMessage(msg);
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CServer] StoreOfflineMessage failed: {}", e.what());
+    }
 }
 
-/**
- * @brief 将 Redis 中离线消息逐条转发给当前会话
- */
 void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
 {
-    std::string key = "offline_msg:" + std::to_string(uid);
-    std::string msg;
-    while (RedisMgr::GetInstance()->LPop(key, msg))
+    auto messages = SQLiteMgr::Instance().GetOfflineMessages(uid);
+    for (const auto &msg : messages)
     {
-        if (!msg.empty())
-        {
-            session->Send(msg, MSG_CHAT_TEXT);
-        }
+        nlohmann::json forward;
+        forward["from_uid"] = msg.from_uid;
+        forward["to_uid"] = msg.to_uid;
+        forward["content"] = msg.content;
+        session->Send(forward.dump(), MSG_CHAT_TEXT);
     }
+    SQLiteMgr::Instance().ClearOfflineMessages(uid);
 }
 
-void CServer::ValidateTokenAsync(
-    const boost::asio::any_io_executor &executor, int uid, const std::string &token, TokenValidationHandler handler)
+void CServer::SetToken(int uid, const std::string &token)
 {
-    if (_auth_host.empty() || _auth_port.empty())
-    {
-        boost::asio::post(executor, [handler = std::move(handler)]() mutable {
-            if (handler)
-            {
-                handler(false);
-            }
-        });
-        return;
-    }
-
-    std::make_shared<TokenValidationRequest>(executor, _auth_host, _auth_port, uid, token, std::move(handler))->Start();
+    _uid_tokens.Insert(uid, token);
 }
 
-void CServer::SetAuthServer(const std::string &host, const std::string &port)
+bool CServer::CheckToken(int uid, const std::string &token)
 {
-    _auth_host = host;
-    _auth_port = port;
+    auto stored = _uid_tokens.Get(uid);
+    if (!stored.has_value())
+    {
+        return false;
+    }
+    return stored.value() == token;
+}
+
+void CServer::RemoveToken(int uid)
+{
+    _uid_tokens.Erase(uid);
 }

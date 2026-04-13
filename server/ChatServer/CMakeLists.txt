@@ -16,16 +16,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
-
-# 引入 nlohmann_json
-# include(FetchContent)
-# FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
-# FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.14.1.tar.gz)
-# FetchContent_MakeAvailable(json)
-# FetchContent_MakeAvailable(spdlog)
-
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 # =============================================================
 # 3. 源文件列表 (Source Files)
@@ -35,7 +28,13 @@ set(SERVER_SOURCES
     src/AsioIOServicePool.cpp
     src/CServer.cpp
     src/CSession.cpp
-    ../GateServer/src/RedisMgr.cpp
+    src/Protocol/BaseProtocol.cpp
+    src/Protocol/TLVProtocol.cpp
+    src/ThreadPool.cpp
+    src/MsgQueue.cpp
+    src/FileTransfer.cpp
+    src/SQLiteMgr.cpp
+    src/UserData.cpp
 )
 
 # =============================================================
@@ -43,7 +42,7 @@ set(SERVER_SOURCES
 # =============================================================
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../GateServer/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
     ${Boost_INCLUDE_DIRS}
     ${GTEST_INCLUDE_DIRS}
 )
@@ -68,6 +67,7 @@ target_link_libraries(ChatServer
     Threads::Threads
     nlohmann_json::nlohmann_json
     spdlog::spdlog
+    SQLite::SQLite3
 )
 
 # =============================================================
