@@ -63,13 +63,11 @@ private slots:
     void on_login_Button_clicked();
 
     /**
-     * @brief 处理 HTTP 请求完成信号
+     * @brief TCP 认证回包处理槽
      * @param req_type 请求类型
-     * @param res      响应数据
-     * @param err      错误码
-     * @param mod      模块 ID
+     * @param data     响应数据
      */
-    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
+    void slot_tcp_auth_rsp(RequestType req_type, QByteArray data);
 
     /**
      * @brief 忘记密码标签点击槽

@@ -15,13 +15,13 @@ class QTimer;
 
 namespace Ui
 {
-    class RegisterDialog;
+class RegisterDialog;
 }
 
 /**
  * @class RegisterDialog
  * @brief 用户注册交互界面
- * @details 
+ * @details
  * 1. 采用 Map 注册表模式处理 HTTP 回包，避免 switch-case 逻辑膨胀。
  * 2. 包含完整的表单校验逻辑（用户名、邮箱、密码强度、验证码）。
  */
@@ -51,13 +51,11 @@ private slots:
     void on_confirm_verifycode_Button_clicked();
 
     /**
-     * @brief HTTP 请求完成回调槽
+     * @brief TCP 回包处理槽
      * @param req_type 请求类型
-     * @param res      服务器回包数据
-     * @param err      错误码
-     * @param mod      模块标识
+     * @param data     服务器回包数据
      */
-    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
+    void slot_tcp_rsp(RequestType req_type, QByteArray data);
 
     /**
      * @brief 返回按钮点击槽
@@ -71,9 +69,9 @@ private slots:
 
 private:
     /**
-     * @brief 初始化 HTTP 处理器
+     * @brief 初始化 TCP 处理器
      */
-    void initHttpHandlers();
+    void initTcpHandlers();
 
     /**
      * @brief 开始验证码倒计时
@@ -87,11 +85,11 @@ private:
     void ChangeTipPage();
 
     /* 表单校验函数组 */
-    bool checkUserValid();      ///< 校验用户名
-    bool checkEmailValid();     ///< 校验邮箱
-    bool checkPassValid();      ///< 校验密码
-    bool checkConfirmValid();   ///< 校验确认密码
-    bool checkVarifyValid();    ///< 校验验证码
+    bool checkUserValid();    ///< 校验用户名
+    bool checkEmailValid();   ///< 校验邮箱
+    bool checkPassValid();    ///< 校验密码
+    bool checkConfirmValid(); ///< 校验确认密码
+    bool checkVarifyValid();  ///< 校验验证码
 
     /**
      * @brief 添加错误提示
@@ -120,10 +118,10 @@ private:
      * @details Key: 请求类型 -> Value: 处理函数
      */
     QMap<RequestType, std::function<void(const QJsonObject &)>> _handlers;
-    
-    QMap<TipErr, QString> _tip_errs;    ///< 错误提示集合
-    QTimer *_countdown_timer;           ///< 倒计时定时器
-    int _countdown;                     ///< 当前倒计时秒数
+
+    QMap<TipErr, QString> _tip_errs; ///< 错误提示集合
+    QTimer *_countdown_timer;        ///< 倒计时定时器
+    int _countdown;                  ///< 当前倒计时秒数
 };
 
 #endif // REGISTERDIALOG_H

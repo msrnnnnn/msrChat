@@ -24,7 +24,6 @@ set(PROJECT_SOURCES
         registerdialog.cpp registerdialog.h registerdialog.ui
         resetdialog.cpp resetdialog.h resetdialog.ui
         chatdialog.cpp chatdialog.h
-        httpmanagement.cpp httpmanagement.h
         global.cpp global.h
         usermgr.cpp usermgr.h
         timerbtn.cpp timerbtn.h

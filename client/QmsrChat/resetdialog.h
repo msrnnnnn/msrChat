@@ -48,13 +48,11 @@ private slots:
      */
     void on_sure_btn_clicked();
     /**
-     * @brief HTTP 回包处理槽
+     * @brief TCP 回包处理槽
      * @param req_type 请求类型
-     * @param res 响应内容
-     * @param err 错误码
-     * @param mod 模块标识
+     * @param data 响应数据
      */
-    void slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod);
+    void slot_tcp_rsp(RequestType req_type, QByteArray data);
 
 private:
     /**

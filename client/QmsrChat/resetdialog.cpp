@@ -4,7 +4,7 @@
  */
 
 #include "resetdialog.h"
-#include "httpmanagement.h"
+#include "tcpmgr.h"
 #include "ui_resetdialog.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -24,18 +24,16 @@ ResetDialog::ResetDialog(QWidget *parent)
     repolish(ui->error_label);
 
     connect(ui->cancel_btn, &QPushButton::clicked, this, &ResetDialog::switchLogin);
-    connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &ResetDialog::slot_http_finish);
+    connect(
+        TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(RequestType, QByteArray)>(&TcpMgr::sig_msg_received), this,
+        &ResetDialog::slot_tcp_rsp);
 
     initHandlers();
 
-    connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]()
-            { checkUserValid(); });
-    connect(ui->email_edit, &QLineEdit::editingFinished, this, [this]()
-            { checkEmailValid(); });
-    connect(ui->pwd_edit, &QLineEdit::editingFinished, this, [this]()
-            { checkPassValid(); });
-    connect(ui->varify_edit, &QLineEdit::editingFinished, this, [this]()
-            { checkVarifyValid(); });
+    connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
+    connect(ui->email_edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
+    connect(ui->pwd_edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
+    connect(ui->varify_edit, &QLineEdit::editingFinished, this, [this]() { checkVarifyValid(); });
     ui->varify_btn->setAutoStart(false);
 }
 
@@ -122,16 +120,14 @@ bool ResetDialog::checkVarifyValid()
  */
 void ResetDialog::on_varify_btn_clicked()
 {
-    auto bcheck = checkEmailValid();
-    if (!bcheck)
+    if (!checkEmailValid())
     {
         return;
     }
-
     QJsonObject json_obj;
     json_obj["email"] = ui->email_edit->text();
-    HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/get_varifycode"), json_obj, RequestType::ID_GET_VARIFY_CODE, Modules::RESETMOD);
+    TcpMgr::GetInstance()->slot_send_data(
+        RequestType::ID_GET_VARIFY_CODE, QJsonDocument(json_obj).toJson(QJsonDocument::Compact));
 }
 
 /**
@@ -141,55 +137,35 @@ void ResetDialog::on_sure_btn_clicked()
 {
     bool valid = checkUserValid();
     if (!valid)
-    {
         return;
-    }
     valid = checkEmailValid();
     if (!valid)
-    {
         return;
-    }
     valid = checkPassValid();
     if (!valid)
-    {
         return;
-    }
     valid = checkVarifyValid();
     if (!valid)
-    {
         return;
-    }
 
     QJsonObject json_obj;
     json_obj["user"] = ui->user_edit->text();
     json_obj["email"] = ui->email_edit->text();
     json_obj["passwd"] = xorString(ui->pwd_edit->text());
     json_obj["varifycode"] = ui->varify_edit->text();
-    HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/reset_pwd"), json_obj, RequestType::ID_RESET_PWD, Modules::RESETMOD);
+    TcpMgr::GetInstance()->slot_send_data(
+        RequestType::ID_RESET_PWD, QJsonDocument(json_obj).toJson(QJsonDocument::Compact));
 }
 
 /**
- * @brief HTTP 回包处理
+ * @brief TCP 回包处理
  * @param req_type 请求类型
- * @param res 响应内容
- * @param err 错误码
- * @param mod 模块标识
+ * @param data 响应数据
  */
-void ResetDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
+void ResetDialog::slot_tcp_rsp(RequestType req_type, QByteArray data)
 {
-    if (mod != Modules::RESETMOD)
-    {
-        return;
-    }
-    if (err != ERRORCODES::SUCCESS)
-    {
-        showTip(tr("网络请求错误"), false);
-        return;
-    }
-
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
-    if (jsonDoc.isNull() || !jsonDoc.isObject())
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject())
     {
         showTip(tr("JSON解析失败"), false);
         return;
@@ -200,7 +176,7 @@ void ResetDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES
     {
         return;
     }
-    it.value()(jsonDoc.object());
+    it.value()(doc.object());
 }
 
 /**
@@ -232,20 +208,20 @@ void ResetDialog::initHandlers()
                 QString errStr = tr("重置失败");
                 switch (static_cast<ERRORCODES>(error))
                 {
-                case ERRORCODES::VarifyCodeExpired:
-                    errStr = tr("验证码已过期");
-                    break;
-                case ERRORCODES::VarifyCodeErr:
-                    errStr = tr("验证码错误");
-                    break;
-                case ERRORCODES::EmailNotMatch:
-                    errStr = tr("用户名与邮箱不匹配");
-                    break;
-                case ERRORCODES::PasswdUpFailed:
-                    errStr = tr("密码更新失败");
-                    break;
-                default:
-                    break;
+                    case ERRORCODES::VarifyCodeExpired:
+                        errStr = tr("验证码已过期");
+                        break;
+                    case ERRORCODES::VarifyCodeErr:
+                        errStr = tr("验证码错误");
+                        break;
+                    case ERRORCODES::EmailNotMatch:
+                        errStr = tr("用户名与邮箱不匹配");
+                        break;
+                    case ERRORCODES::PasswdUpFailed:
+                        errStr = tr("密码更新失败");
+                        break;
+                    default:
+                        break;
                 }
                 showTip(errStr, false);
                 return;

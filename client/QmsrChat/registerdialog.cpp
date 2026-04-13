@@ -4,7 +4,7 @@
  */
 #include "registerdialog.h"
 #include "global.h"
-#include "httpmanagement.h"
+#include "tcpmgr.h"
 #include "ui_registerdialog.h"
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -15,7 +15,8 @@
  * @details 初始化 UI、连接信号槽、初始化 HTTP 处理器。
  */
 RegisterDialog::RegisterDialog(QWidget *parent)
-    : QDialog(parent), ui(new Ui::RegisterDialog)
+    : QDialog(parent),
+      ui(new Ui::RegisterDialog)
 {
     ui->setupUi(this);
 
@@ -24,32 +25,19 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     repolish(ui->error_label); // 强制刷新样式，确保 state 属性生效
 
     // 连接全局网络单例的信号
-    // 当 HttpManagement 收到网络回包时，会触发此信号，进而调用本类的分发槽函数
-    connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &RegisterDialog::slot_http_finish);
+    // 当 TcpMgr 收到 TCP 回包时，会触发此信号，进而调用本类的分发槽函数
+    connect(
+        TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(RequestType, QByteArray)>(&TcpMgr::sig_msg_received), this,
+        &RegisterDialog::slot_tcp_rsp);
 
     // 初始化注册表
-    initHttpHandlers();
+    initTcpHandlers();
 
-    connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]()
-    {
-        checkUserValid();
-    });
-    connect(ui->email_Edit, &QLineEdit::editingFinished, this, [this]()
-    {
-        checkEmailValid();
-    });
-    connect(ui->password_Edit, &QLineEdit::editingFinished, this, [this]()
-    {
-        checkPassValid();
-    });
-    connect(ui->confirm_password_Edit, &QLineEdit::editingFinished, this, [this]()
-    {
-        checkConfirmValid();
-    });
-    connect(ui->verifycode_Edit, &QLineEdit::editingFinished, this, [this]()
-    {
-        checkVarifyValid();
-    });
+    connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
+    connect(ui->email_Edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
+    connect(ui->password_Edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
+    connect(ui->confirm_password_Edit, &QLineEdit::editingFinished, this, [this]() { checkConfirmValid(); });
+    connect(ui->verifycode_Edit, &QLineEdit::editingFinished, this, [this]() { checkVarifyValid(); });
 
     ui->password_Edit->setEchoMode(QLineEdit::Password);
     ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
@@ -60,52 +48,58 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     ui->confirm_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
     ui->pass_visible->setText(tr("显示"));
     ui->confirm_visible->setText(tr("显示"));
-    connect(ui->pass_visible, &ClickedLabel::clicked, this, [this]()
-    {
-        auto state = ui->pass_visible->GetCurState();
-        if (state == ClickLbState::Normal)
+    connect(
+        ui->pass_visible, &ClickedLabel::clicked, this,
+        [this]()
         {
-            ui->password_Edit->setEchoMode(QLineEdit::Password);
-            ui->pass_visible->setText(tr("显示"));
-        }
-        else
+            auto state = ui->pass_visible->GetCurState();
+            if (state == ClickLbState::Normal)
+            {
+                ui->password_Edit->setEchoMode(QLineEdit::Password);
+                ui->pass_visible->setText(tr("显示"));
+            }
+            else
+            {
+                ui->password_Edit->setEchoMode(QLineEdit::Normal);
+                ui->pass_visible->setText(tr("隐藏"));
+            }
+        });
+    connect(
+        ui->confirm_visible, &ClickedLabel::clicked, this,
+        [this]()
         {
-            ui->password_Edit->setEchoMode(QLineEdit::Normal);
-            ui->pass_visible->setText(tr("隐藏"));
-        }
-    });
-    connect(ui->confirm_visible, &ClickedLabel::clicked, this, [this]()
-    {
-        auto state = ui->confirm_visible->GetCurState();
-        if (state == ClickLbState::Normal)
-        {
-            ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
-            ui->confirm_visible->setText(tr("显示"));
-        }
-        else
-        {
-            ui->confirm_password_Edit->setEchoMode(QLineEdit::Normal);
-            ui->confirm_visible->setText(tr("隐藏"));
-        }
-    });
+            auto state = ui->confirm_visible->GetCurState();
+            if (state == ClickLbState::Normal)
+            {
+                ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
+                ui->confirm_visible->setText(tr("显示"));
+            }
+            else
+            {
+                ui->confirm_password_Edit->setEchoMode(QLineEdit::Normal);
+                ui->confirm_visible->setText(tr("隐藏"));
+            }
+        });
 
     ui->confirm_verifycode_Button->setAutoStart(false);
 
     _countdown_timer = new QTimer(this);
     _countdown = 5;
-    connect(_countdown_timer, &QTimer::timeout, this, [this]()
-    {
-        if (_countdown <= 0)
+    connect(
+        _countdown_timer, &QTimer::timeout, this,
+        [this]()
         {
-            _countdown_timer->stop();
-            ui->stackedWidget->setCurrentWidget(ui->page_1);
-            emit switchLogin();
-            return;
-        }
-        _countdown -= 1;
-        auto str = tr("注册成功，%1 s后返回登录").arg(_countdown);
-        ui->tip_lb->setText(str);
-    });
+            if (_countdown <= 0)
+            {
+                _countdown_timer->stop();
+                ui->stackedWidget->setCurrentWidget(ui->page_1);
+                emit switchLogin();
+                return;
+            }
+            _countdown -= 1;
+            auto str = tr("注册成功，%1 s后返回登录").arg(_countdown);
+            ui->tip_lb->setText(str);
+        });
     ui->stackedWidget->setCurrentWidget(ui->page_1);
 }
 
@@ -143,16 +137,14 @@ void RegisterDialog::on_Confirm_Button_clicked()
         return;
     }
 
-    // 发送http请求注册用户
     QJsonObject json_obj;
     json_obj["user"] = ui->user_Edit->text();
     json_obj["email"] = ui->email_Edit->text();
     json_obj["passwd"] = xorString(ui->password_Edit->text());
-    json_obj["confirm"] = xorString(ui->confirm_password_Edit->text());
     json_obj["varifycode"] = ui->verifycode_Edit->text();
 
-    HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/user_register"), json_obj, RequestType::ID_REGISTER_USER, Modules::REGISTER_MOD);
+    TcpMgr::GetInstance()->slot_send_data(
+        RequestType::ID_REGISTER_USER, QJsonDocument(json_obj).toJson(QJsonDocument::Compact));
 }
 
 /**
@@ -165,66 +157,39 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
         return;
     }
     const QString email = ui->email_Edit->text().trimmed();
-    QJsonObject Json_object;
-    Json_object["email"] = email;
-    HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/get_varifycode"), Json_object, RequestType::ID_GET_VARIFY_CODE,
-        Modules::REGISTER_MOD);
+    QJsonObject json_obj;
+    json_obj["email"] = email;
+    TcpMgr::GetInstance()->slot_send_data(
+        RequestType::ID_GET_VARIFY_CODE, QJsonDocument(json_obj).toJson(QJsonDocument::Compact));
 }
 
 /**
- * @brief HTTP 完成回调分发
+ * @brief TCP 回包处理
+ * @param req_type 请求类型
+ * @param data 响应数据
  */
-void RegisterDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
+void RegisterDialog::slot_tcp_rsp(RequestType req_type, QByteArray data)
 {
-    if (mod != Modules::REGISTER_MOD)
-    {
-        return;
-    }
-    // 1. 网络层错误拦截
-    if (err != ERRORCODES::SUCCESS)
-    {
-        showTip(tr("网络请求错误"), false);
-        return;
-    }
-
-    // 2. JSON 解析与校验
-    // res.toUtf8() 防止不同平台编码问题
-    QJsonDocument jsonDocument = QJsonDocument::fromJson(res.toUtf8());
-
-    // 校验 JSON 格式是否合法
-    if (jsonDocument.isNull())
-    {
-        showTip("JSON解析失败", false);
-        return;
-    }
-    // 校验最外层是否为 Object (防止数组或其他类型导致的逻辑错误)
-    if (!jsonDocument.isObject())
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject())
     {
         showTip("JSON解析失败", false);
         return;
     }
 
-    // 3. 业务逻辑分发 (Registry Pattern)
-    // 绝对禁止使用 _handlers[req_type] 直接调用！
-    // 原因：如果 req_type 不在 map 中，operator[] 会自动插入一个空对象并返回，
-    // 导致调用空回调引发崩溃。必须使用 find 检查存在性。
     auto it = _handlers.find(req_type);
     if (it == _handlers.end())
     {
-        // 收到未注册的回包，通常忽略或打印警告
         qWarning() << "Received unhandled request type:" << static_cast<int>(req_type);
         return;
     }
-
-    // 安全调用对应的 Lambda
-    it.value()(jsonDocument.object());
+    it.value()(doc.object());
 }
 
 /**
- * @brief 初始化 HTTP 处理器
+ * @brief 初始化 TCP 处理器
  */
-void RegisterDialog::initHttpHandlers()
+void RegisterDialog::initTcpHandlers()
 {
     // 注册获取验证码回包逻辑
     _handlers.insert(
@@ -237,11 +202,11 @@ void RegisterDialog::initHttpHandlers()
                 QString errStr = tr("获取验证码失败");
                 switch (static_cast<ERRORCODES>(error))
                 {
-                case ERRORCODES::UserExist:
-                    errStr = tr("用户名或邮箱已存在");
-                    break;
-                default:
-                    break;
+                    case ERRORCODES::UserExist:
+                        errStr = tr("用户名或邮箱已存在");
+                        break;
+                    default:
+                        break;
                 }
                 showTip(errStr, false);
                 return;
@@ -264,18 +229,18 @@ void RegisterDialog::initHttpHandlers()
                 QString errStr = tr("注册失败");
                 switch (static_cast<ERRORCODES>(error))
                 {
-                case ERRORCODES::UserExist:
-                    errStr = tr("用户名或邮箱已存在");
-                    break;
-                case ERRORCODES::VarifyCodeErr:
-                    errStr = tr("验证码错误");
-                    break;
-                case ERRORCODES::VarifyCodeExpired:
-                    errStr = tr("验证码已过期");
-                    break;
-                default:
-                    errStr = tr("注册失败，未知错误");
-                    break;
+                    case ERRORCODES::UserExist:
+                        errStr = tr("用户名或邮箱已存在");
+                        break;
+                    case ERRORCODES::VarifyCodeErr:
+                        errStr = tr("验证码错误");
+                        break;
+                    case ERRORCODES::VarifyCodeExpired:
+                        errStr = tr("验证码已过期");
+                        break;
+                    default:
+                        errStr = tr("注册失败，未知错误");
+                        break;
                 }
                 showTip(errStr, false);
                 return;
