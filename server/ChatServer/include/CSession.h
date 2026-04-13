@@ -9,8 +9,8 @@
 #include <boost/asio.hpp>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -110,7 +110,8 @@ public:
         _data = _buffer.data();
         uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
         memcpy(_data, &net_msg_id, 2);
-        uint32_t net_len = boost::asio::detail::socket_ops::host_to_network_long(static_cast<unsigned long>(_total_len));
+        uint32_t net_len =
+            boost::asio::detail::socket_ops::host_to_network_long(static_cast<unsigned long>(_total_len));
         memcpy(_data + 2, &net_len, 4);
         if (_total_len > 0)
         {
@@ -170,6 +171,10 @@ public:
 
 private:
     void HandleLoginRequest(const std::string &body_data);
+    void HandleRegisterRequest(const std::string &body_data);
+    void HandleLoginAuthRequest(const std::string &body_data);
+    void HandleGetVerifyCodeRequest(const std::string &body_data);
+    void HandleResetPwdRequest(const std::string &body_data);
     void OnLoginValidated(int uid, bool valid);
 
     /**
@@ -203,7 +208,7 @@ private:
     bool _is_writing = false;
 
     // 用户UID
-    int _user_uid = 0;                 ///< 已登录用户 UID
+    int _user_uid = 0; ///< 已登录用户 UID
     std::atomic<bool> _login_in_progress{false};
     std::atomic<bool> _b_closed{false}; ///< 关闭状态
 };

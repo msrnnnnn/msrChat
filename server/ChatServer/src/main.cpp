@@ -1,10 +1,11 @@
 /**
  * @file main.cpp
  * @brief ChatServer 程序入口
- * @details 初始化 IO 线程池、读取配置、启动 TCP 监听并注册退出信号。
+ * @details 初始化配置、启动 TCP 监听并注册退出信号。
  */
 #include "AsioIOServicePool.h"
 #include "CServer.h"
+#include "SQLiteMgr.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -13,19 +14,13 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 
-/**
- * @brief 程序入口
- * @return int 进程退出码
- */
 int main()
 {
     try
     {
-        auto &pool = AsioIOServicePool::getInstance();
         boost::asio::io_context io_context;
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 
-        // 捕获终止信号，执行优雅退出
         signals.async_wait(
             [&io_context](const boost::system::error_code &, int)
             {
@@ -34,22 +29,24 @@ int main()
                 AsioIOServicePool::getInstance().Stop();
             });
 
-        // 默认配置（可被 config.ini 覆盖）
         short port = 8080;
-        std::string gate_host = "127.0.0.1";
-        std::string gate_port = "8080";
+        std::string db_path = "chatserver.db";
         std::filesystem::path config_path = std::filesystem::current_path() / "config.ini";
         if (std::filesystem::exists(config_path))
         {
             boost::property_tree::ptree pt;
             boost::property_tree::read_ini(config_path.string(), pt);
             port = static_cast<short>(pt.get<int>("ChatServer.Port", port));
-            gate_host = pt.get<std::string>("GateServer.Host", gate_host);
-            gate_port = pt.get<std::string>("GateServer.Port", gate_port);
+            db_path = pt.get<std::string>("ChatServer.DbPath", db_path);
+        }
+
+        if (!SQLiteMgr::Instance().Init(db_path))
+        {
+            spdlog::error("Failed to initialize SQLite database at {}", db_path);
+            return 1;
         }
 
         auto server = std::make_shared<CServer>(io_context, port);
-        server->SetAuthServer(gate_host, gate_port);
         server->Start();
 
         spdlog::info("ChatServer is running on port {}...", port);
