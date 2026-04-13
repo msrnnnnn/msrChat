@@ -62,6 +62,8 @@ struct ServerInfo
 
 Q_DECLARE_METATYPE(ServerInfo)
 
+const int MAX_MESSAGE_LEN = 1024 * 1024;
+
 /**
  * @brief 功能模块标识枚举
  */
