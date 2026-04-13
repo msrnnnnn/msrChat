@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <random>
 #include <sstream>
+#include <spdlog/spdlog.h>
 
 SQLiteMgr::~SQLiteMgr()
 {

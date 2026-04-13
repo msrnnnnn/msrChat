@@ -116,7 +116,7 @@ void CServer::SetToken(int uid, const std::string &token)
 
 bool CServer::CheckToken(int uid, const std::string &token)
 {
-    auto stored = _uid_tokens.Get(uid);
+    auto stored = _uid_tokens.Find(uid);
     if (!stored.has_value())
     {
         return false;
