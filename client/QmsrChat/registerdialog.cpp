@@ -6,6 +6,9 @@
 #include "global.h"
 #include "tcpmgr.h"
 #include "ui_registerdialog.h"
+#include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QTimer>

@@ -23,7 +23,7 @@ set(PROJECT_SOURCES
         logindialog.cpp logindialog.h logindialog.ui
         registerdialog.cpp registerdialog.h registerdialog.ui
         resetdialog.cpp resetdialog.h resetdialog.ui
-        chatdialog.cpp chatdialog.h
+        chatdialog.cpp chatdialog.h chatdialog.ui
         global.cpp global.h
         usermgr.cpp usermgr.h
         timerbtn.cpp timerbtn.h
@@ -41,9 +41,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         .gitignore
-        chatdialog.h chatdialog.cpp chatdialog.ui
-
-
     )
 # Qt5 / Android Build Path
 else()
