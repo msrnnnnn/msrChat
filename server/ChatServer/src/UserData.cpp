@@ -1,4 +1,5 @@
 #include "UserData.h"
+#include <fstream>
 
 UserData& UserData::Instance()
 {

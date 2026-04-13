@@ -14,7 +14,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # 2. 依赖查找 (Dependencies)
 # =============================================================
 find_package(Boost REQUIRED COMPONENTS system thread)
-find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
@@ -31,7 +30,6 @@ set(SERVER_SOURCES
     src/Protocol/BaseProtocol.cpp
     src/Protocol/TLVProtocol.cpp
     src/ThreadPool.cpp
-    src/MsgQueue.cpp
     src/FileTransfer.cpp
     src/SQLiteMgr.cpp
     src/UserData.cpp
@@ -44,20 +42,12 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
     ${Boost_INCLUDE_DIRS}
-    ${GTEST_INCLUDE_DIRS}
 )
 
 # =============================================================
 # 5. 创建可执行文件 (Create Executable)
 # =============================================================
 add_executable(ChatServer ${SERVER_SOURCES})
-add_executable(AsioIOServicePoolTest ${CMAKE_CURRENT_SOURCE_DIR}/../../tests/AsioIOServicePoolTest.cpp)
-target_link_libraries(AsioIOServicePoolTest
-    ${Boost_LIBRARIES}
-    Threads::Threads
-    GTest::GTest
-    GTest::Main
-)
 
 # =============================================================
 # 6. 链接库 (Link Libraries)
@@ -68,6 +58,8 @@ target_link_libraries(ChatServer
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     SQLite::SQLite3
+    ssl
+    crypto
 )
 
 # =============================================================
