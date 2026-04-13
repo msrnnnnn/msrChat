@@ -4,7 +4,6 @@
  */
 #include "logindialog.h"
 #include "global.h"
-#include "httpmanagement.h"
 #include "tcpmgr.h"
 #include "ui_logindialog.h"
 #include "usermgr.h"
@@ -32,7 +31,9 @@ LoginDialog::LoginDialog(QWidget *parent)
 
     connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::on_login_Button_clicked);
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
-    connect(HttpManagement::getPtr(), &HttpManagement::signal_http_finish, this, &LoginDialog::slot_http_finish);
+    connect(
+        TcpMgr::GetInstance(), static_cast<void (TcpMgr::*)(RequestType, QByteArray)>(&TcpMgr::sig_msg_received), this,
+        &LoginDialog::slot_tcp_auth_rsp);
 
     connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance(), &TcpMgr::slot_tcp_connect);
     connect(TcpMgr::GetInstance(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
@@ -169,46 +170,39 @@ void LoginDialog::on_login_Button_clicked()
     }
     auto user = ui->user_Edit->text();
     auto pwd = ui->password_Edit->text();
-    // 发送http请求登录
     QJsonObject json_obj;
     json_obj["user"] = user;
     json_obj["passwd"] = xorString(pwd);
-    HttpManagement::GetInstance()->PostHttpRequest(
-        QUrl(gate_url_prefix + "/user_login"), json_obj, RequestType::ID_LOGIN_USER, Modules::LOGINMOD);
+    QJsonDocument doc(json_obj);
+    TcpMgr::GetInstance()->slot_send_data(RequestType::ID_LOGIN_USER, doc.toJson(QJsonDocument::Compact));
 }
 
 /**
- * @brief HTTP 回包处理
+ * @brief TCP 认证回包处理
  * @param req_type 请求类型
- * @param res 响应内容
- * @param err 错误码
- * @param mod 模块标识
+ * @param data 响应数据
  */
-void LoginDialog::slot_http_finish(RequestType req_type, QString res, ERRORCODES err, Modules mod)
+void LoginDialog::slot_tcp_auth_rsp(RequestType req_type, QByteArray data)
 {
-    if (mod != Modules::LOGINMOD)
+    if (req_type != RequestType::ID_LOGIN_USER)
     {
-        return;
-    }
-    if (err != ERRORCODES::SUCCESS)
-    {
-        showTip(tr("网络请求错误"), false);
         return;
     }
 
-    QJsonDocument jsonDocument = QJsonDocument::fromJson(res.toUtf8());
-    if (jsonDocument.isNull() || !jsonDocument.isObject())
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject())
     {
         showTip(tr("JSON解析失败"), false);
         return;
     }
 
+    QJsonObject jsonObj = doc.object();
     auto it = _handlers.find(req_type);
     if (it == _handlers.end())
     {
         return;
     }
-    it.value()(jsonDocument.object());
+    it.value()(jsonObj);
 }
 
 /**
@@ -316,8 +310,20 @@ void LoginDialog::initHandlers()
 
             ServerInfo si;
             si.Uid = jsonObj["uid"].toInt();
-            si.Host = jsonObj["host"].toString();
-            si.Port = jsonObj["port"].toString();
+            QString app_path = QCoreApplication::applicationDirPath();
+            QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
+            if (!QFile::exists(config_path))
+            {
+                QString current_config =
+                    QDir::toNativeSeparators(QDir::currentPath() + QDir::separator() + "config.ini");
+                if (QFile::exists(current_config))
+                {
+                    config_path = current_config;
+                }
+            }
+            QSettings settings(config_path, QSettings::IniFormat);
+            si.Host = settings.value("ChatServer/host", "").toString();
+            si.Port = settings.value("ChatServer/port", "").toString();
             si.Token = jsonObj["token"].toString();
 
             _uid = si.Uid;
