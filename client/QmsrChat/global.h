@@ -16,11 +16,6 @@
 #include <mutex>
 
 /**
- * @brief 网关服务器 URL 前缀
- */
-extern QString gate_url_prefix;
-
-/**
  * @brief 异或字符串处理函数
  * @details 用于简单的敏感数据混淆。
  */
