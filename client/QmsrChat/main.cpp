@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
     QSettings settings(config_path, QSettings::IniFormat);
     QString chat_host = settings.value("ChatServer/host", "192.168.226.129").toString();
-    QString chat_port = settings.value("ChatServer/port", "8090").toString();
+    QString chat_port = settings.value("ChatServer/port", "8080").toString();
 
     qDebug() << "Config Path:" << config_path;
     qDebug() << "ChatServer:" << chat_host << ":" << chat_port;
