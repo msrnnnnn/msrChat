@@ -18,8 +18,6 @@ std::function<void(QWidget *)> repolish = [](QWidget *w)
     }
 };
 
-QString gate_url_prefix = "";
-
 // SHA256 密码哈希
 std::function<QString(QString)> xorString = [](QString input)
 {
