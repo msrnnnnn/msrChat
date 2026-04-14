@@ -410,34 +410,42 @@ void CSession::HandleLoginAuthRequest(const std::string &body_data)
     try
     {
         auto json_data = nlohmann::json::parse(body_data);
-        std::string username = json_data.value("user", "");
-        std::string password_hash = json_data.value("passwd", "");
+        int uid = json_data.value("uid", 0);
+        std::string token = json_data.value("token", "");
 
-        if (username.empty() || password_hash.empty())
+        if (uid <= 0 || token.empty())
         {
             response["error"] = 1;
-            Send(response.dump(), ID_LOGIN_USER);
+            response["message"] = "invalid parameters";
+            Send(response.dump(), MSG_CHAT_LOGIN);
             AsyncReadHead(HEAD_TOTAL_LEN);
             return;
         }
 
-        AuthResult result = SQLiteMgr::Instance().LoginUser(username, password_hash);
-        response["error"] = result.error;
-        if (result.error == 0)
+        bool valid = _server->CheckToken(uid, token);
+        if (!valid)
         {
-            _server->SetToken(result.uid, result.token);
-            response["uid"] = result.uid;
-            response["username"] = result.username;
-            response["token"] = result.token;
+            response["error"] = 1;
+            response["message"] = "token invalid or expired";
+            Send(response.dump(), MSG_CHAT_LOGIN);
+            AsyncReadHead(HEAD_TOTAL_LEN);
+            return;
         }
+
+        _user_uid = uid;
+        response["error"] = 0;
+        response["message"] = "login success";
+        response["uid"] = uid;
+        spdlog::info("[CSession] User {} chat login success", uid);
     }
     catch (const std::exception &e)
     {
         spdlog::error("[CSession] LoginAuth error: {}", e.what());
         response["error"] = 1;
+        response["message"] = "server error";
     }
 
-    Send(response.dump(), ID_LOGIN_USER);
+    Send(response.dump(), MSG_CHAT_LOGIN);
     AsyncReadHead(HEAD_TOTAL_LEN);
 }
 
