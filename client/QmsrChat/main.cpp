@@ -54,13 +54,11 @@ int main(int argc, char *argv[])
     }
 
     QSettings settings(config_path, QSettings::IniFormat);
-    QString gate_host = settings.value("GateServer/host", "192.168.226.129").toString();
-    QString gate_port = settings.value("GateServer/port", "8080").toString();
-
-    gate_url_prefix = "http://" + gate_host + ":" + gate_port;
+    QString chat_host = settings.value("ChatServer/host", "192.168.226.129").toString();
+    QString chat_port = settings.value("ChatServer/port", "8090").toString();
 
     qDebug() << "Config Path:" << config_path;
-    qDebug() << "Gate Server:" << gate_url_prefix;
+    qDebug() << "ChatServer:" << chat_host << ":" << chat_port;
 
     MainWindow w;
     w.show();
