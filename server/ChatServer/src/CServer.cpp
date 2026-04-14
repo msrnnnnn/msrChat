@@ -14,6 +14,7 @@ CServer::CServer(boost::asio::io_context &io_context, short port)
     : _io_context(io_context),
       _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
 {
+    _uid_tokens.Insert(1001, "dev_token");
     spdlog::info("[CServer] Server initialized on port {}", port);
 }
 
