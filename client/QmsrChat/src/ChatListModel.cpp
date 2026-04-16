@@ -1,0 +1,253 @@
+#include "ChatListModel.h"
+#include <QDateTime>
+#include <QDebug>
+
+ChatListModel::ChatListModel(QObject *parent)
+    : QAbstractListModel(parent),
+      _current_uid(0)
+{
+}
+
+ChatListModel::~ChatListModel()
+{
+}
+
+int ChatListModel::rowCount(const QModelIndex &parent) const
+{
+    if (parent.isValid())
+    {
+        return 0;
+    }
+
+    QMutexLocker locker(&_mutex);
+    return _messages.size();
+}
+
+QVariant ChatListModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid())
+    {
+        return QVariant();
+    }
+
+    QMutexLocker locker(&_mutex);
+
+    int row = index.row();
+    if (row < 0 || row >= _messages.size())
+    {
+        return QVariant();
+    }
+
+    const ChatMessage &msg = _messages[row];
+
+    switch (role)
+    {
+        case FromUidRole:
+            return msg.from_uid;
+        case ToUidRole:
+            return msg.to_uid;
+        case ContentRole:
+            return msg.content;
+        case TimestampRole:
+            return msg.timestamp;
+        case StatusRole:
+            return msg.status;
+        case IsSelfRole:
+            return msg.from_uid == _current_uid;
+        case DisplayTimeRole:
+            return FormatTime(msg.timestamp);
+        case BubbleWidthRole:
+            return CalculateBubbleWidth(msg.content);
+        case BubbleHeightRole:
+            return CalculateBubbleHeight(msg.content);
+        default:
+            return QVariant();
+    }
+}
+
+QHash<int, QByteArray> ChatListModel::roleNames() const
+{
+    QHash<int, QByteArray> roles;
+    roles[FromUidRole] = "fromUid";
+    roles[ToUidRole] = "toUid";
+    roles[ContentRole] = "content";
+    roles[TimestampRole] = "timestamp";
+    roles[StatusRole] = "status";
+    roles[IsSelfRole] = "isSelf";
+    roles[DisplayTimeRole] = "displayTime";
+    roles[BubbleWidthRole] = "bubbleWidth";
+    roles[BubbleHeightRole] = "bubbleHeight";
+    return roles;
+}
+
+void ChatListModel::AddMessage(const ChatMessage &msg)
+{
+    QMutexLocker locker(&_mutex);
+
+    int lastRow = _messages.size();
+    beginInsertRows(QModelIndex(), lastRow, lastRow);
+    _messages.append(msg);
+    endInsertRows();
+
+    locker.unlock();
+    emit messageAdded(msg);
+    emit scrollToBottomRequested();
+}
+
+void ChatListModel::AddMessages(const QVector<ChatMessage> &messages)
+{
+    if (messages.isEmpty())
+    {
+        return;
+    }
+
+    QMutexLocker locker(&_mutex);
+
+    int startRow = _messages.size();
+    int endRow = startRow + messages.size() - 1;
+
+    beginInsertRows(QModelIndex(), startRow, endRow);
+
+    for (const ChatMessage &msg : messages)
+    {
+        _messages.append(msg);
+    }
+
+    endInsertRows();
+
+    locker.unlock();
+    emit messagesLoaded(messages.size());
+    emit scrollToBottomRequested();
+}
+
+void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &messages)
+{
+    if (messages.isEmpty())
+    {
+        return;
+    }
+
+    QMutexLocker locker(&_mutex);
+
+    int startRow = 0;
+    int endRow = messages.size() - 1;
+
+    beginInsertRows(QModelIndex(), startRow, endRow);
+
+    for (int i = messages.size() - 1; i >= 0; --i)
+    {
+        _messages.prepend(messages[i]);
+    }
+
+    endInsertRows();
+
+    locker.unlock();
+    emit messagesLoaded(messages.size());
+    emit scrollToTopRequested();
+}
+
+void ChatListModel::UpdateMessageStatus(qint64 msg_id, int status)
+{
+    QMutexLocker locker(&_mutex);
+
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].id == msg_id)
+        {
+            _messages[i].status = status;
+
+            QModelIndex index = this->index(i, 0);
+            emit dataChanged(index, index, {StatusRole});
+            break;
+        }
+    }
+}
+
+void ChatListModel::ClearMessages()
+{
+    QMutexLocker locker(&_mutex);
+
+    beginResetModel();
+    _messages.clear();
+    endResetModel();
+}
+
+void ChatListModel::SetCurrentUid(int uid)
+{
+    QMutexLocker locker(&_mutex);
+    _current_uid = uid;
+}
+
+const ChatMessage &ChatListModel::GetMessageAt(int index) const
+{
+    QMutexLocker locker(&_mutex);
+    static ChatMessage emptyMsg;
+
+    if (index < 0 || index >= _messages.size())
+    {
+        return emptyMsg;
+    }
+
+    return _messages[index];
+}
+
+QVector<ChatMessage> ChatListModel::GetAllMessages() const
+{
+    QMutexLocker locker(&_mutex);
+    return _messages;
+}
+
+int ChatListModel::CalculateBubbleWidth(const QString &content) const
+{
+    int charCount = content.length();
+    int baseWidth = 80;
+    int maxWidth = 280;
+
+    if (charCount <= 10)
+    {
+        return baseWidth + charCount * 6;
+    }
+    else if (charCount <= 30)
+    {
+        return baseWidth + 60 + (charCount - 10) * 5;
+    }
+    else
+    {
+        int width = baseWidth + 60 + 100 + (charCount - 30) * 4;
+        return qMin(width, maxWidth);
+    }
+}
+
+int ChatListModel::CalculateBubbleHeight(const QString &content) const
+{
+    int charCount = content.length();
+    int baseHeight = 40;
+    int lineHeight = 25;
+    int charsPerLine = 25;
+
+    int lines = (charCount + charsPerLine - 1) / charsPerLine;
+    return baseHeight + (lines - 1) * lineHeight;
+}
+
+QString ChatListModel::FormatTime(qint64 timestamp) const
+{
+    QDateTime dateTime = QDateTime::fromMSecsSinceEpoch(timestamp);
+    QDateTime now = QDateTime::currentDateTime();
+
+    if (dateTime.date() == now.date())
+    {
+        return dateTime.toString("hh:mm:ss");
+    }
+    else if (dateTime.date().daysTo(now.date()) == 1)
+    {
+        return QString("昨天 %1").arg(dateTime.toString("hh:mm:ss"));
+    }
+    else if (dateTime.date().year() == now.date().year())
+    {
+        return dateTime.toString("MM-dd hh:mm:ss");
+    }
+    else
+    {
+        return dateTime.toString("yyyy-MM-dd hh:mm:ss");
+    }
+}

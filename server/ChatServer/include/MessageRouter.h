@@ -1,0 +1,37 @@
+#ifndef MESSAGE_ROUTER_H
+#define MESSAGE_ROUTER_H
+
+#include "SessionManager.h"
+#include <memory>
+#include <string>
+
+class CSession;
+
+class MessageRouter
+{
+public:
+    static MessageRouter &Instance()
+    {
+        static MessageRouter instance;
+        return instance;
+    }
+
+    bool ForwardMessage(int target_uid, const std::string &msg_data);
+    bool BroadcastMessage(const std::string &msg_data, int exclude_uid = 0);
+
+    bool SendToSession(std::shared_ptr<CSession> session, const std::string &msg_data, short msg_id);
+    bool SendBinaryToSession(std::shared_ptr<CSession> session, const std::string &json_data,
+                             const std::vector<char> &binary_data, short msg_id);
+
+private:
+    MessageRouter() = default;
+    ~MessageRouter() = default;
+
+    MessageRouter(const MessageRouter &) = delete;
+    MessageRouter &operator=(const MessageRouter &) = delete;
+
+    MessageRouter(MessageRouter &&) = delete;
+    MessageRouter &operator=(MessageRouter &&) = delete;
+};
+
+#endif

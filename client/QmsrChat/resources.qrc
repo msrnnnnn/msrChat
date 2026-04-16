@@ -4,5 +4,6 @@
         <file>image/login.ico</file>
         <file>image/login1.ico</file>
         <file>style/stylesheet.qss</file>
+        <file>ChatView.qml</file>
     </qresource>
 </RCC>

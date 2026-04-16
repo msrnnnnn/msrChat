@@ -1,6 +1,19 @@
 #include "DbMgr.h"
 #include <QDebug>
 #include <QSqlRecord>
+#include <QCoreApplication>
+
+QThreadStorage<QSqlDatabase> g_thread_db_cache;
+
+DbMgr::DbMgr()
+    : _initialized(false)
+{
+}
+
+DbMgr::~DbMgr()
+{
+    Destroy();
+}
 
 DbMgr& DbMgr::Instance()
 {
@@ -10,39 +23,90 @@ DbMgr& DbMgr::Instance()
 
 bool DbMgr::Init(const QString& db_path)
 {
-    QMutexLocker lock(&_mutex);
+    QMutexLocker lock(&_init_mutex);
     
-    _connection_name = QString("chat_db_%1").arg(reinterpret_cast<quintptr>(this));
-    _db = QSqlDatabase::addDatabase("QSQLITE", _connection_name);
-    _db.setDatabaseName(db_path);
+    if (_initialized) {
+        qDebug() << "DbMgr already initialized";
+        return true;
+    }
     
-    if (!_db.open()) {
-        qDebug() << "Failed to open database:" << _db.lastError().text();
+    _db_path = db_path;
+    
+    _main_thread_connection_name = QString("chat_db_main_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    _main_thread_db = QSqlDatabase::addDatabase("QSQLITE", _main_thread_connection_name);
+    _main_thread_db.setDatabaseName(db_path);
+    
+    if (!_main_thread_db.open()) {
+        qDebug() << "Failed to open main thread database:" << _main_thread_db.lastError().text();
         return false;
     }
     
-    if (!CreateTables()) {
-        qDebug() << "Failed to create tables:" << _db.lastError().text();
+    if (!CreateTables(_main_thread_db)) {
+        qDebug() << "Failed to create tables in main thread database:" << _main_thread_db.lastError().text();
         return false;
     }
+    
+    g_thread_db_cache.setLocalData(_main_thread_db);
+    
+    _initialized = true;
+    qDebug() << "DbMgr initialized successfully";
+    qDebug() << "  - Main thread connection:" << _main_thread_connection_name;
     
     return true;
 }
 
-void DbMgr::Shutdown()
+void DbMgr::Destroy()
 {
-    QMutexLocker lock(&_mutex);
+    QMutexLocker lock(&_init_mutex);
     
-    if (_db.isOpen()) {
-        _db.close();
+    if (!_initialized) {
+        return;
     }
     
-    QSqlDatabase::removeDatabase(_connection_name);
+    CloseAllThreadConnections();
+    
+    if (_main_thread_db.isOpen()) {
+        _main_thread_db.close();
+    }
+    QSqlDatabase::removeDatabase(_main_thread_connection_name);
+    
+    _initialized = false;
+    qDebug() << "DbMgr destroyed and all connections closed";
 }
 
-bool DbMgr::CreateTables()
+QSqlDatabase& DbMgr::GetOrCreateThreadConnection()
 {
-    QSqlQuery query(_db);
+    if (QThread::currentThread() == QCoreApplication::instance()->thread()) {
+        return _main_thread_db;
+    }
+    
+    if (g_thread_db_cache.hasLocalData()) {
+        return g_thread_db_cache.localData();
+    }
+    
+    QString conn_name = QString("chat_db_worker_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", conn_name);
+    db.setDatabaseName(_db_path);
+    
+    if (!db.open()) {
+        qDebug() << "Failed to open database for worker thread:" << db.lastError().text();
+        static QSqlDatabase null_db;
+        return null_db;
+    }
+    
+    g_thread_db_cache.setLocalData(db);
+    qDebug() << "Created new database connection for thread:" << QThread::currentThread();
+    
+    return g_thread_db_cache.localData();
+}
+
+void DbMgr::CloseAllThreadConnections()
+{
+}
+
+bool DbMgr::CreateTables(QSqlDatabase& db)
+{
+    QSqlQuery query(db);
     
     QString sql = R"(
         CREATE TABLE IF NOT EXISTS messages (
@@ -76,9 +140,13 @@ bool DbMgr::CreateTables()
 
 bool DbMgr::SaveMessage(const ChatMessage& msg)
 {
-    QMutexLocker lock(&_mutex);
+    QSqlDatabase& db = GetOrCreateThreadConnection();
+    if (!db.isOpen()) {
+        qDebug() << "Database not open in SaveMessage";
+        return false;
+    }
     
-    QSqlQuery query(_db);
+    QSqlQuery query(db);
     query.prepare("INSERT OR REPLACE INTO messages (from_uid, to_uid, content, timestamp, status) VALUES (?, ?, ?, ?, ?)");
     
     query.bindValue(0, msg.from_uid);
@@ -97,10 +165,15 @@ bool DbMgr::SaveMessage(const ChatMessage& msg)
 
 QVector<ChatMessage> DbMgr::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
 {
-    QMutexLocker lock(&_mutex);
-    
     QVector<ChatMessage> messages;
-    QSqlQuery query(_db);
+    
+    QSqlDatabase& db = GetOrCreateThreadConnection();
+    if (!db.isOpen()) {
+        qDebug() << "Database not open in GetMessages";
+        return messages;
+    }
+    
+    QSqlQuery query(db);
     
     QString sql = R"(
         SELECT id, from_uid, to_uid, content, timestamp, status 
@@ -140,10 +213,15 @@ QVector<ChatMessage> DbMgr::GetMessages(int uid1, int uid2, qint64 before_time, 
 
 QVector<ChatMessage> DbMgr::SearchMessages(int uid1, int uid2, const QString& keyword, int limit)
 {
-    QMutexLocker lock(&_mutex);
-    
     QVector<ChatMessage> messages;
-    QSqlQuery query(_db);
+    
+    QSqlDatabase& db = GetOrCreateThreadConnection();
+    if (!db.isOpen()) {
+        qDebug() << "Database not open in SearchMessages";
+        return messages;
+    }
+    
+    QSqlQuery query(db);
     
     QString sql = R"(
         SELECT id, from_uid, to_uid, content, timestamp, status 
@@ -159,7 +237,7 @@ QVector<ChatMessage> DbMgr::SearchMessages(int uid1, int uid2, const QString& ke
     query.bindValue(1, uid2);
     query.bindValue(2, uid2);
     query.bindValue(3, uid1);
-    query.bindValue(4, QString("%%1%").arg(keyword));
+    query.bindValue(4, QString("%%").append(keyword).append("%%"));
     query.bindValue(5, limit);
     
     if (!query.exec()) {
@@ -183,11 +261,14 @@ QVector<ChatMessage> DbMgr::SearchMessages(int uid1, int uid2, const QString& ke
 
 bool DbMgr::DeleteMessages(int uid1, int uid2)
 {
-    QMutexLocker lock(&_mutex);
+    QSqlDatabase& db = GetOrCreateThreadConnection();
+    if (!db.isOpen()) {
+        qDebug() << "Database not open in DeleteMessages";
+        return false;
+    }
     
-    QSqlQuery query(_db);
+    QSqlQuery query(db);
     query.prepare("DELETE FROM messages WHERE (from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?)");
-    
     query.bindValue(0, uid1);
     query.bindValue(1, uid2);
     query.bindValue(2, uid2);

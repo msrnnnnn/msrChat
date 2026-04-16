@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ChatDialog</class>
+ <widget class="QWidget" name="ChatDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>550</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>聊天窗口</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+/* 全局字体 */
+* {
+    font-family: &quot;Microsoft YaHei&quot;, &quot;PingFang SC&quot;, sans-serif;
+}
+
+#dest_uid_edit{
+	border-top: none; 
+	border: 1px solid #A0A0A0;
+}
+
+/* 聊天显示区域：使用 QListView + MVC 架构 */
+#chat_list_view {
+    background-color: #F5F5F5;
+    border: 1px solid #666666;
+    font-size: 14px;
+}
+
+#chat_list_view::item {
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
+#chat_list_view::item:selected {
+    background-color: transparent;
+}
+
+/* 底部输入框：去掉顶部的边框，让它和显示框无缝拼合 */
+#chat_edit {
+    background-color: #FFFFFF;
+    border: 1px solid #A0A0A0;
+    border-top: none; 
+    font-size: 14px;
+    /* 上10、右100(给按钮留空间)、下10、左10 */
+    padding: 10px 100px 10px 10px; 
+}
+
+/* 发送按钮：微信绿，悬浮效果 */
+#pushButton {
+    background-color: #F5F5F5;
+    color: #07C160;
+    border: 1px solid #E0E0E0;
+    border-radius: 4px;
+    padding: 6px 18px;
+    font-size: 13px;
+    /* 控制按钮在悬浮位置的偏移量 */
+    margin-right: 15px; 
+    margin-bottom: 10px; 
+}
+#pushButton:hover {
+    background-color: #EBEBEB;
+}
+#pushButton:pressed {
+    background-color: #DFDFDF;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <property name="bottomMargin">
+      <number>8</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>目标UID:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="dest_uid_edit"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QListView" name="chat_list_view">
+     <property name="verticalScrollMode">
+      <enum>QAbstractItemView::ScrollPerPixel</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="gridLayout">
+     <item row="0" column="0">
+      <widget class="QPlainTextEdit" name="chat_edit">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>130</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" alignment="Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignBottom">
+      <widget class="QPushButton" name="pushButton">
+       <property name="cursor">
+        <cursorShape>PointingHandCursor</cursorShape>
+       </property>
+       <property name="text">
+        <string>发送</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
