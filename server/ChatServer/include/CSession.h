@@ -4,23 +4,172 @@
  * @details 包含协议收包节点、发包节点以及会话类声明。
  */
 #pragma once
+#include "ObjectPool.h"
 #include "const.h"
 #include <atomic>
 #include <boost/asio.hpp>
+#include <boost/asio/strand.hpp>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
-class CServer;
+#ifdef __unix__
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
-/**
- * @class RecvNode
- * @brief 接收缓冲节点
- */
+class CServer;
+class BinaryPacketProtocol;
+
+class FileDescriptor
+{
+public:
+    explicit FileDescriptor(int fd = -1)
+        : _fd(fd)
+    {
+    }
+
+    FileDescriptor(const FileDescriptor &) = delete;
+    FileDescriptor &operator=(const FileDescriptor &) = delete;
+
+    FileDescriptor(FileDescriptor &&other) noexcept
+        : _fd(other._fd)
+    {
+        other._fd = -1;
+    }
+
+    FileDescriptor &operator=(FileDescriptor &&other) noexcept
+    {
+        if (this != &other)
+        {
+            if (_fd >= 0)
+            {
+                close(_fd);
+            }
+            _fd = other._fd;
+            other._fd = -1;
+        }
+        return *this;
+    }
+
+    ~FileDescriptor()
+    {
+        if (_fd >= 0)
+        {
+            close(_fd);
+            _fd = -1;
+        }
+    }
+
+    int Get() const
+    {
+        return _fd;
+    }
+
+    int Release()
+    {
+        int fd = _fd;
+        _fd = -1;
+        return fd;
+    }
+
+    void Reset(int fd = -1)
+    {
+        if (_fd >= 0)
+        {
+            close(_fd);
+        }
+        _fd = fd;
+    }
+
+    bool IsValid() const
+    {
+        return _fd >= 0;
+    }
+
+    explicit operator bool() const
+    {
+        return _fd >= 0;
+    }
+
+    operator int() const
+    {
+        return _fd;
+    }
+
+private:
+    int _fd;
+};
+
+struct FileTransferState
+{
+    int64_t task_id = 0;
+    int from_uid = 0;
+    int to_uid = 0;
+    std::string filename;
+    int64_t total_size = 0;
+    int64_t received_size = 0;
+    std::vector<char> data;
+    bool transfer_ready = false;
+};
+
+struct FileSendState
+{
+    int64_t task_id = 0;
+    FileDescriptor fd;
+    int64_t total_size = 0;
+    int64_t sent_size = 0;
+    std::string filename;
+    bool sending = false;
+};
+
+struct OfflineSendState
+{
+    int uid = 0;
+    int64_t total_count = 0;
+    int64_t sent_count = 0;
+    bool sending = false;
+};
+
+struct BinaryPacketState
+{
+    uint16_t msg_id = 0;
+    uint32_t total_len = 0;
+    uint32_t json_len = 0;
+    std::vector<char> json_data;
+    std::vector<char> binary_data;
+    bool receiving = false;
+};
+
+struct ZeroCopySendState
+{
+    int64_t task_id = 0;
+    FileDescriptor fd;
+    int64_t total_size = 0;
+    int64_t sent_size = 0;
+    std::string filename;
+    bool sending = false;
+    bool waiting_sendfile = false;
+};
+
+struct ZeroCopyRecvState
+{
+    int64_t task_id = 0;
+    FileDescriptor fd;
+    int64_t total_size = 0;
+    int64_t received_size = 0;
+    std::string filename;
+    bool receiving = false;
+};
+
 class RecvNode
 {
 public:
@@ -38,7 +187,17 @@ public:
         _data = _buffer.data();
     }
 
-    void Reset()
+    void SetPool(ObjectPool<RecvNode> *pool) noexcept
+    {
+        _pool = pool;
+    }
+
+    void SetPool(std::nullptr_t) noexcept
+    {
+        _pool = nullptr;
+    }
+
+    void Reset() noexcept
     {
         _msg_id = 0;
         _total_len = 0;
@@ -61,7 +220,7 @@ public:
         _data[_total_len] = '\0';
     }
 
-    void Clear()
+    void Clear() noexcept
     {
         if (!_buffer.empty())
         {
@@ -69,12 +228,11 @@ public:
             _data = _buffer.data();
         }
     }
+
+private:
+    ObjectPool<RecvNode> *_pool = nullptr;
 };
 
-/**
- * @class SendNode
- * @brief 发送缓冲节点
- */
 class SendNode
 {
 public:
@@ -92,7 +250,17 @@ public:
         _data = _buffer.data();
     }
 
-    void Reset()
+    void SetPool(ObjectPool<SendNode> *pool) noexcept
+    {
+        _pool = pool;
+    }
+
+    void SetPool(std::nullptr_t) noexcept
+    {
+        _pool = nullptr;
+    }
+
+    void Reset() noexcept
     {
         _msg_id = 0;
         _total_len = 0;
@@ -118,97 +286,297 @@ public:
             memcpy(_data + 6, msg.data(), _total_len);
         }
     }
+
+    void ResetBinary(uint16_t msg_id, const std::string &json_data, const std::vector<char> &binary_data)
+    {
+        _msg_id = msg_id;
+        uint32_t json_len = json_data.size();
+        uint32_t binary_len = binary_data.size();
+        _total_len = HEAD_BIN_TOTAL_LEN + json_len + binary_len;
+
+        if (_buffer.size() < static_cast<std::size_t>(_total_len))
+        {
+            _buffer.resize(static_cast<std::size_t>(_total_len));
+        }
+        _data = _buffer.data();
+
+        uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
+        memcpy(_data, &net_msg_id, 2);
+
+        uint32_t body_len = json_len + binary_len;
+        uint32_t net_body_len = boost::asio::detail::socket_ops::host_to_network_long(body_len);
+        memcpy(_data + 2, &net_body_len, 4);
+
+        uint32_t net_json_len = boost::asio::detail::socket_ops::host_to_network_long(json_len);
+        memcpy(_data + 6, &net_json_len, 4);
+
+        if (json_len > 0)
+        {
+            memcpy(_data + HEAD_BIN_TOTAL_LEN, json_data.data(), json_len);
+        }
+
+        if (binary_len > 0)
+        {
+            memcpy(_data + HEAD_BIN_TOTAL_LEN + json_len, binary_data.data(), binary_len);
+        }
+    }
+
+private:
+    ObjectPool<SendNode> *_pool = nullptr;
 };
 
-/**
- * @class CSession
- * @brief TCP 会话
- * @details 管理单个客户端连接的收发与业务处理。
- */
+class CServer;
+
 class CSession : public std::enable_shared_from_this<CSession>
 {
 public:
-    /**
-     * @brief 构造函数
-     * @param ioc io_context 引用
-     * @param server 所属服务器指针
-     */
-    CSession(boost::asio::io_context &ioc, CServer *server);
-    /**
-     * @brief 析构函数
-     */
+    static ObjectPool<RecvNode> &RecvNodePool()
+    {
+        static ObjectPool<RecvNode> pool(10000, 1024);
+        return pool;
+    }
+
+    static ObjectPool<SendNode> &SendNodePool()
+    {
+        static ObjectPool<SendNode> pool(10000, 1024);
+        return pool;
+    }
+
+    CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server);
     ~CSession();
-    /**
-     * @brief 启动会话读循环
-     */
-    void Start();
-    /**
-     * @brief 关闭会话并释放资源
-     */
+
     void Close();
-    /**
-     * @brief 发送消息
-     * @param msg 消息体
-     * @param msg_id 消息类型
-     */
+    void Start();
+
     void Send(const std::string &msg, short msg_id);
-    /**
-     * @brief 获取会话 UUID
-     * @return std::string UUID
-     */
+    void SendBinary(const std::string &json_data, const std::vector<char> &binary_data, short msg_id);
+
+    void StartFileSend(int64_t task_id, const std::string &filepath);
+    void SendNextFileChunk();
+
     std::string GetUuid() const
     {
         return _uuid;
     }
-    /**
-     * @brief 获取底层 socket
-     * @return boost::asio::ip::tcp::socket& socket 引用
-     */
-    boost::asio::ip::tcp::socket &GetSocket()
+    int GetUserUid() const
     {
-        return _socket;
+        return _user_uid;
+    }
+
+    std::shared_ptr<CServer> GetServer() const
+    {
+        return _server.lock();
+    }
+
+    void ContinueReading()
+    {
+        AsyncReadHead(HEAD_TOTAL_LEN);
+    }
+
+    bool IsClosed() const
+    {
+        return _b_closed.load();
+    }
+
+    bool TrySetLoginInProgress(bool &expected)
+    {
+        return _login_in_progress.compare_exchange_strong(expected, true);
+    }
+
+    void PrepareFileReceive(int64_t task_id, int to_uid, const std::string &filename, int64_t total_size)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        _file_recv_state.task_id = task_id;
+        _file_recv_state.from_uid = _user_uid;
+        _file_recv_state.to_uid = to_uid;
+        _file_recv_state.filename = filename;
+        _file_recv_state.total_size = total_size;
+        _file_recv_state.received_size = 0;
+        _file_recv_state.data.clear();
+        _file_recv_state.data.reserve(static_cast<size_t>(total_size));
+        _file_recv_state.transfer_ready = true;
+    }
+
+    bool IsFileTransferReady(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        return _file_recv_state.transfer_ready && _file_recv_state.task_id == task_id;
+    }
+
+    void AppendFileChunk(int64_t task_id, const std::string &chunk_data)
+    {
+        AppendFileChunk(task_id, chunk_data.data(), chunk_data.size());
+    }
+
+    void AppendFileChunk(int64_t task_id, const char *data, std::size_t size)
+    {
+        if (size == 0 || data == nullptr)
+        {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_recv_state.task_id == task_id)
+        {
+            const auto old_size = _file_recv_state.data.size();
+            _file_recv_state.data.resize(old_size + size);
+            std::memcpy(_file_recv_state.data.data() + old_size, data, size);
+            _file_recv_state.received_size += size;
+        }
+    }
+
+    void AppendFileChunk(int64_t task_id, std::string_view chunk_view)
+    {
+        AppendFileChunk(task_id, chunk_view.data(), chunk_view.size());
+    }
+
+    int GetFileTransferProgress(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_recv_state.task_id == task_id && _file_recv_state.total_size > 0)
+        {
+            return static_cast<int>((_file_recv_state.received_size * 100) / _file_recv_state.total_size);
+        }
+        return 0;
+    }
+
+    bool IsFileTransferComplete(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        return _file_recv_state.task_id == task_id && _file_recv_state.received_size >= _file_recv_state.total_size;
+    }
+
+    void FinishFileReceive(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_recv_state.task_id == task_id)
+        {
+            _file_recv_state.transfer_ready = false;
+            _file_recv_state.data.clear();
+        }
+    }
+
+    int64_t GetReceivedFileSize(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_recv_state.task_id == task_id)
+        {
+            return _file_recv_state.received_size;
+        }
+        return 0;
+    }
+
+    void StartFileSend(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_send_state.sending)
+            return;
+        if (_file_send_state.task_id == task_id)
+        {
+            _file_send_state.sending = true;
+        }
+    }
+
+    void UpdateFileSendProgress(int64_t task_id, int64_t received)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_send_state.task_id == task_id)
+        {
+            _file_send_state.sent_size = received;
+            SendNextFileChunk();
+        }
+    }
+
+    void FinishFileSend(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_send_state.task_id == task_id)
+        {
+            if (_file_send_state.fd >= 0)
+            {
+                close(_file_send_state.fd);
+                _file_send_state.fd = -1;
+            }
+            _file_send_state.sending = false;
+            _file_send_state.task_id = 0;
+        }
+    }
+
+    void CancelFileSend(int64_t task_id)
+    {
+        std::lock_guard<std::mutex> lock(_file_mutex);
+        if (_file_send_state.task_id == task_id)
+        {
+            if (_file_send_state.fd >= 0)
+            {
+                close(_file_send_state.fd);
+                _file_send_state.fd = -1;
+            }
+            _file_send_state.sending = false;
+            _file_send_state.task_id = 0;
+        }
     }
 
 private:
+    void ResetReadDeadline();
+    void ScheduleReadDeadlineCheck();
+
+    void AsyncReadHead(int total_len);
+    void AsyncReadBody(int total_len);
+    void AsyncReadBinBody(int total_len, int json_len);
+
     void HandleLoginRequest(const std::string &body_data);
+    void OnLoginValidated(int uid, bool valid);
+
     void HandleRegisterRequest(const std::string &body_data);
     void HandleLoginAuthRequest(const std::string &body_data);
     void HandleGetVerifyCodeRequest(const std::string &body_data);
     void HandleResetPwdRequest(const std::string &body_data);
-    void OnLoginValidated(int uid, bool valid);
 
-    /**
-     * @brief 异步读取消息头
-     * @param total_len 头部长度
-     */
-    void AsyncReadHead(int total_len);
-    /**
-     * @brief 异步读取消息体
-     * @param total_len 消息体长度
-     */
-    void AsyncReadBody(int total_len);
-    /**
-     * @brief 异步写出消息队列
-     */
+    void HandleFileReq(const std::string &body_data);
+    void HandleFileChunk(const std::string &body_data);
+    void HandleFileChunk(std::string_view body_view);
+    void HandleFileAck(const std::string &body_data);
+    void HandleFileRsp(const std::string &body_data);
+    void HandleOfflineAck(const std::string &body_data);
+
+    void HandleZeroCopyStart(const std::string &body_data);
+    void HandleZeroCopyReady(const std::string &body_data);
+    void HandleZeroCopyData(const std::string &body_data);
+    void HandleZeroCopyComplete(const std::string &body_data);
+    void HandleZeroCopyError(const std::string &body_data);
+
+    void StartZeroCopySend(int64_t task_id, const std::string &filepath);
+    void ContinueZeroCopySend();
+    void OnZeroCopySendComplete(bool success, const std::string &message);
+
     void AsyncWriteMsg();
-    /**
-     * @brief 重置读超时时间
-     */
-    void ResetReadDeadline();
+
+    std::string _uuid;
+    int _user_uid = 0;
 
     boost::asio::ip::tcp::socket _socket;
     boost::asio::steady_timer _read_deadline;
-    CServer *_server;
-    std::string _uuid;                         ///< 会话 UUID
-    std::shared_ptr<RecvNode> _recv_head_node; ///< 消息头缓冲
-    std::shared_ptr<RecvNode> _recv_msg_node;  ///< 消息体缓冲
+    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+    std::chrono::steady_clock::time_point _expiry_time;
 
-    // 发送队列相关
+    std::shared_ptr<RecvNode> _recv_head_node;
+    std::shared_ptr<RecvNode> _recv_msg_node;
+    std::shared_ptr<RecvNode> _recv_bin_head_node;
+
     std::deque<std::shared_ptr<SendNode>> _send_queue;
-    bool _is_writing = false;
-
-    // 用户UID
-    int _user_uid = 0; ///< 已登录用户 UID
+    std::atomic<bool> _is_writing{false};
+    std::atomic<bool> _b_closed{false};
     std::atomic<bool> _login_in_progress{false};
-    std::atomic<bool> _b_closed{false}; ///< 关闭状态
+
+    FileTransferState _file_recv_state;
+    FileSendState _file_send_state;
+    OfflineSendState _offline_send_state;
+    BinaryPacketState _bin_packet_state;
+    ZeroCopySendState _zc_send_state;
+    ZeroCopyRecvState _zc_recv_state;
+
+    std::mutex _file_mutex;
+    std::mutex _offline_mutex;
+
+    std::weak_ptr<CServer> _server;
 };

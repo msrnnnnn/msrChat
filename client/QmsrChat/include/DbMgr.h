@@ -8,6 +8,9 @@
 #include <QVector>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QThread>
+#include <QMap>
+#include <QThreadStorage>
 
 struct ChatMessage {
     qint64 id;
@@ -24,7 +27,7 @@ public:
     static DbMgr& Instance();
     
     bool Init(const QString& db_path);
-    void Shutdown();
+    static void Destroy();
     
     bool SaveMessage(const ChatMessage& msg);
     QVector<ChatMessage> GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
@@ -35,14 +38,18 @@ public:
     DbMgr& operator=(const DbMgr&) = delete;
 
 private:
-    DbMgr() = default;
-    ~DbMgr() = default;
+    DbMgr();
+    ~DbMgr();
     
-    bool CreateTables();
+    bool CreateTables(QSqlDatabase& db);
+    QSqlDatabase& GetOrCreateThreadConnection();
+    void CloseAllThreadConnections();
     
-    QSqlDatabase _db;
-    QMutex _mutex;
-    QString _connection_name;
+    QSqlDatabase _main_thread_db;
+    QString _main_thread_connection_name;
+    QString _db_path;
+    bool _initialized;
+    QMutex _init_mutex;
 };
 
 #endif
