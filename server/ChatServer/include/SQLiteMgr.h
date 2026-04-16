@@ -2,11 +2,14 @@
 #define SQLITE_MGR_H
 
 #include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <sqlite3.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 struct ChatMessage
@@ -37,12 +40,174 @@ struct AuthResult
     std::string username;
 };
 
+class SQLiteConnection
+{
+public:
+    explicit SQLiteConnection(sqlite3 *db) : _db(db), _in_use(false) {}
+    sqlite3 *Get() const { return _db; }
+    bool IsInUse() const { return _in_use; }
+    void SetInUse(bool in_use) { _in_use = in_use; }
+    void Reset()
+    {
+        sqlite3_reset(_db);
+        sqlite3_clear_bindings(_db);
+    }
+
+private:
+    sqlite3 *_db;
+    bool _in_use;
+};
+
+class SQLiteConnectionPool
+{
+public:
+    explicit SQLiteConnectionPool(const std::string &db_path, int pool_size = 8);
+    ~SQLiteConnectionPool();
+
+    std::shared_ptr<SQLiteConnection> Acquire();
+    void Release(std::shared_ptr<SQLiteConnection> conn);
+    void Shutdown();
+
+    bool IsInitialized() const { return _initialized.load(); }
+
+private:
+    bool InitializeConnection(sqlite3 **db);
+    void CloseAllConnections();
+
+    std::string _db_path;
+    int _pool_size;
+    std::queue<std::shared_ptr<SQLiteConnection>> _available_connections;
+    std::vector<std::shared_ptr<SQLiteConnection>> _all_connections;
+    std::mutex _mutex;
+    std::condition_variable _cv;
+    std::atomic<bool> _shutdown{false};
+    std::atomic<bool> _initialized{false};
+};
+
+class SQLiteConnectionGuard
+{
+public:
+    explicit SQLiteConnectionGuard(std::shared_ptr<SQLiteConnectionPool> pool)
+        : _pool(pool), _conn(nullptr)
+    {
+        if (_pool)
+        {
+            _conn = _pool->Acquire();
+        }
+    }
+
+    ~SQLiteConnectionGuard()
+    {
+        if (_conn && _pool)
+        {
+            _conn->Reset();
+            _pool->Release(_conn);
+        }
+    }
+
+    SQLiteConnectionGuard(const SQLiteConnectionGuard &) = delete;
+    SQLiteConnectionGuard &operator=(const SQLiteConnectionGuard &) = delete;
+
+    SQLiteConnectionGuard(SQLiteConnectionGuard &&other) noexcept
+        : _pool(std::move(other._pool)), _conn(std::move(other._conn))
+    {
+        other._conn = nullptr;
+    }
+
+    SQLiteConnectionGuard &operator=(SQLiteConnectionGuard &&other) noexcept
+    {
+        if (this != &other)
+        {
+            if (_conn && _pool)
+            {
+                _conn->Reset();
+                _pool->Release(_conn);
+            }
+            _pool = std::move(other._pool);
+            _conn = std::move(other._conn);
+            other._conn = nullptr;
+        }
+        return *this;
+    }
+
+    sqlite3 *Get() const
+    {
+        return _conn ? _conn->Get() : nullptr;
+    }
+
+    explicit operator bool() const
+    {
+        return _conn != nullptr && _conn->Get() != nullptr;
+    }
+
+private:
+    std::shared_ptr<SQLiteConnectionPool> _pool;
+    std::shared_ptr<SQLiteConnection> _conn;
+};
+
+class ScopedStmt
+{
+public:
+    ScopedStmt() : _stmt(nullptr), _db(nullptr) {}
+
+    ScopedStmt(sqlite3 *db, const char *sql) : _stmt(nullptr), _db(db)
+    {
+        if (_db)
+        {
+            sqlite3_prepare_v2(_db, sql, -1, &_stmt, nullptr);
+        }
+    }
+
+    ~ScopedStmt()
+    {
+        if (_stmt)
+        {
+            sqlite3_finalize(_stmt);
+            _stmt = nullptr;
+        }
+    }
+
+    ScopedStmt(const ScopedStmt &) = delete;
+    ScopedStmt &operator=(const ScopedStmt &) = delete;
+
+    ScopedStmt(ScopedStmt &&other) noexcept : _stmt(other._stmt), _db(other._db)
+    {
+        other._stmt = nullptr;
+        other._db = nullptr;
+    }
+
+    ScopedStmt &operator=(ScopedStmt &&other) noexcept
+    {
+        if (this != &other)
+        {
+            if (_stmt)
+            {
+                sqlite3_finalize(_stmt);
+            }
+            _stmt = other._stmt;
+            _db = other._db;
+            other._stmt = nullptr;
+            other._db = nullptr;
+        }
+        return *this;
+    }
+
+    bool isValid() const { return _stmt != nullptr; }
+    sqlite3_stmt *get() const { return _stmt; }
+    sqlite3_stmt *operator->() const { return _stmt; }
+    explicit operator bool() const { return isValid(); }
+
+private:
+    sqlite3_stmt *_stmt;
+    sqlite3 *_db;
+};
+
 class SQLiteMgr
 {
 public:
     static SQLiteMgr &Instance();
 
-    bool Init(const std::string &db_path);
+    bool Init(const std::string &db_path, int pool_size = 8);
     void Shutdown();
 
     bool SaveMessage(const ChatMessage &msg);
@@ -56,6 +221,8 @@ public:
 
     bool SaveOfflineMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetOfflineMessages(int uid);
+    std::vector<ChatMessage> GetOfflineMessages(int uid, int limit);
+    int64_t GetOfflineMessageCount(int uid);
     bool ClearOfflineMessages(int uid);
 
     AuthResult RegisterUser(const std::string &username, const std::string &password_hash, const std::string &email);
@@ -73,12 +240,11 @@ private:
     SQLiteMgr() = default;
     ~SQLiteMgr();
 
-    bool CreateTables();
-    std::optional<User> GetUserByUsername_unlocked(const std::string &username);
-    int CheckVerifyCode_unlocked(const std::string &email, const std::string &code);
+    bool CreateTables(sqlite3 *db);
+    std::optional<User> GetUserByUsername_unlocked(sqlite3 *db, const std::string &username);
+    int CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, const std::string &code);
 
-    sqlite3 *_db = nullptr;
-    std::mutex _mutex;
+    std::shared_ptr<SQLiteConnectionPool> _pool;
     std::atomic<bool> _initialized{false};
 };
 
