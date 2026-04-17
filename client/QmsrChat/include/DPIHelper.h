@@ -8,8 +8,8 @@
 
 #include <QApplication>
 #include <QDebug>
-#include <QDesktopWidget>
 #include <QFontMetrics>
+#include <QGuiApplication>
 #include <QScreen>
 #include <QSize>
 #include <QWidget>
@@ -25,13 +25,7 @@ public:
 
     qreal scaleFactor() const
     {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
-        if (QCoreApplication::testAttribute(Qt::AA_EnableHighDpiScaling))
-        {
-            return QGuiApplication::primaryScreen()->devicePixelRatio();
-        }
-#endif
-        return 1.0;
+        return QGuiApplication::primaryScreen()->devicePixelRatio();
     }
 
     int scaled(int baseValue) const
@@ -124,7 +118,7 @@ public:
         if (!widget)
             return;
 
-        QScreen *screen = QApplication::primaryScreen();
+        QScreen *screen = QGuiApplication::primaryScreen();
         if (screen)
         {
             QRect screenGeometry = screen->geometry();
@@ -136,24 +130,24 @@ public:
 
     int getScreenWidth() const
     {
-        QScreen *screen = QApplication::primaryScreen();
+        QScreen *screen = QGuiApplication::primaryScreen();
         return screen ? screen->geometry().width() : 800;
     }
 
     int getScreenHeight() const
     {
-        QScreen *screen = QApplication::primaryScreen();
+        QScreen *screen = QGuiApplication::primaryScreen();
         return screen ? screen->geometry().height() : 600;
     }
 
     int fontHeight() const
     {
-        return QApplication::fontMetrics().height();
+        return QFontMetricsF(QApplication::font()).height();
     }
 
     int fontWidth(const QString &text) const
     {
-        return QApplication::fontMetrics().horizontalAdvance(text);
+        return QFontMetricsF(QApplication::font()).horizontalAdvance(text);
     }
 
 private:

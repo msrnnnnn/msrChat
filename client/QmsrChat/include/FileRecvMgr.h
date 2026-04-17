@@ -10,7 +10,6 @@
 #include <QRunnable>
 #include <QString>
 #include <QThreadPool>
-#include <atomic>
 #include <map>
 #include <string>
 
@@ -27,10 +26,12 @@ struct FileRecvTask
     bool completed = false;
 };
 
-class FileWriteTask : public QRunnable
+class FileWriteTask : public QObject, public QRunnable
 {
+    Q_OBJECT
+
 public:
-    FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath);
+    FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath, QObject *parent = nullptr);
     void run() override;
 
 signals:

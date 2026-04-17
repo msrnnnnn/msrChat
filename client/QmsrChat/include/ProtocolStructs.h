@@ -46,9 +46,11 @@ struct ChatLoginRspStruct
 struct ChatTextMsgStruct
 {
     int from_uid;
+    int to_uid;
     QString content;
     QString client_msg_id;
     qint64 server_msg_id;
+    qint64 timestamp;
 };
 
 struct ChatAckStruct

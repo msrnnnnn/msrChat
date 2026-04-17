@@ -4,10 +4,12 @@
  */
 #include "ChatDialog.h"
 #include "Global.h"
-#include "ui_chatdialog.h"
 #include "UserMgr.h"
+#include "ui_chatdialog.h"
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QResizeEvent>
@@ -21,7 +23,9 @@ ChatDialog::ChatDialog(QWidget *parent)
 {
     ui->setupUi(this);
 
-    DbThreadPool::Instance().Init();
+    QString app_path = QCoreApplication::applicationDirPath();
+    QString db_path = QDir::toNativeSeparators(app_path + QDir::separator() + "chat_messages.db");
+    DbThreadPool::Instance().Init(db_path);
 
     _chat_model = new ChatListModel(this);
     _chat_model->SetCurrentUid(UserMgr::Instance()->GetUid());
@@ -48,7 +52,7 @@ ChatDialog::ChatDialog(QWidget *parent)
 void ChatDialog::SetupQmlView()
 {
     _qml_widget = new QQuickWidget(this);
-    _qml_widget->setResizeMode(QQuickWidget::SizeRootObjectItem);
+    _qml_widget->setResizeMode(QQuickWidget::SizeRootObjectToView);
     _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
     QQmlContext *context = _qml_widget->rootContext();
