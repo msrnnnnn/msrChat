@@ -10,6 +10,7 @@
 #include <QCryptographicHash>
 #include <QMetaType>
 #include <QString>
+#include <QStyle>
 #include <QWidget>
 #include <functional>
 #include <iostream>

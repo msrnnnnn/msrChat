@@ -1,5 +1,6 @@
 #include "ChatItemDelegate.h"
 #include <QPainter>
+#include <QPainterPath>
 #include <QTextOption>
 #include <QFontMetrics>
 #include <QDebug>

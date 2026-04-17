@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
-
+set(CMAKE_TOOLCHAIN_FILE "D:/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
 project(QmsrChat VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-
+# 锁定 UI 文件的真实物理搜索路径
+set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ui")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -14,14 +15,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # =============================================================
 if(WIN32)
     message(STATUS "Building on Windows (MSVC/MinGW)")
-    # Windows: Use -fno-omit-frame-pointer for better debugging
-    # and add Windows-specific definitions
     add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
-    
+
     if(MSVC)
-        # MSVC-specific flags
         add_compile_options(/W3 /utf-8)
-        # Disable security warnings for third-party libraries
         add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             add_compile_options(/Od /Zi /MDd)
@@ -29,7 +26,6 @@ if(WIN32)
             add_compile_options(/O2 /Oi /GL)
         endif()
     else()
-        # MinGW-specific flags
         add_compile_options(-fno-omit-frame-pointer)
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             add_compile_options(-g -O0)
@@ -37,18 +33,15 @@ if(WIN32)
             add_compile_options(-O3)
         endif()
     endif()
-    
+
 elseif(UNIX AND NOT APPLE)
     message(STATUS "Building on Linux (GCC/Clang)")
-    # Linux: Essential flags for sanitizer and debugging
     add_compile_options(
         -fno-omit-frame-pointer
         -Wall
         -Wextra
         -Wpedantic
     )
-    
-    # Add sanitizers for debug builds
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         add_compile_options(
             -g3
@@ -60,17 +53,12 @@ elseif(UNIX AND NOT APPLE)
     else()
         add_compile_options(-O3 -march=native)
     endif()
-    
-    # Linux-specific pthread linking
     find_package(Threads REQUIRED)
     link_libraries(Threads::Threads)
-    
-    # Use std::filesystem for Linux (C++17)
     add_compile_definitions(STD_FILESYSTEM_EXPERIMENTAL=0)
-    
+
 elseif(APPLE)
     message(STATUS "Building on macOS")
-    # macOS-specific settings
     add_compile_options(
         -fno-omit-frame-pointer
         -Wall
@@ -82,54 +70,41 @@ elseif(APPLE)
     endif()
 endif()
 
-# Ensure consistent linker flags across platforms
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Quick)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Qml)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets)
 
-# =============================================================
-# Spdlog 配置
-# =============================================================
-find_package(spdlog REQUIRED)
-
-# =============================================================
-# Protobuf 配置
-# =============================================================
+find_package(spdlog CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
 
-# 设置 proto 文件路径
 set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
-
-# 使用 protobuf_generate_cpp 生成 C++ 源文件
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
 
-# 添加 include 目录
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-# 统一管理所有源文件
-# 无论是在 Qt5 还是 Qt6 下编译，都使用这份清单
+# =============================================================
+# 源文件清单 (抛弃一切幻想，全部使用客观绝对路径)
+# =============================================================
 set(PROJECT_SOURCES
         src/main.cpp
         ${PROTO_SOURCES}
-        ui/mainwindow.ui
-        ui/logindialog.ui
-        ui/registerdialog.ui
-        ui/resetdialog.ui
-        ui/ChatDialog.ui
+
+        # UI 相关 (锁定在 ui 子目录)
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui/mainwindow.ui
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui/logindialog.ui
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui/registerdialog.ui
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui/resetdialog.ui
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui/chatdialog.ui
         resources.qrc
-        config.ini
-        # UI 相关
+
+        # 头文件
         include/MainWindow.h
         include/LoginDialog.h
         include/RegisterDialog.h
         include/ResetDialog.h
         include/ChatDialog.h
-        # 核心模块
         include/Global.h
         include/UserMgr.h
         include/TcpMgr.h
@@ -138,14 +113,11 @@ set(PROJECT_SOURCES
         include/singleton.h
         include/Logger.h
         include/logmacros.h
-        # 工具类
         include/DPIHelper.h
         include/PathUtils.h
         include/Utils.h
-        # UI 组件
         include/TimerBtn.h
         include/ClickedLabel.h
-        # 数据模型
         include/ChatListModel.h
         include/ChatItemDelegate.h
         include/ChatModel.h
@@ -153,8 +125,11 @@ set(PROJECT_SOURCES
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
-        # QML 视图
-        ChatView.qml
+
+        # QML 视图 (严格锁定在根目录)
+        ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageBubble.qml
+
         # 实现文件
         src/MainWindow.cpp
         src/LoginDialog.cpp
@@ -178,14 +153,12 @@ set(PROJECT_SOURCES
         src/Utils.cpp
 )
 
-# Qt6 Build Path
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         .gitignore
     )
-# Qt5 / Android Build Path
 else()
     if(ANDROID)
         add_library(QmsrChat SHARED
@@ -202,15 +175,13 @@ target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VER
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Core)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Quick)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Qml)
+target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Sql)
+target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickWidgets)
 target_link_libraries(QmsrChat PRIVATE protobuf::libprotobuf)
 target_link_libraries(QmsrChat PRIVATE spdlog::spdlog)
 
 # ================= 配置管理自动化核心逻辑 =================
-# 定义配置文件源路径 (源码目录下的 config.ini)
 set(CONFIG_FILE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")
-
-# 添加构建后钩子 (Post-Build Event)
-# 作用：每次编译成功后，自动检测 config.ini 是否有变化，有则拷贝到 .exe 所在目录
 if(EXISTS "${CONFIG_FILE_SRC}")
     add_custom_command(TARGET QmsrChat POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -221,9 +192,7 @@ if(EXISTS "${CONFIG_FILE_SRC}")
 else()
     message(WARNING "config.ini not found in ${CMAKE_CURRENT_SOURCE_DIR}. Run will fail if config is missing.")
 endif()
-# ==========================================================================
 
-# macOS/iOS Bundle Identifier 设置
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.QmsrChat)
 endif()

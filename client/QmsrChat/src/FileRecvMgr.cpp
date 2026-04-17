@@ -6,8 +6,10 @@
 #include <QFile>
 #include <QStandardPaths>
 
-FileWriteTask::FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath)
-    : _task_id(task_id),
+FileWriteTask::FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath, QObject *parent)
+    : QObject(parent),
+      QRunnable(),
+      _task_id(task_id),
       _data(std::move(data)),
       _temp_filepath(temp_filepath)
 {
@@ -302,16 +304,16 @@ bool FileRecvMgr::ValidateMd5(const QString &filepath, const std::string &expect
 
     QCryptographicHash hash(QCryptographicHash::Md5);
     const int chunk_size = 4096;
-    char buffer[chunk_size];
+    QByteArray buffer;
 
     while (!file.atEnd())
     {
-        qint64 bytes_read = file.read(buffer, chunk_size);
-        if (bytes_read <= 0)
+        buffer = file.read(chunk_size);
+        if (buffer.isEmpty())
         {
             break;
         }
-        hash.addData(buffer, bytes_read);
+        hash.addData(buffer);
     }
 
     QString actual_md5 = QString::fromLatin1(hash.result().toHex());

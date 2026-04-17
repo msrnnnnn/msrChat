@@ -4,35 +4,22 @@
  * @details 负责初始化 Qt 应用程序，加载 QSS 样式表，读取配置文件，并显示主窗口。
  */
 
-#include "DbMgr.h"
 #include "DbWorker.h"
 #include "Global.h"
 #include "MainWindow.h"
 #include "TcpMgr.h"
 #include "UserMgr.h"
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QSettings>
 #include <QTextStream>
-#include <QtGlobal>
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#else
-QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-#endif
 
     QString app_path = QCoreApplication::applicationDirPath();
     QString db_path = QDir::toNativeSeparators(app_path + QDir::separator() + "chat_messages.db");

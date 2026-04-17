@@ -57,20 +57,20 @@ bool DbMgr::Init(const QString& db_path)
 
 void DbMgr::Destroy()
 {
-    QMutexLocker lock(&_init_mutex);
-    
-    if (!_initialized) {
+    QMutexLocker lock(&Instance()._init_mutex);
+
+    if (!Instance()._initialized) {
         return;
     }
-    
-    CloseAllThreadConnections();
-    
-    if (_main_thread_db.isOpen()) {
-        _main_thread_db.close();
+
+    Instance().CloseAllThreadConnections();
+
+    if (Instance()._main_thread_db.isOpen()) {
+        Instance()._main_thread_db.close();
     }
-    QSqlDatabase::removeDatabase(_main_thread_connection_name);
-    
-    _initialized = false;
+    QSqlDatabase::removeDatabase(Instance()._main_thread_connection_name);
+
+    Instance()._initialized = false;
     qDebug() << "DbMgr destroyed and all connections closed";
 }
 

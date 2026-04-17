@@ -7,11 +7,11 @@
 #include <QDebug>
 #include <QTimer>
 
-ChatController::ChatController(QObject* parent)
-    : QObject(parent)
-    , _target_uid(0)
-    , _current_uid(0)
-    , _is_connected(false)
+ChatController::ChatController(QObject *parent)
+    : QObject(parent),
+      _target_uid(0),
+      _current_uid(0),
+      _is_connected(false)
 {
     _cleanup_timer = new QTimer(this);
     connect(_cleanup_timer, &QTimer::timeout, this, &ChatController::slotCleanTimeoutMessages);
@@ -36,13 +36,13 @@ void ChatController::initialize()
 
 void ChatController::ConnectSignals()
 {
-    connect(TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg,
-            Qt::QueuedConnection);
+    connect(
+        TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck, Qt::QueuedConnection);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineAck,
-            Qt::QueuedConnection);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected,
-            Qt::QueuedConnection);
+    connect(
+        TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineAck, Qt::QueuedConnection);
+    connect(
+        TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
 }
 
 void ChatController::DisconnectSignals()
@@ -63,7 +63,7 @@ int ChatController::GetTargetUid() const
     return _target_uid;
 }
 
-void ChatController::SetTargetUid(int uid)
+void ChatController::setTargetUid(int uid)
 {
     if (_target_uid != uid)
     {
@@ -78,7 +78,7 @@ bool ChatController::IsConnected() const
     return _is_connected;
 }
 
-void ChatController::sendMessage(const QString& content)
+void ChatController::sendMessage(const QString &content)
 {
     if (_target_uid <= 0)
     {
@@ -138,8 +138,9 @@ void ChatController::loadHistory()
         return;
     }
 
-    connect(&DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this,
-            &ChatController::slotOnHistoryLoaded, Qt::UniqueConnection);
+    connect(
+        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
+        Qt::UniqueConnection);
 
     DbThreadPool::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
 }
@@ -148,7 +149,7 @@ void ChatController::clearHistory()
 {
 }
 
-void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct& msg)
+void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
 {
     QString dedup_key;
     if (!msg.client_msg_id.isEmpty())
@@ -170,7 +171,8 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct& msg)
         _received_msg_ids.insert(dedup_key);
         if (_received_msg_ids.size() > 10000)
         {
-            _received_msg_ids = _received_msg_ids.mid(_received_msg_ids.size() / 2).toList().toSet();
+            QList<QString> values = _received_msg_ids.values();
+            _received_msg_ids = QSet<QString>(values.begin() + values.size() / 2, values.end());
         }
     }
 
@@ -187,7 +189,7 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct& msg)
     DbThreadPool::Instance().SaveMessage(chatMsg);
 }
 
-void ChatController::slotOnChatAck(const ChatAckStruct& ack)
+void ChatController::slotOnChatAck(const ChatAckStruct &ack)
 {
     if (ack.client_msg_id.isEmpty())
     {
@@ -210,7 +212,7 @@ void ChatController::slotOnChatAck(const ChatAckStruct& ack)
     }
 }
 
-void ChatController::slotOnOfflineAck(const OfflineAckStruct& ack)
+void ChatController::slotOnOfflineAck(const OfflineAckStruct &ack)
 {
     _current_uid = UserMgr::Instance()->GetUid();
 
@@ -226,13 +228,13 @@ void ChatController::slotOnReconnected()
     emit sigError(QStringLiteral("网络已重连"));
 }
 
-void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage>& messages)
+void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
 {
-    disconnect(&DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this,
-               &ChatController::slotOnHistoryLoaded);
+    disconnect(
+        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
 
     QVariantList msgList;
-    for (const auto& msg : messages)
+    for (const auto &msg : messages)
     {
         msgList.append(ChatMessageToVariant(msg));
     }
@@ -261,7 +263,7 @@ void ChatController::slotCleanTimeoutMessages()
         }
     }
 
-    for (const QString& id : expired_ids)
+    for (const QString &id : expired_ids)
     {
         _pending_messages.take(id);
         emit sigMessageStatusChanged(id, -1);
@@ -269,7 +271,7 @@ void ChatController::slotCleanTimeoutMessages()
     }
 }
 
-QVariantMap ChatController::ChatMessageToVariant(const ChatMessage& msg)
+QVariantMap ChatController::ChatMessageToVariant(const ChatMessage &msg)
 {
     QVariantMap map;
     map["id"] = msg.id;
