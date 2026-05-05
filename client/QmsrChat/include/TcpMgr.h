@@ -26,7 +26,7 @@ public:
     ~TcpMgr();
 
     void slot_tcp_connect(ServerInfo si);
-    void slot_send_data(RequestType reqId, const QString &data);
+    void slot_send_data(RequestType reqId, const QByteArray &data);
 
     void slot_send_login_req(const LoginReqStruct &req);
     void slot_send_chat_login_req(const ChatLoginReqStruct &req);
@@ -38,7 +38,7 @@ public:
 
 signals:
     void sig_con_success(bool bsuccess);
-    void sig_send_data(RequestType reqId, QString data);
+    void sig_send_data(RequestType reqId, QByteArray data);
     void sig_login_failed(int err);
     void sig_reconnected();
 

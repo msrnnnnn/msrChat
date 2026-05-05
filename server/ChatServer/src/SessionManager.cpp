@@ -18,7 +18,7 @@ void SessionManager::RemoveSession(int uid)
     auto session = _uid_sessions.Find(uid);
     if (session)
     {
-        std::string uuid = session->GetUuid();
+        std::string uuid = (*session)->GetUuid();
         _uuid_sessions.Erase(uuid);
     }
     _uid_sessions.Erase(uid);
@@ -29,7 +29,7 @@ void SessionManager::RemoveSessionByUuid(const std::string &uuid)
     auto session = _uuid_sessions.Find(uuid);
     if (session)
     {
-        int uid = session->GetUserUid();
+        int uid = (*session)->GetUserUid();
         _uid_sessions.Erase(uid);
     }
     _uuid_sessions.Erase(uuid);
@@ -37,12 +37,14 @@ void SessionManager::RemoveSessionByUuid(const std::string &uuid)
 
 std::shared_ptr<CSession> SessionManager::GetSession(int uid) const
 {
-    return _uid_sessions.Find(uid);
+    auto *session = _uid_sessions.Find(uid);
+    return session ? *session : nullptr;
 }
 
 std::shared_ptr<CSession> SessionManager::GetSessionByUuid(const std::string &uuid) const
 {
-    return _uuid_sessions.Find(uuid);
+    auto *session = _uuid_sessions.Find(uuid);
+    return session ? *session : nullptr;
 }
 
 std::size_t SessionManager::SessionCount() const

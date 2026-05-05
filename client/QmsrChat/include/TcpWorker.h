@@ -25,7 +25,7 @@ public:
 public slots:
     void slot_init();
     void slot_tcp_connect(ServerInfo si);
-    void slot_send_data(RequestType reqId, const QString &data);
+    void slot_send_data(RequestType reqId, const QByteArray &data);
     void slot_stop();
 
 signals:
