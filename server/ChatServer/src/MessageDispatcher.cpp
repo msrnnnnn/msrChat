@@ -38,7 +38,10 @@ void MessageDispatcher::RegisterDefaultHandlers()
     RegisterHandler(MSG_CHAT_TEXT, HandleChatText, true);
     RegisterHandler(MSG_FILE_REQ, HandleFileReq, true);
     RegisterHandler(MSG_FILE_RSP, HandleFileRsp, true);
-    RegisterHandler(MSG_FILE_CHUNK, HandleFileChunk, true);
+    RegisterHandler(MSG_FILE_CHUNK,
+        [](CSession &session, const std::string &body_data) -> bool {
+            return HandleFileChunk(session, body_data);
+        }, true);
     RegisterHandler(MSG_FILE_ACK, HandleFileAck, true);
     RegisterHandler(MSG_OFFLINE_ACK, HandleOfflineAck, true);
     RegisterHandler(MSG_ZEROCOPY_START, HandleZeroCopyStart, true);

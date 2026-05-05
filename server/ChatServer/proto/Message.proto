@@ -54,6 +54,8 @@ message ServerChatMsg {
     string content = 2;
     string client_msg_id = 3;
     int64 server_msg_id = 4;
+    int32 to_uid = 5;
+    int64 timestamp = 6;
 }
 
 message OfflineAck {

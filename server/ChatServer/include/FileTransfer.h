@@ -3,6 +3,7 @@
 
 #include "ObjectPool.h"
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -10,7 +11,6 @@
 #include <mutex>
 #include <string>
 
-constexpr size_t CHUNK_SIZE = 4 * 1024;
 constexpr size_t LARGE_FILE_THRESHOLD = 1024 * 1024;
 
 class FileTransferTask
