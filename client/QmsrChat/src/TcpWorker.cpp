@@ -115,7 +115,7 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
     _socket->connectToHost(_host, _port);
 }
 
-void TcpWorker::slot_send_data(RequestType reqId, const QString &data)
+void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
 {
     if (!_socket)
     {
@@ -123,17 +123,16 @@ void TcpWorker::slot_send_data(RequestType reqId, const QString &data)
     }
 
     uint16_t id = static_cast<uint16_t>(reqId);
-    QByteArray dataBytes = data.toUtf8();
-    quint32 len = static_cast<quint32>(dataBytes.size());
+    quint32 len = static_cast<quint32>(data.size());
 
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setByteOrder(QDataStream::BigEndian);
     out << id << len;
-    block.append(dataBytes);
+    block.append(data);
 
     _socket->write(block);
-    qDebug() << "Tcp Send: ID=" << id << " Len=" << len << " Data=" << data;
+    qDebug() << "Tcp Send: ID=" << id << " Len=" << len;
 }
 
 void TcpWorker::slot_connected()
@@ -326,7 +325,7 @@ void TcpWorker::slot_ready_read()
                         std::string serialized;
                         if (ack.SerializeToString(&serialized))
                         {
-                            slot_send_data(RequestType::MSG_FILE_RSP, QString::fromStdString(serialized));
+                            slot_send_data(RequestType::MSG_FILE_RSP, QByteArray(serialized.data(), serialized.size()));
                         }
                     }
                 }

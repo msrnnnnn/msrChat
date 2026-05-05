@@ -73,7 +73,7 @@ LoginDialog::LoginDialog(QWidget *parent)
     DPI.applySizePolicy(devBtn, false, false);
 
     int dev_x = std::max(DPI.scaled(DEV_BTN_MARGIN), width() - scaledBtnSize.width() - DPI.scaled(DEV_BTN_MARGIN));
-    int dev_y = DPI.scaled(370);
+    int dev_y = DPI.scaled(340);
     devBtn->setGeometry(dev_x, dev_y, scaledBtnSize.width(), scaledBtnSize.height());
 
     devBtn->setStyleSheet(

@@ -128,7 +128,7 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
  * @param reqId 请求类型
  * @param data 数据内容
  */
-void TcpMgr::slot_send_data(RequestType reqId, const QString &data)
+void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
 {
     if (!_worker)
     {
@@ -136,7 +136,7 @@ void TcpMgr::slot_send_data(RequestType reqId, const QString &data)
     }
     emit sig_send_data(reqId, data);
     QMetaObject::invokeMethod(
-        _worker, "slot_send_data", Qt::QueuedConnection, Q_ARG(RequestType, reqId), Q_ARG(QString, data));
+        _worker, "slot_send_data", Qt::QueuedConnection, Q_ARG(RequestType, reqId), Q_ARG(QByteArray, data));
 }
 
 void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
@@ -168,7 +168,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_CHAT_TEXT, QString::fromStdString(serialized));
+        slot_send_data(RequestType::MSG_CHAT_TEXT, QByteArray(serialized.data(), serialized.size()));
     }
 }
 
