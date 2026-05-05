@@ -119,13 +119,13 @@ std::string FileTransfer::CalculateMD5(const std::string &filepath)
         EVP_DigestUpdate(ctx, buffer, file.gcount());
     }
 
-    unsigned char digest[MD5_DIGEST_LENGTH];
+    unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len = 0;
     EVP_DigestFinal_ex(ctx, digest, &digest_len);
     EVP_MD_CTX_free(ctx);
 
     char md5_str[33];
-    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
+    for (int i = 0; i < 16; ++i)
     {
         sprintf(md5_str + i * 2, "%02x", digest[i]);
     }
@@ -271,13 +271,13 @@ std::string FileTransfer::CalculateChunkMD5(const char *data, size_t len)
     EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
     EVP_DigestUpdate(ctx, data, len);
 
-    unsigned char digest[MD5_DIGEST_LENGTH];
+    unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int digest_len = 0;
     EVP_DigestFinal_ex(ctx, digest, &digest_len);
     EVP_MD_CTX_free(ctx);
 
     char md5_str[33];
-    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
+    for (int i = 0; i < 16; ++i)
     {
         sprintf(md5_str + i * 2, "%02x", digest[i]);
     }
