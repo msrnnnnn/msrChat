@@ -392,7 +392,7 @@ public:
 
     void ContinueReading()
     {
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
     }
 
     bool IsClosed() const
