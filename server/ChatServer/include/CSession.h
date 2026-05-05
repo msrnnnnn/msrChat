@@ -383,6 +383,8 @@ public:
         return _strand;
     }
 
+    void OnLoginValidated(int uid, bool valid);
+
     std::shared_ptr<CServer> GetServer() const
     {
         return _server.lock();
@@ -548,7 +550,6 @@ private:
     void AsyncReadBinBody(int total_len, int json_len);
 
     void HandleLoginRequest(const std::string &body_data);
-    void OnLoginValidated(int uid, bool valid);
 
     void HandleRegisterRequest(const std::string &body_data);
     void HandleLoginAuthRequest(const std::string &body_data);
