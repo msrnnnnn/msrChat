@@ -7,6 +7,7 @@
 #include "CServer.h"
 #include "LogicSystem.h"
 #include "SQLiteMgr.h"
+#include "TokenManager.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -104,6 +105,9 @@ int main(int argc, char *argv[])
             spdlog::error("Failed to initialize SQLite database at {}", config.db_path);
             return 1;
         }
+
+        TokenManager::Instance().SetToken(1001, "dev_token");
+        spdlog::info("[Main] Dev mode token registered for uid 1001");
 
         boost::asio::io_context io_context;
         LogicSystem::getInstance().SetIOContext(&io_context);
