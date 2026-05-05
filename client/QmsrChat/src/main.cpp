@@ -80,6 +80,9 @@ int main(int argc, char *argv[])
     si.Token = "";
     si.Uid = 0;
 
+    qDebug() << "Initializing UserMgr...";
+    UserMgr::Init();
+
     qDebug() << "Initiating TCP connection to ChatServer...";
     TcpMgr::Init();
     TcpMgr::Instance()->slot_tcp_connect(si);
