@@ -1,13 +1,12 @@
 #pragma once
 #include "const.h"
+#include "CSession.h"
 #include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <unordered_map>
 #include <vector>
-
-class CSession;
 
 using MessageHandler = std::function<bool(CSession &session, const std::string &body_data)>;
 

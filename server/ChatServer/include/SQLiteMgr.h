@@ -49,8 +49,6 @@ public:
     void SetInUse(bool in_use) { _in_use = in_use; }
     void Reset()
     {
-        sqlite3_reset(_db);
-        sqlite3_clear_bindings(_db);
     }
 
 private:
@@ -195,6 +193,7 @@ public:
     bool isValid() const { return _stmt != nullptr; }
     sqlite3_stmt *get() const { return _stmt; }
     sqlite3_stmt *operator->() const { return _stmt; }
+    operator sqlite3_stmt *() const { return _stmt; }
     explicit operator bool() const { return isValid(); }
 
 private:

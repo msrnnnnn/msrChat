@@ -5,6 +5,7 @@
 #ifndef CONST_H
 #define CONST_H
 
+#include <chrono>
 #include <cstdint>
 
 constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息
@@ -40,5 +41,18 @@ const int HEAD_BIN_TOTAL_LEN_FIELD = 4;           ///< 二进制包总长度字�
 const int HEAD_BIN_JSON_LEN_FIELD = 4;            ///< JSON数据长度字段字节数
 const int HEAD_BIN_TOTAL_LEN = 10;                ///< 二进制包头部总长度（ID + TotalLen + JsonLen）
 const int HEAD_BIN_MAX_LENGTH = 1024 * 1024 * 10; ///< 二进制包最大长度（10MB）
+
+// 读取超时
+constexpr auto kReadTimeout = std::chrono::seconds(30);
+constexpr auto kReadCheckInterval = std::chrono::seconds(5);
+
+// 文件传输
+constexpr size_t CHUNK_SIZE = 4 * 1024;
+
+/// 判断是否为二进制包（带额外10字节头）
+inline bool IsBinaryPacket(uint16_t msg_id)
+{
+    return msg_id == MSG_FILE_CHUNK || msg_id == MSG_ZEROCOPY_DATA;
+}
 
 #endif // CONST_H

@@ -10,6 +10,7 @@
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
 #include "const.h"
+#include "Message.pb.h"
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -944,6 +945,48 @@ void CSession::HandleOfflineAck(const std::string &body_data)
     }
 
     AsyncReadHead(HEAD_TOTAL_LEN);
+}
+
+void CSession::SendNextOfflinePage()
+{
+    if (_offline_send_state.uid <= 0 || !_offline_send_state.sending)
+    {
+        return;
+    }
+
+    auto messages = SQLiteMgr::Instance().GetOfflineMessages(
+        _offline_send_state.uid, OFFLINE_PAGE_SIZE);
+
+    if (messages.empty())
+    {
+        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        _offline_send_state.sending = false;
+        return;
+    }
+
+    for (const auto &msg : messages)
+    {
+        qmsrchat::ServerChatMsg chatMsg;
+        chatMsg.set_from_uid(msg.from_uid);
+        chatMsg.set_to_uid(msg.to_uid);
+        chatMsg.set_content(msg.content);
+        chatMsg.set_server_msg_id(msg.id);
+        chatMsg.set_timestamp(msg.timestamp);
+
+        std::string serialized;
+        if (chatMsg.SerializeToString(&serialized))
+        {
+            Send(serialized, MSG_CHAT_TEXT);
+        }
+    }
+
+    _offline_send_state.sent_count += messages.size();
+
+    if (_offline_send_state.sent_count >= _offline_send_state.total_count)
+    {
+        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        _offline_send_state.sending = false;
+    }
 }
 
 void CSession::HandleZeroCopyStart(const std::string &body_data)

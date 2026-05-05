@@ -81,6 +81,16 @@ public:
         return fd;
     }
 
+    FileDescriptor &operator=(int fd)
+    {
+        if (_fd >= 0)
+        {
+            close(_fd);
+        }
+        _fd = fd;
+        return *this;
+    }
+
     void Reset(int fd = -1)
     {
         if (_fd >= 0)
@@ -363,6 +373,16 @@ public:
         return _user_uid;
     }
 
+    boost::asio::ip::tcp::socket &GetSocket()
+    {
+        return _socket;
+    }
+
+    boost::asio::strand<boost::asio::io_context::executor_type> &GetStrand()
+    {
+        return _strand;
+    }
+
     std::shared_ptr<CServer> GetServer() const
     {
         return _server.lock();
@@ -517,6 +537,8 @@ public:
     }
 
 private:
+    friend class CServer;
+
     void ResetReadDeadline();
     void ScheduleReadDeadlineCheck();
 
@@ -538,6 +560,7 @@ private:
     void HandleFileAck(const std::string &body_data);
     void HandleFileRsp(const std::string &body_data);
     void HandleOfflineAck(const std::string &body_data);
+    void SendNextOfflinePage();
 
     void HandleZeroCopyStart(const std::string &body_data);
     void HandleZeroCopyReady(const std::string &body_data);
