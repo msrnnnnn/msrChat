@@ -32,8 +32,9 @@ void LogicSystem::PostTask(MessageTask task)
         return;
     }
 
-    auto self = shared_from_this();
-    _thread_pool.Enqueue([self, task = std::move(task)]() { self->ProcessTask(task); });
+    auto self = this;
+    auto shared_task = std::make_shared<MessageTask>(std::move(task));
+    _thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); });
 }
 
 void LogicSystem::ProcessTask(MessageTask task)
