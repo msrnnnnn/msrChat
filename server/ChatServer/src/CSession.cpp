@@ -73,7 +73,7 @@ void CSession::Start()
         {
             ResetReadDeadline();
             ScheduleReadDeadlineCheck();
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
         });
 }
 
@@ -118,7 +118,7 @@ void CSession::ScheduleReadDeadlineCheck()
             }));
 }
 
-void CSession::AsyncReadHead(int total_len)
+void CSession::AsyncReadHead()
 {
     auto self = shared_from_this();
     auto head_node = _recv_head_node;
@@ -126,7 +126,7 @@ void CSession::AsyncReadHead(int total_len)
         _socket, boost::asio::buffer(head_node->_data, HEAD_TOTAL_LEN),
         boost::asio::bind_executor(
             _strand,
-            [this, self, head_node](const boost::system::error_code &ec, std::size_t bytes)
+            [this, self, head_node](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -174,7 +174,7 @@ void CSession::AsyncReadHead(int total_len)
                         _bin_packet_state.total_len = msg_len;
                         _bin_packet_state.receiving = true;
                         _recv_msg_node->Reset(msg_len, msg_id);
-                        AsyncReadBinBody(msg_len, 0);
+                        AsyncReadBinBody(msg_len);
                     }
                     else
                     {
@@ -209,7 +209,7 @@ void CSession::AsyncReadBody(int total_len)
         _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
         boost::asio::bind_executor(
             _strand,
-            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, std::size_t bytes)
+            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -253,7 +253,7 @@ void CSession::HandleLoginRequest(const std::string &body_data)
         response["error"] = 1;
         response["message"] = "invalid login payload";
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -266,7 +266,7 @@ void CSession::HandleLoginRequest(const std::string &body_data)
         response["message"] = "invalid login";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -276,7 +276,7 @@ void CSession::HandleLoginRequest(const std::string &body_data)
         response["message"] = "already login";
         response["uid"] = _user_uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -287,7 +287,7 @@ void CSession::HandleLoginRequest(const std::string &body_data)
         response["message"] = "login in progress";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -317,7 +317,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["message"] = "token invalid";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -327,7 +327,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["message"] = "already login";
         response["uid"] = _user_uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -350,7 +350,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
     }
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleRegisterRequest(const std::string &body_data)
@@ -369,7 +369,7 @@ void CSession::HandleRegisterRequest(const std::string &body_data)
             [this, response_str]()
             {
                 Send(response_str, ID_REGISTER_USER);
-                AsyncReadHead(HEAD_TOTAL_LEN);
+                AsyncReadHead();
             });
         return;
     }
@@ -397,7 +397,7 @@ void CSession::HandleRegisterRequest(const std::string &body_data)
                         response["username"] = result.username;
                     }
                     Send(response.dump(), ID_REGISTER_USER);
-                    AsyncReadHead(HEAD_TOTAL_LEN);
+                    AsyncReadHead();
                 });
         });
 }
@@ -419,7 +419,7 @@ void CSession::HandleLoginAuthRequest(const std::string &body_data)
             [this, response_str]()
             {
                 Send(response_str, ID_LOGIN_USER);
-                AsyncReadHead(HEAD_TOTAL_LEN);
+                AsyncReadHead();
             });
         return;
     }
@@ -444,7 +444,7 @@ void CSession::HandleLoginAuthRequest(const std::string &body_data)
                     if (result.error != 0)
                     {
                         Send(response.dump(), ID_LOGIN_USER);
-                        AsyncReadHead(HEAD_TOTAL_LEN);
+                        AsyncReadHead();
                         return;
                     }
 
@@ -455,7 +455,7 @@ void CSession::HandleLoginAuthRequest(const std::string &body_data)
                     spdlog::info("[CSession] User {} auth login success, token issued", result.uid);
 
                     Send(response.dump(), ID_LOGIN_USER);
-                    AsyncReadHead(HEAD_TOTAL_LEN);
+                    AsyncReadHead();
                 });
         });
 }
@@ -474,7 +474,7 @@ void CSession::HandleGetVerifyCodeRequest(const std::string &body_data)
             [this, response_str]()
             {
                 Send(response_str, ID_GET_VARIFY_CODE);
-                AsyncReadHead(HEAD_TOTAL_LEN);
+                AsyncReadHead();
             });
         return;
     }
@@ -496,7 +496,7 @@ void CSession::HandleGetVerifyCodeRequest(const std::string &body_data)
                 {
                     nlohmann::json response{{"error", success ? 0 : 1}};
                     Send(response.dump(), ID_GET_VARIFY_CODE);
-                    AsyncReadHead(HEAD_TOTAL_LEN);
+                    AsyncReadHead();
                 });
         });
 }
@@ -518,7 +518,7 @@ void CSession::HandleResetPwdRequest(const std::string &body_data)
             [this, response_str]()
             {
                 Send(response_str, ID_RESET_PWD);
-                AsyncReadHead(HEAD_TOTAL_LEN);
+                AsyncReadHead();
             });
         return;
     }
@@ -548,7 +548,7 @@ void CSession::HandleResetPwdRequest(const std::string &body_data)
                 {
                     nlohmann::json response{{"error", error_code}};
                     Send(response.dump(), ID_RESET_PWD);
-                    AsyncReadHead(HEAD_TOTAL_LEN);
+                    AsyncReadHead();
                 });
         });
 }
@@ -615,7 +615,7 @@ void CSession::AsyncWriteMsg()
         _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
         boost::asio::bind_executor(
             _strand,
-            [this, self, send_node](const boost::system::error_code &ec, std::size_t bytes)
+            [this, self, send_node](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -676,7 +676,7 @@ void CSession::HandleFileReq(const std::string &body_data)
     {
         nlohmann::json response{{"error", 1}, {"message", "not login"}};
         Send(response.dump(), MSG_FILE_ACK);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -692,7 +692,7 @@ void CSession::HandleFileReq(const std::string &body_data)
         {
             nlohmann::json response{{"error", 1}, {"message", "invalid file request"}};
             Send(response.dump(), MSG_FILE_ACK);
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -732,7 +732,7 @@ void CSession::HandleFileReq(const std::string &body_data)
         Send(response.dump(), MSG_FILE_ACK);
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleFileChunk(const std::string &body_data)
@@ -746,7 +746,7 @@ void CSession::HandleFileChunk(std::string_view body_view)
     {
         nlohmann::json response{{"error", 1}, {"message", "not login"}};
         Send(response.dump(), MSG_FILE_ACK);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -779,7 +779,6 @@ void CSession::HandleFileChunk(std::string_view body_view)
         }
 
         int64_t task_id = json_data.value("task_id", 0);
-        int64_t chunk_offset = json_data.value("offset", 0);
         int64_t chunk_size = json_data.value("size", 0);
 
         std::lock_guard<std::mutex> lock(_file_mutex);
@@ -787,7 +786,7 @@ void CSession::HandleFileChunk(std::string_view body_view)
         if (!_file_recv_state.transfer_ready || _file_recv_state.task_id != task_id)
         {
             spdlog::warn("[CSession] File chunk received without proper setup, task_id={}", task_id);
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -830,14 +829,14 @@ void CSession::HandleFileChunk(std::string_view body_view)
         Send(response.dump(), MSG_FILE_ACK);
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleFileAck(const std::string &body_data)
 {
     if (_user_uid == 0)
     {
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -888,14 +887,14 @@ void CSession::HandleFileAck(const std::string &body_data)
         SendNextFileChunk();
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleFileRsp(const std::string &body_data)
 {
     if (_user_uid == 0)
     {
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -928,7 +927,7 @@ void CSession::HandleFileRsp(const std::string &body_data)
         SendNextFileChunk();
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleOfflineAck(const std::string &body_data)
@@ -944,7 +943,7 @@ void CSession::HandleOfflineAck(const std::string &body_data)
         spdlog::error("[CSession] HandleOfflineAck error: {}", e.what());
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::SendNextOfflinePage()
@@ -995,7 +994,7 @@ void CSession::HandleZeroCopyStart(const std::string &body_data)
     {
         nlohmann::json response{{"error", 1}, {"message", "not login"}};
         Send(response.dump(), MSG_ZEROCOPY_ERROR);
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -1011,7 +1010,7 @@ void CSession::HandleZeroCopyStart(const std::string &body_data)
         {
             nlohmann::json response{{"error", 1}, {"message", "invalid zero-copy request"}};
             Send(response.dump(), MSG_ZEROCOPY_ERROR);
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -1022,7 +1021,7 @@ void CSession::HandleZeroCopyStart(const std::string &body_data)
             spdlog::error("[CSession] Failed to open file for zero-copy receive: {}", save_path);
             nlohmann::json response{{"error", 1}, {"message", "cannot open file"}};
             Send(response.dump(), MSG_ZEROCOPY_ERROR);
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -1059,14 +1058,14 @@ void CSession::HandleZeroCopyStart(const std::string &body_data)
         Send(response.dump(), MSG_ZEROCOPY_ERROR);
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleZeroCopyData(const std::string &body_data)
 {
     if (_user_uid == 0 || !_zc_recv_state.receiving)
     {
-        AsyncReadHead(HEAD_TOTAL_LEN);
+        AsyncReadHead();
         return;
     }
 
@@ -1074,13 +1073,12 @@ void CSession::HandleZeroCopyData(const std::string &body_data)
     {
         auto json_data = nlohmann::json::parse(body_data);
         int64_t task_id = json_data.value("task_id", 0);
-        int64_t offset = json_data.value("offset", 0);
         int64_t size = json_data.value("size", 0);
 
         if (task_id != _zc_recv_state.task_id)
         {
             spdlog::warn("[CSession] Zero-copy data task_id mismatch");
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -1095,7 +1093,7 @@ void CSession::HandleZeroCopyData(const std::string &body_data)
 
             spdlog::info(
                 "[CSession] Zero-copy receive completed: task={}, size={}", task_id, _zc_recv_state.received_size);
-            AsyncReadHead(HEAD_TOTAL_LEN);
+            AsyncReadHead();
             return;
         }
 
@@ -1123,7 +1121,7 @@ void CSession::HandleZeroCopyData(const std::string &body_data)
         spdlog::error("[CSession] HandleZeroCopyData error: {}", e.what());
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleZeroCopyComplete(const std::string &body_data)
@@ -1154,7 +1152,7 @@ void CSession::HandleZeroCopyComplete(const std::string &body_data)
         spdlog::error("[CSession] HandleZeroCopyComplete error: {}", e.what());
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleZeroCopyError(const std::string &body_data)
@@ -1177,7 +1175,7 @@ void CSession::HandleZeroCopyError(const std::string &body_data)
         spdlog::error("[CSession] HandleZeroCopyError parse error: {}", e.what());
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::HandleZeroCopyReady(const std::string &body_data)
@@ -1208,7 +1206,7 @@ void CSession::HandleZeroCopyReady(const std::string &body_data)
         spdlog::error("[CSession] HandleZeroCopyReady error: {}", e.what());
     }
 
-    AsyncReadHead(HEAD_TOTAL_LEN);
+    AsyncReadHead();
 }
 
 void CSession::StartZeroCopySend(int64_t task_id, const std::string &filepath)
@@ -1377,7 +1375,7 @@ void CSession::SendNextFileChunk()
     _file_send_state.sent_size += bytes_read;
 }
 
-void CSession::AsyncReadBinBody(int total_len, int json_len)
+void CSession::AsyncReadBinBody(int total_len)
 {
     auto self = shared_from_this();
     auto recv_msg_node = _recv_msg_node;
@@ -1385,7 +1383,7 @@ void CSession::AsyncReadBinBody(int total_len, int json_len)
         _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
         boost::asio::bind_executor(
             _strand,
-            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, std::size_t bytes)
+            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -1414,6 +1412,6 @@ void CSession::AsyncReadBinBody(int total_len, int json_len)
                 nlohmann::json response{{"error", 0}, {"msg_id", _bin_packet_state.msg_id}};
                 Send(response.dump(), MSG_CHAT_ACK);
 
-                AsyncReadHead(HEAD_TOTAL_LEN);
+                AsyncReadHead();
             }));
 }

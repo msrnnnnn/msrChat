@@ -545,9 +545,9 @@ private:
     void ResetReadDeadline();
     void ScheduleReadDeadlineCheck();
 
-    void AsyncReadHead(int total_len);
+    void AsyncReadHead();
     void AsyncReadBody(int total_len);
-    void AsyncReadBinBody(int total_len, int json_len);
+    void AsyncReadBinBody(int total_len);
 
     void HandleLoginRequest(const std::string &body_data);
 
