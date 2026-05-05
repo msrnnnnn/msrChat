@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
@@ -106,21 +106,23 @@ std::string FileTransfer::CalculateMD5(const std::string &filepath)
         return "";
     }
 
-    MD5_CTX ctx;
-    MD5_Init(&ctx);
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
 
     char buffer[CHUNK_SIZE];
     while (file.read(buffer, sizeof(buffer)))
     {
-        MD5_Update(&ctx, buffer, file.gcount());
+        EVP_DigestUpdate(ctx, buffer, file.gcount());
     }
     if (file.gcount() > 0)
     {
-        MD5_Update(&ctx, buffer, file.gcount());
+        EVP_DigestUpdate(ctx, buffer, file.gcount());
     }
 
     unsigned char digest[MD5_DIGEST_LENGTH];
-    MD5_Final(digest, &ctx);
+    unsigned int digest_len = 0;
+    EVP_DigestFinal_ex(ctx, digest, &digest_len);
+    EVP_MD_CTX_free(ctx);
 
     char md5_str[33];
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
@@ -265,8 +267,14 @@ void FileSender::OnChunkAck(bool success, const std::string &message)
 
 std::string FileTransfer::CalculateChunkMD5(const char *data, size_t len)
 {
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(ctx, data, len);
+
     unsigned char digest[MD5_DIGEST_LENGTH];
-    MD5(reinterpret_cast<const unsigned char *>(data), len, digest);
+    unsigned int digest_len = 0;
+    EVP_DigestFinal_ex(ctx, digest, &digest_len);
+    EVP_MD_CTX_free(ctx);
 
     char md5_str[33];
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)

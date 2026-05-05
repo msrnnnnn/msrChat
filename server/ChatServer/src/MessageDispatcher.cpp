@@ -21,9 +21,7 @@ bool HandleFileChunk(CSession &session, const std::string &body_data);
 bool HandleFileChunk(CSession &session, std::string_view body_view);
 bool HandleFileAck(CSession &session, const std::string &body_data);
 bool HandleOfflineAck(CSession &session, const std::string &body_data);
-bool HandleZeroCopyStart(CSession &session, const std::string &body_data);
 bool HandleZeroCopyReady(CSession &session, const std::string &body_data);
-bool HandleZeroCopyData(CSession &session, const std::string &body_data);
 bool HandleZeroCopyComplete(CSession &session, const std::string &body_data);
 bool HandleZeroCopyError(CSession &session, const std::string &body_data);
 } // namespace
@@ -44,9 +42,7 @@ void MessageDispatcher::RegisterDefaultHandlers()
         }, true);
     RegisterHandler(MSG_FILE_ACK, HandleFileAck, true);
     RegisterHandler(MSG_OFFLINE_ACK, HandleOfflineAck, true);
-    RegisterHandler(MSG_ZEROCOPY_START, HandleZeroCopyStart, true);
     RegisterHandler(MSG_ZEROCOPY_READY, HandleZeroCopyReady, true);
-    RegisterHandler(MSG_ZEROCOPY_DATA, HandleZeroCopyData, true);
     RegisterHandler(MSG_ZEROCOPY_COMPLETE, HandleZeroCopyComplete, true);
     RegisterHandler(MSG_ZEROCOPY_ERROR, HandleZeroCopyError, true);
 }
@@ -698,49 +694,6 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
     return true;
 }
 
-bool HandleZeroCopyStart(CSession &session, const std::string &body_data)
-{
-    if (session.GetUserUid() == 0)
-    {
-        qmsrchat::ZeroCopyReady response;
-        response.set_error(1);
-        response.set_message("not login");
-
-        std::string serialized;
-        if (response.SerializeToString(&serialized))
-        {
-            session.Send(serialized, MSG_ZEROCOPY_START);
-        }
-        session.ContinueReading();
-        return true;
-    }
-
-    try
-    {
-        qmsrchat::ZeroCopyStart zcStart;
-        if (!zcStart.ParseFromString(body_data))
-        {
-            spdlog::error("[MessageDispatcher] Failed to parse ZeroCopyStart from Protobuf");
-            session.ContinueReading();
-            return true;
-        }
-
-        int64_t task_id = zcStart.task_id();
-        int to_uid = zcStart.to_uid();
-        std::string filename = zcStart.filename();
-        int64_t total_size = zcStart.total_size();
-
-        spdlog::info("[MessageDispatcher] ZeroCopy start: task_id={}, to_uid={}, file={}", task_id, to_uid, filename);
-        session.ContinueReading();
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("[MessageDispatcher] HandleZeroCopyStart error: {}", e.what());
-        session.ContinueReading();
-    }
-    return true;
-}
-
 bool HandleZeroCopyReady(CSession &session, const std::string &body_data)
 {
     try
@@ -760,30 +713,6 @@ bool HandleZeroCopyReady(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleZeroCopyReady error: {}", e.what());
-        session.ContinueReading();
-    }
-    return true;
-}
-
-bool HandleZeroCopyData(CSession &session, const std::string &body_data)
-{
-    try
-    {
-        qmsrchat::ZeroCopyData zcData;
-        if (!zcData.ParseFromString(body_data))
-        {
-            spdlog::error("[MessageDispatcher] Failed to parse ZeroCopyData from Protobuf");
-            session.ContinueReading();
-            return true;
-        }
-
-        int64_t task_id = zcData.task_id();
-        spdlog::debug("[MessageDispatcher] ZeroCopy data: task_id={}", task_id);
-        session.ContinueReading();
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("[MessageDispatcher] HandleZeroCopyData error: {}", e.what());
         session.ContinueReading();
     }
     return true;
