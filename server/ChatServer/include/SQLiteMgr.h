@@ -58,6 +58,8 @@ private:
 
 class SQLiteConnectionPool
 {
+    friend class SQLiteMgr;
+
 public:
     explicit SQLiteConnectionPool(const std::string &db_path, int pool_size = 8);
     ~SQLiteConnectionPool();

@@ -538,6 +538,7 @@ public:
 
 private:
     friend class CServer;
+    friend class MessageDispatcher;
 
     void ResetReadDeadline();
     void ScheduleReadDeadlineCheck();

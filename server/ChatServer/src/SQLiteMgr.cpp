@@ -79,11 +79,6 @@ bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
     return true;
 }
 
-bool SQLiteConnectionPool::IsInitialized() const
-{
-    return _initialized.load();
-}
-
 std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
 {
     std::unique_lock<std::mutex> lock(_mutex);
