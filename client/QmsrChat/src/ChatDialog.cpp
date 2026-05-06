@@ -52,6 +52,11 @@ ChatDialog::ChatDialog(QWidget *parent)
 
 void ChatDialog::SetupQmlView()
 {
+    ui->chat_edit->hide();
+    ui->pushButton->hide();
+    ui->dest_uid_edit->hide();
+    ui->label->hide();
+
     _qml_widget = new QQuickWidget(this);
     _qml_widget->setResizeMode(QQuickWidget::SizeRootObjectToView);
     _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
@@ -61,7 +66,7 @@ void ChatDialog::SetupQmlView()
     context->setContextProperty(QStringLiteral("chatController"), _chat_controller);
     context->setContextProperty(QStringLiteral("chatDialog"), this);
 
-    _qml_widget->setGeometry(ui->chat_list_view->geometry());
+    _qml_widget->setGeometry(rect());
     _qml_widget->raise();
     _qml_widget->show();
 }
