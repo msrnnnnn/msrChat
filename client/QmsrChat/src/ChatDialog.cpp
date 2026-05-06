@@ -61,11 +61,9 @@ void ChatDialog::SetupQmlView()
     context->setContextProperty(QStringLiteral("chatController"), _chat_controller);
     context->setContextProperty(QStringLiteral("chatDialog"), this);
 
-    // 隐藏旧的 Widgets 界面（QML 已包含完整 UI）
+    // 隐藏旧的 Widgets 输入框（QML 已包含输入区域），保留目标 UID 输入
     ui->chat_edit->hide();
     ui->pushButton->hide();
-    ui->dest_uid_edit->hide();
-    ui->label->hide();
 
     _qml_widget->setGeometry(this->rect());
     _qml_widget->raise();
