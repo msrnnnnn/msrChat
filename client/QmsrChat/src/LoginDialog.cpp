@@ -29,6 +29,7 @@ LoginDialog::LoginDialog(QWidget *parent)
       ui(new Ui::LoginDialog)
 {
     ui->setupUi(this);
+    setFixedSize(this->width(), this->height());
     ui->error_label->setProperty("state", "normal");
     repolish(ui->error_label);
 
