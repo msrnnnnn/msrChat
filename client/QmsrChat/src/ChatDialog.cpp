@@ -13,7 +13,6 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QResizeEvent>
-#include <QShowEvent>
 #include <QVariantMap>
 
 ChatDialog::ChatDialog(QWidget *parent)
@@ -75,8 +74,7 @@ void ChatDialog::SetupQmlView()
     ui->chat_edit->hide();
     ui->pushButton->hide();
 
-    _qml_widget->setGeometry(this->rect());
-    _qml_widget->raise();
+    ui->verticalLayout->addWidget(_qml_widget);
     _qml_widget->show();
 }
 
@@ -86,25 +84,7 @@ ChatDialog::~ChatDialog()
     delete ui;
 }
 
-void ChatDialog::showEvent(QShowEvent *event)
-{
-    QDialog::showEvent(event);
 
-    if (_qml_widget)
-    {
-        _qml_widget->setGeometry(this->rect());
-    }
-}
-
-void ChatDialog::resizeEvent(QResizeEvent *event)
-{
-    QDialog::resizeEvent(event);
-
-    if (_qml_widget)
-    {
-        _qml_widget->setGeometry(this->rect());
-    }
-}
 
 void ChatDialog::setTargetUid(int uid)
 {
