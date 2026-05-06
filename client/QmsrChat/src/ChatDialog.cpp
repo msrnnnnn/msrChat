@@ -54,12 +54,13 @@ void ChatDialog::SetupQmlView()
 {
     _qml_widget = new QQuickWidget(this);
     _qml_widget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
     QQmlContext *context = _qml_widget->rootContext();
     context->setContextProperty(QStringLiteral("chatModel"), _chat_model);
     context->setContextProperty(QStringLiteral("chatController"), _chat_controller);
     context->setContextProperty(QStringLiteral("chatDialog"), this);
+
+    _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
     // 隐藏旧的 Widgets 输入框（QML 已包含输入区域），保留目标 UID 输入
     ui->chat_edit->hide();
