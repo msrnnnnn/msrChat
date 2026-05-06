@@ -70,12 +70,17 @@ void ChatDialog::SetupQmlView()
 
     _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
-    // 隐藏旧的 Widgets（QML 已替代），保留目标 UID 输入
+    // 移除旧的 Widgets 界面（QML 已包含），保留目标 UID 输入
     ui->chat_list_view->hide();
     ui->chat_edit->hide();
     ui->pushButton->hide();
+    while (ui->verticalLayout->count() > 1)
+    {
+        QLayoutItem *item = ui->verticalLayout->takeAt(1);
+        delete item;
+    }
 
-    ui->verticalLayout->insertWidget(1, _qml_widget);
+    ui->verticalLayout->addWidget(_qml_widget);
     _qml_widget->show();
 }
 
