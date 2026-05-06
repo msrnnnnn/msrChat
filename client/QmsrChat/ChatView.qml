@@ -26,7 +26,6 @@ Rectangle {
             Layout.margins: 10
             spacing: 8
             verticalLayoutDirection: ListView.BottomToTop
-            reverseLayout: false
             clip: true
 
             model: chatModel

@@ -60,42 +60,19 @@ Rectangle {
                 font.family: "Microsoft YaHei"
             }
 
-            Image {
+            Text {
                 id: statusIcon
-                width: 14
-                height: 14
-                visible: isSelf && status !== undefined
+                visible: isSelf
+                font.pixelSize: 10
+                color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
 
-                source: {
-                    if (!isSelf) return ""
+                text: {
                     switch (status) {
-                        case 0: return "qrc:/image/clock.png"
-                        case 1: return "qrc:/image/check.png"
-                        case -1: return "qrc:/image/error.png"
+                        case 0: return "发送中"
+                        case 1: return "已送达"
+                        case -1: return "失败"
                         default: return ""
                     }
-                }
-
-                states: [
-                    State {
-                        name: "sending"
-                        when: isSelf && status === 0
-                        PropertyChanges { target: statusIcon; opacity: 0.6 }
-                    },
-                    State {
-                        name: "sent"
-                        when: isSelf && status === 1
-                        PropertyChanges { target: statusIcon; opacity: 1.0 }
-                    },
-                    State {
-                        name: "failed"
-                        when: isSelf && status === -1
-                        PropertyChanges { target: statusIcon; opacity: 1.0 }
-                    }
-                ]
-
-                transitions: Transition {
-                    NumberAnimation { properties: "opacity"; duration: 300 }
                 }
             }
         }
