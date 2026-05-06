@@ -28,6 +28,12 @@ bool HandleZeroCopyError(CSession &session, const std::string &body_data);
 
 void MessageDispatcher::RegisterDefaultHandlers()
 {
+    RegisterHandler(MSG_HELLO,
+        [](CSession &session, const std::string &body_data) -> bool {
+            session.Send(body_data, MSG_HELLO);
+            session.ContinueReading();
+            return true;
+        }, false);
     RegisterHandler(MSG_CHAT_LOGIN, HandleLoginRequest, false);
     RegisterHandler(ID_REGISTER_USER, HandleRegisterRequest, false);
     RegisterHandler(ID_LOGIN_USER, HandleLoginAuthRequest, false);

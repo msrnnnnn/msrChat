@@ -392,6 +392,11 @@ public:
 
     void ContinueReading()
     {
+        bool expected = false;
+        if (!_read_active.compare_exchange_strong(expected, true))
+        {
+            return;
+        }
         auto self = shared_from_this();
         boost::asio::post(_strand, [this, self]() { AsyncReadHead(); });
     }
@@ -592,6 +597,7 @@ private:
     std::deque<std::shared_ptr<SendNode>> _send_queue;
     std::atomic<bool> _is_writing{false};
     std::atomic<bool> _b_closed{false};
+    std::atomic<bool> _read_active{false};
     std::atomic<bool> _login_in_progress{false};
 
     FileTransferState _file_recv_state;
