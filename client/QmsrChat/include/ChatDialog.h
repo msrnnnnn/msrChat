@@ -13,6 +13,7 @@
 #include <QDialog>
 #include <QQuickWidget>
 #include <QResizeEvent>
+#include <QShowEvent>
 
 namespace Ui
 {
@@ -31,6 +32,7 @@ public:
     Q_INVOKABLE int getTargetUid() const;
 
 protected:
+    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private slots:
