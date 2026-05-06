@@ -225,6 +225,12 @@ void ChatController::slotOnReconnected()
 {
     _is_connected = true;
     emit sigConnectionStatusChanged();
+
+    ChatLoginReqStruct req;
+    req.uid = UserMgr::Instance()->GetUid();
+    req.token = UserMgr::Instance()->GetToken();
+    TcpMgr::Instance()->slot_send_chat_login_req(req);
+
     emit sigError(QStringLiteral("网络已重连"));
 }
 
