@@ -128,6 +128,8 @@ void CSession::AsyncReadHead()
             _strand,
             [this, self, head_node](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
+                _read_active.store(false);
+
                 if (ec)
                 {
                     if (_user_uid != 0)

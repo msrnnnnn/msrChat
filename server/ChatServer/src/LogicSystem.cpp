@@ -77,9 +77,8 @@ void LogicSystem::ProcessTask(MessageTask task)
     {
         spdlog::warn("[LogicSystem] No handler found for msg_id {}", task.msg_id);
         session->Send(task.body_data, task.msg_id);
+        session->ContinueReading();
     }
-
-    session->ContinueReading();
 }
 
 void LogicSystem::RegisterHandler(uint16_t msg_id, BusinessHandler handler)
