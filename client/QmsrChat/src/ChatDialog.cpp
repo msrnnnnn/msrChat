@@ -32,6 +32,7 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     _chat_controller = new ChatController(this);
     _chat_controller->initialize();
+    _chat_controller->setTargetUid(1002);
 
     SetupQmlView();
 
