@@ -202,10 +202,10 @@ void ChatController::slotOnChatAck(const ChatAckStruct &ack)
         return;
     }
 
-    int status = ack.error == 0 ? 1 : -1;
+    int status = (ack.error == 0 || ack.message == QStringLiteral("stored")) ? 1 : -1;
     emit sigMessageStatusChanged(ack.client_msg_id, status);
 
-    if (ack.error != 0)
+    if (ack.error != 0 && ack.message != QStringLiteral("stored"))
     {
         QString errorMsg = ack.message.isEmpty() ? QStringLiteral("发送失败") : ack.message;
         emit sigError(errorMsg);

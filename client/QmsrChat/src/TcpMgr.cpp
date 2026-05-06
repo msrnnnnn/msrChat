@@ -298,17 +298,17 @@ void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
     }
     else if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_ACK))
     {
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isNull() || !doc.isObject())
+        qmsrchat::ChatAck chatAck;
+        if (!chatAck.ParseFromArray(data.constData(), data.size()))
         {
+            qWarning() << "Failed to parse ChatAck from Protobuf";
             return;
         }
 
-        QJsonObject obj = doc.object();
         ChatAckStruct ack;
-        ack.error = obj.value("error").toInt(1);
-        ack.message = obj.value("message").toString();
-        ack.client_msg_id = obj.value("client_msg_id").toString();
+        ack.error = chatAck.error();
+        ack.message = QString::fromStdString(chatAck.message());
+        ack.client_msg_id = QString::fromStdString(chatAck.client_msg_id());
 
         emit sig_chat_ack(ack);
     }

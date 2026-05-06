@@ -11,6 +11,10 @@ Rectangle {
     id: chatViewRoot
     color: "#F5F5F5"
 
+    required property var chatModel
+    required property var chatController
+    required property var chatDialog
+
     property int currentUid: chatController ? chatController.currentUid : 0
     property int targetUid: chatController ? chatController.targetUid : 0
     property bool isConnected: chatController ? chatController.isConnected : false

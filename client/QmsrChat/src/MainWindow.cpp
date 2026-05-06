@@ -49,11 +49,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 2. 初始化登录对话框
     _login_dialog = new LoginDialog(this);
-    _login_dialog->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
+    _login_dialog->setWindowFlags(
+        Qt::CustomizeWindowHint | Qt::FramelessWindowHint | Qt::MSWindowsFixedSizeDialogHint);
+    _login_dialog->setSizeGripEnabled(false);
     _login_dialog->resize(baseLoginSize);
     _login_dialog->move(this->pos());
-    DPI.constrainSize(_login_dialog, MIN_WIDTH, MIN_HEIGHT, MAX_WIDTH, MAX_HEIGHT);
-    _login_dialog->setFixedSize(_login_dialog->width(), _login_dialog->height());
+    _login_dialog->setFixedSize(baseLoginSize);
     _login_dialog->show();
 
     // 3. 初始化注册对话框

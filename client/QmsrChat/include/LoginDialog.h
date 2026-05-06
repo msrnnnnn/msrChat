@@ -27,6 +27,9 @@ public:
     explicit LoginDialog(QWidget *parent = nullptr);
     ~LoginDialog();
 
+protected:
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+
 private:
     Ui::LoginDialog *ui;
 

@@ -392,7 +392,8 @@ public:
 
     void ContinueReading()
     {
-        AsyncReadHead();
+        auto self = shared_from_this();
+        boost::asio::post(_strand, [this, self]() { AsyncReadHead(); });
     }
 
     bool IsClosed() const

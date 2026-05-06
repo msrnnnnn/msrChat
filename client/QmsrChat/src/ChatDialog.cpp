@@ -13,6 +13,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QResizeEvent>
+#include <QVariantMap>
 
 ChatDialog::ChatDialog(QWidget *parent)
     : QDialog(parent),
@@ -59,6 +60,13 @@ void ChatDialog::SetupQmlView()
     context->setContextProperty(QStringLiteral("chatModel"), _chat_model);
     context->setContextProperty(QStringLiteral("chatController"), _chat_controller);
     context->setContextProperty(QStringLiteral("chatDialog"), this);
+
+    QVariantMap initialProperties;
+    initialProperties.insert(QStringLiteral("chatModel"), QVariant::fromValue(static_cast<QObject *>(_chat_model)));
+    initialProperties.insert(
+        QStringLiteral("chatController"), QVariant::fromValue(static_cast<QObject *>(_chat_controller)));
+    initialProperties.insert(QStringLiteral("chatDialog"), QVariant::fromValue(static_cast<QObject *>(this)));
+    _qml_widget->setInitialProperties(initialProperties);
 
     _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
@@ -119,6 +127,10 @@ void ChatDialog::slotOnMessageSent(const QVariantMap &msgData)
 void ChatDialog::slotOnMessageStatusChanged(const QString &clientMsgId, int status)
 {
     qDebug() << "[ChatDialog] Message status changed:" << clientMsgId << "status:" << status;
+    if (_chat_model)
+    {
+        _chat_model->UpdateMessageStatus(qHash(clientMsgId), status);
+    }
 }
 
 void ChatDialog::slotOnHistoryLoaded(const QVariantList &messages)
