@@ -53,6 +53,7 @@ MainWindow::MainWindow(QWidget *parent)
     _login_dialog->resize(baseLoginSize);
     _login_dialog->move(this->pos());
     DPI.constrainSize(_login_dialog, MIN_WIDTH, MIN_HEIGHT, MAX_WIDTH, MAX_HEIGHT);
+    _login_dialog->setFixedSize(_login_dialog->width(), _login_dialog->height());
     _login_dialog->show();
 
     // 3. 初始化注册对话框
