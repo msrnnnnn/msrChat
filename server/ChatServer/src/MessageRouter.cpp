@@ -1,5 +1,9 @@
 #include "MessageRouter.h"
 #include "CSession.h"
+#include "Message.pb.h"
+#include "const.h"
+#include <chrono>
+#include <nlohmann/json.hpp>
 
 bool MessageRouter::ForwardMessage(int target_uid, const std::string &msg_data)
 {
@@ -9,7 +13,28 @@ bool MessageRouter::ForwardMessage(int target_uid, const std::string &msg_data)
         return false;
     }
 
-    session->Send(msg_data, 0);
+    auto json_data = nlohmann::json::parse(msg_data, nullptr, false);
+    if (json_data.is_discarded())
+    {
+        return false;
+    }
+
+    qmsrchat::ServerChatMsg chat_msg;
+    chat_msg.set_from_uid(json_data.value("from_uid", 0));
+    chat_msg.set_to_uid(json_data.value("to_uid", target_uid));
+    chat_msg.set_content(json_data.value("content", ""));
+    chat_msg.set_client_msg_id(json_data.value("client_msg_id", ""));
+    chat_msg.set_timestamp(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count());
+
+    std::string serialized;
+    if (!chat_msg.SerializeToString(&serialized))
+    {
+        return false;
+    }
+
+    session->Send(serialized, MSG_CHAT_TEXT);
     return true;
 }
 

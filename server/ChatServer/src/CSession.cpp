@@ -317,7 +317,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["message"] = "token invalid";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead();
+        ContinueReading();
         return;
     }
 
@@ -327,7 +327,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["message"] = "already login";
         response["uid"] = _user_uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
-        AsyncReadHead();
+        ContinueReading();
         return;
     }
 
@@ -350,7 +350,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
     }
-    AsyncReadHead();
+    ContinueReading();
 }
 
 void CSession::HandleRegisterRequest(const std::string &body_data)

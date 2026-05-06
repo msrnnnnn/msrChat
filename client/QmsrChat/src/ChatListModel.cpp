@@ -82,14 +82,15 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
 
 void ChatListModel::AddMessage(const ChatMessage &msg)
 {
-    QMutexLocker locker(&_mutex);
-
-    int lastRow = _messages.size();
+    int lastRow = rowCount();
     beginInsertRows(QModelIndex(), lastRow, lastRow);
-    _messages.append(msg);
-    endInsertRows();
 
-    locker.unlock();
+    {
+        QMutexLocker locker(&_mutex);
+        _messages.append(msg);
+    }
+
+    endInsertRows();
     emit messageAdded(msg);
     emit scrollToBottomRequested();
 }
@@ -101,21 +102,21 @@ void ChatListModel::AddMessages(const QVector<ChatMessage> &messages)
         return;
     }
 
-    QMutexLocker locker(&_mutex);
-
-    int startRow = _messages.size();
+    int startRow = rowCount();
     int endRow = startRow + messages.size() - 1;
 
     beginInsertRows(QModelIndex(), startRow, endRow);
 
-    for (const ChatMessage &msg : messages)
     {
-        _messages.append(msg);
+        QMutexLocker locker(&_mutex);
+        for (const ChatMessage &msg : messages)
+        {
+            _messages.append(msg);
+        }
     }
 
     endInsertRows();
 
-    locker.unlock();
     emit messagesLoaded(messages.size());
     emit scrollToBottomRequested();
 }
@@ -127,48 +128,58 @@ void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &message
         return;
     }
 
-    QMutexLocker locker(&_mutex);
-
     int startRow = 0;
     int endRow = messages.size() - 1;
 
     beginInsertRows(QModelIndex(), startRow, endRow);
 
-    for (int i = messages.size() - 1; i >= 0; --i)
     {
-        _messages.prepend(messages[i]);
+        QMutexLocker locker(&_mutex);
+        for (int i = messages.size() - 1; i >= 0; --i)
+        {
+            _messages.prepend(messages[i]);
+        }
     }
 
     endInsertRows();
 
-    locker.unlock();
     emit messagesLoaded(messages.size());
     emit scrollToTopRequested();
 }
 
 void ChatListModel::UpdateMessageStatus(qint64 msg_id, int status)
 {
-    QMutexLocker locker(&_mutex);
+    int changedRow = -1;
 
-    for (int i = 0; i < _messages.size(); ++i)
     {
-        if (_messages[i].id == msg_id)
+        QMutexLocker locker(&_mutex);
+        for (int i = 0; i < _messages.size(); ++i)
         {
-            _messages[i].status = status;
-
-            QModelIndex index = this->index(i, 0);
-            emit dataChanged(index, index, {StatusRole});
-            break;
+            if (_messages[i].id == msg_id)
+            {
+                _messages[i].status = status;
+                changedRow = i;
+                break;
+            }
         }
+    }
+
+    if (changedRow >= 0)
+    {
+        QModelIndex changedIndex = index(changedRow, 0);
+        emit dataChanged(changedIndex, changedIndex, {StatusRole});
     }
 }
 
 void ChatListModel::ClearMessages()
 {
-    QMutexLocker locker(&_mutex);
-
     beginResetModel();
-    _messages.clear();
+
+    {
+        QMutexLocker locker(&_mutex);
+        _messages.clear();
+    }
+
     endResetModel();
 }
 

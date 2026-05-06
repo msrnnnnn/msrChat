@@ -16,6 +16,10 @@
 #include <QSettings>
 #include <algorithm>
 
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
+
 static constexpr int DEV_BTN_WIDTH = 80;
 static constexpr int DEV_BTN_HEIGHT = 30;
 static constexpr int DEV_BTN_MARGIN = 10;
@@ -110,6 +114,25 @@ LoginDialog::LoginDialog(QWidget *parent)
 LoginDialog::~LoginDialog()
 {
     delete ui;
+}
+
+bool LoginDialog::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+    Q_UNUSED(eventType);
+
+#ifdef Q_OS_WIN
+    MSG *msg = static_cast<MSG *>(message);
+    if (msg && msg->message == WM_NCHITTEST)
+    {
+        *result = HTCLIENT;
+        return true;
+    }
+#else
+    Q_UNUSED(message);
+    Q_UNUSED(result);
+#endif
+
+    return QDialog::nativeEvent(eventType, message, result);
 }
 
 bool LoginDialog::checkUserValid()
@@ -250,11 +273,6 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
         _chat_login_ready = true;
         showTip(tr("聊天登录成功，正在进入聊天界面..."), true);
         emit sig_login_success();
-
-        if (parent())
-        {
-            QMetaObject::invokeMethod(parent(), "slotLoginSuccess", Qt::QueuedConnection);
-        }
     }
 }
 
