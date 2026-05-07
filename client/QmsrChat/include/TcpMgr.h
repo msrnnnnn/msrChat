@@ -38,7 +38,6 @@ public:
 
 signals:
     void sig_con_success(bool bsuccess);
-    void sig_send_data(RequestType reqId, QByteArray data);
     void sig_login_failed(int err);
     void sig_reconnected();
 

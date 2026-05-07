@@ -10,13 +10,13 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
-#include <QQmlContext>
 #include <QQmlEngine>
-#include <QResizeEvent>
+#include <QQuickItem>
+#include <QShowEvent>
 #include <QVariantMap>
 
 ChatDialog::ChatDialog(QWidget *parent)
-    : QDialog(parent),
+    : QWidget(parent),
       ui(new Ui::ChatDialog),
       _qml_widget(nullptr),
       _chat_model(nullptr),
@@ -55,39 +55,73 @@ void ChatDialog::SetupQmlView()
 {
     _qml_widget = new QQuickWidget(this);
     _qml_widget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-
-    QQmlContext *context = _qml_widget->rootContext();
-    context->setContextProperty(QStringLiteral("chatModel"), _chat_model);
-    context->setContextProperty(QStringLiteral("chatController"), _chat_controller);
-    context->setContextProperty(QStringLiteral("chatDialog"), this);
-
-    QVariantMap initialProperties;
-    initialProperties.insert(QStringLiteral("chatModel"), QVariant::fromValue(static_cast<QObject *>(_chat_model)));
-    initialProperties.insert(
-        QStringLiteral("chatController"), QVariant::fromValue(static_cast<QObject *>(_chat_controller)));
-    initialProperties.insert(QStringLiteral("chatDialog"), QVariant::fromValue(static_cast<QObject *>(this)));
-    _qml_widget->setInitialProperties(initialProperties);
+    _qml_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    _qml_widget->setMinimumSize(200, 200);
 
     _qml_widget->setSource(QUrl(QStringLiteral("qrc:/ChatView.qml")));
 
-    // 移除旧的 Widgets 界面（QML 已包含），保留目标 UID 输入
-    ui->chat_list_view->hide();
-    ui->chat_edit->hide();
-    ui->pushButton->hide();
-    while (ui->verticalLayout->count() > 1)
+    auto status = _qml_widget->status();
+    if (status == QQuickWidget::Error)
+        qWarning() << "[ChatDialog] QML load errors:" << _qml_widget->errors();
+    else if (status == QQuickWidget::Null)
+        qWarning() << "[ChatDialog] QML source not set or null";
+
+    if (auto *root = _qml_widget->rootObject())
     {
-        QLayoutItem *item = ui->verticalLayout->takeAt(1);
-        delete item;
+        root->setProperty("chatModel", QVariant::fromValue(static_cast<QObject *>(_chat_model)));
+        root->setProperty("chatController", QVariant::fromValue(static_cast<QObject *>(_chat_controller)));
+        root->setProperty("chatDialog", QVariant::fromValue(static_cast<QObject *>(this)));
+    }
+    else
+    {
+        qWarning() << "[ChatDialog] QML rootObject is null";
     }
 
-    ui->verticalLayout->addWidget(_qml_widget);
-    _qml_widget->show();
+    // 彻底重建布局：保存 UID 行控件后删除旧布局，创建新布局避免布局损坏
+    QWidget *uidLabel = ui->label;
+    QWidget *uidEdit = ui->dest_uid_edit;
+    QWidget *oldList = ui->chat_list_view;
+    QWidget *oldEdit = ui->chat_edit;
+    QWidget *oldBtn = ui->pushButton;
+
+    delete this->layout();
+
+    QVBoxLayout *newLayout = new QVBoxLayout(this);
+    newLayout->setContentsMargins(11, 11, 11, 11);
+    newLayout->setSpacing(0);
+
+    QHBoxLayout *uidRow = new QHBoxLayout();
+    uidRow->setContentsMargins(0, 0, 0, 8);
+    uidRow->addWidget(uidLabel);
+    uidRow->addWidget(uidEdit);
+    newLayout->addLayout(uidRow);
+
+    newLayout->addWidget(_qml_widget, 1);
+
+    oldList->hide();
+    oldEdit->hide();
+    oldBtn->hide();
+
+    qDebug() << "[ChatDialog] Layout rebuilt, QML widget size:" << _qml_widget->size();
 }
 
 ChatDialog::~ChatDialog()
 {
     DbThreadPool::Instance().Shutdown();
     delete ui;
+}
+
+void ChatDialog::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    if (_qml_widget)
+    {
+        // 在首次显示时打印实际尺寸和状态，便于排查渲染问题
+        qDebug() << "[ChatDialog] showEvent — ChatDialog size:" << size()
+                 << "QML widget size:" << _qml_widget->size()
+                 << "QML status:" << _qml_widget->status()
+                 << "rootObject:" << (_qml_widget->rootObject() != nullptr);
+    }
 }
 
 

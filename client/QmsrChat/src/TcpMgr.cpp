@@ -134,7 +134,9 @@ void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
     {
         return;
     }
-    emit sig_send_data(reqId, data);
+    QMetaObject::invokeMethod(
+        _worker, "slot_send_data", Qt::QueuedConnection, Q_ARG(RequestType, reqId), Q_ARG(QByteArray, data));
+}
     QMetaObject::invokeMethod(
         _worker, "slot_send_data", Qt::QueuedConnection, Q_ARG(RequestType, reqId), Q_ARG(QByteArray, data));
 }
