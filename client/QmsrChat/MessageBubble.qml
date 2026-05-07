@@ -3,8 +3,8 @@
  * @brief 消息气泡组件
  * @details 用于在聊天界面中显示单条消息气泡，支持左右对齐、状态显示和动画效果。
  */
-import QtQuick 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
     id: messageBubble

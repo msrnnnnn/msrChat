@@ -10,16 +10,16 @@
 #include "ChatController.h"
 #include "ChatListModel.h"
 #include "ProtocolStructs.h"
-#include <QDialog>
 #include <QQuickWidget>
 #include <QResizeEvent>
+#include <QWidget>
 
 namespace Ui
 {
 class ChatDialog;
 }
 
-class ChatDialog : public QDialog
+class ChatDialog : public QWidget
 {
     Q_OBJECT
 
@@ -31,6 +31,7 @@ public:
     Q_INVOKABLE int getTargetUid() const;
 
 protected:
+    void showEvent(QShowEvent *event) override;
 
 private slots:
     void slotOnMessageReceived(const QVariantMap &msgData);

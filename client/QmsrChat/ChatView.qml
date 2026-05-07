@@ -3,17 +3,17 @@
  * @brief 现代化聊天界面视图
  * @details 使用 QML ListView 实现气泡式聊天界面，支持左右对齐、状态显示和动画效果。
  */
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 Rectangle {
     id: chatViewRoot
     color: "#F5F5F5"
 
-    required property var chatModel
-    required property var chatController
-    required property var chatDialog
+    property var chatModel: null
+    property var chatController: null
+    property var chatDialog: null
 
     property int currentUid: chatController ? chatController.currentUid : 0
     property int targetUid: chatController ? chatController.targetUid : 0

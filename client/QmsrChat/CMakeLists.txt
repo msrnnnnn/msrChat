@@ -72,8 +72,8 @@ endif()
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets QuickControls2 QuickLayouts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts)
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -177,6 +177,7 @@ target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Quick)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Qml)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Sql)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickWidgets)
+target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickControls2 Qt${QT_VERSION_MAJOR}::QuickLayouts)
 target_link_libraries(QmsrChat PRIVATE protobuf::libprotobuf)
 target_link_libraries(QmsrChat PRIVATE spdlog::spdlog)
 
@@ -213,5 +214,6 @@ install(TARGETS QmsrChat
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
+    qt_import_qml_plugins(QmsrChat)
     qt_finalize_executable(QmsrChat)
 endif()
