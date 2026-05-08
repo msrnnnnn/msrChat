@@ -38,7 +38,7 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     _tasks.emplace(task_id, std::move(newTask));
 
     // 发送 FileReq 由调用方（如 ChatController/TcpMgr）负责，此处只管理发送状态机
-    qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << task.total_size;
+    qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
 }
 
 void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
