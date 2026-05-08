@@ -49,6 +49,14 @@ int64_t FileTransfer::CreateTask(int from_uid, int to_uid, const std::string &fi
     return task_id;
 }
 
+void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
+                           const std::string &filename, int64_t total_size)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
+    _tasks[task_id] = task;
+}
+
 std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
 {
     std::lock_guard<std::mutex> lock(_mutex);
