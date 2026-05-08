@@ -20,6 +20,7 @@ struct FileRecvTask
     std::string filename;
     int64_t total_size = 0;
     int64_t received_size = 0;
+    int64_t buffered_size = 0;
     std::string temp_filepath;
     std::string md5;
     QString temp_filepath_qstring;
@@ -50,9 +51,10 @@ class FileRecvMgr : public QObject
 public:
     static FileRecvMgr &Instance();
 
-    void StartRecv(
-        int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5 = "");
-    void WriteChunk(int64_t task_id, const char *data, size_t len);
+    bool StartRecv(
+        int64_t task_id, int from_uid, const std::string &filename, int64_t total_size,
+        const std::string &md5 = "", QString *error = nullptr);
+    bool WriteChunk(int64_t task_id, int64_t offset, const char *data, size_t len, QString *error = nullptr);
     void OnChunkAck(int64_t task_id, int64_t received_size);
     void CancelRecv(int64_t task_id);
 
@@ -62,6 +64,7 @@ private slots:
 signals:
     void SigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void SigRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
+    void SigChunkStored(int64_t task_id, int64_t received, bool completed, const QString &error);
 
 private:
     FileRecvMgr();

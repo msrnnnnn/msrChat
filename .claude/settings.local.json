@@ -8,7 +8,10 @@
       "Bash(E:/Qt/6.10.0/msvc2022_64/bin/windeployqt.exe --qmldir E:/Qt/6.10.0/msvc2022_64/qml QmsrChat.exe)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Skill(update-config)",
+      "Bash(git merge-base *)",
+      "Bash(git remote *)"
     ]
   }
 }

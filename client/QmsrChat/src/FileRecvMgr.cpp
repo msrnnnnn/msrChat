@@ -111,15 +111,20 @@ bool FileRecvMgr::OpenTempFile(FileRecvTask &task)
     return true;
 }
 
-void FileRecvMgr::StartRecv(
-    int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5)
+bool FileRecvMgr::StartRecv(
+    int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5,
+    QString *error)
 {
     QMutexLocker locker(&_mutex);
 
     if (_tasks.find(task_id) != _tasks.end())
     {
         qDebug() << "Task already exists:" << task_id;
-        return;
+        if (error != nullptr)
+        {
+            *error = "Task already exists";
+        }
+        return false;
     }
 
     FileRecvTask task;
@@ -128,20 +133,27 @@ void FileRecvMgr::StartRecv(
     task.filename = filename;
     task.total_size = total_size;
     task.received_size = 0;
+    task.buffered_size = 0;
     task.md5 = md5;
     task.completed = false;
 
     if (!OpenTempFile(task))
     {
-        emit SigRecvComplete(task_id, "", false, "Failed to create temp file");
-        return;
+        const QString message = "Failed to create temp file";
+        if (error != nullptr)
+        {
+            *error = message;
+        }
+        emit SigRecvComplete(task_id, "", false, message);
+        return false;
     }
 
     _tasks[task_id] = task;
     qDebug() << "Start recv task:" << task_id << "file:" << QString::fromStdString(filename) << "size:" << total_size;
+    return true;
 }
 
-void FileRecvMgr::WriteChunk(int64_t task_id, const char *data, size_t len)
+bool FileRecvMgr::WriteChunk(int64_t task_id, int64_t offset, const char *data, size_t len, QString *error)
 {
     FileRecvTask *task = nullptr;
 
@@ -151,10 +163,36 @@ void FileRecvMgr::WriteChunk(int64_t task_id, const char *data, size_t len)
         if (it == _tasks.end() || it->second.completed)
         {
             qDebug() << "Task not found or already completed:" << task_id;
-            return;
+            if (error != nullptr)
+            {
+                *error = "Task not found or already completed";
+            }
+            return false;
         }
         task = &it->second;
-        task->received_size += len;
+
+        if (offset != task->buffered_size)
+        {
+            qDebug() << "Unexpected chunk offset:" << task_id << "offset:" << offset
+                     << "expected:" << task->buffered_size;
+            if (error != nullptr)
+            {
+                *error = QString("Unexpected chunk offset: %1").arg(offset);
+            }
+            return false;
+        }
+
+        if (task->buffered_size + static_cast<int64_t>(len) > task->total_size)
+        {
+            qDebug() << "Chunk exceeds total size:" << task_id;
+            if (error != nullptr)
+            {
+                *error = "Chunk exceeds total size";
+            }
+            return false;
+        }
+
+        task->buffered_size += static_cast<int64_t>(len);
     }
 
     QByteArray data_copy(data, static_cast<int>(len));
@@ -164,8 +202,7 @@ void FileRecvMgr::WriteChunk(int64_t task_id, const char *data, size_t len)
         write_task, &FileWriteTask::sigWriteComplete, this, &FileRecvMgr::onWriteComplete, Qt::QueuedConnection);
 
     _threadPool.start(write_task);
-
-    UpdateProgress(task_id);
+    return true;
 }
 
 void FileRecvMgr::onWriteComplete(int64_t task_id, bool success, const QString &error)
@@ -177,6 +214,7 @@ void FileRecvMgr::onWriteComplete(int64_t task_id, bool success, const QString &
         auto it = _tasks.find(task_id);
         if (it != _tasks.end())
         {
+            emit SigChunkStored(task_id, it->second.received_size, false, error);
             emit SigRecvComplete(task_id, "", false, error);
             _tasks.erase(it);
         }
@@ -191,10 +229,17 @@ void FileRecvMgr::onWriteComplete(int64_t task_id, bool success, const QString &
     }
 
     FileRecvTask &task = it->second;
+    task.received_size = task.buffered_size;
+    UpdateProgress(task_id);
+
     if (task.received_size >= task.total_size)
     {
+        emit SigChunkStored(task_id, task.received_size, true, "");
         CompleteTask(task_id);
+        return;
     }
+
+    emit SigChunkStored(task_id, task.received_size, false, "");
 }
 
 void FileRecvMgr::UpdateProgress(int64_t task_id)

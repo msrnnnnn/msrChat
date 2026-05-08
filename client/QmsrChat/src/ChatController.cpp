@@ -32,7 +32,7 @@ ChatController::~ChatController()
 void ChatController::initialize()
 {
     _current_uid = UserMgr::Instance()->GetUid();
-    _is_connected = true;
+    _is_connected = TcpMgr::Instance()->IsConnected();
     emit sigCurrentUidChanged();
     emit sigConnectionStatusChanged();
 }
@@ -43,17 +43,34 @@ void ChatController::ConnectSignals()
         TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck, Qt::QueuedConnection);
     connect(
+        TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &ChatController::slotOnConnectionStateChanged,
+        Qt::QueuedConnection);
+    connect(
         TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineAck, Qt::QueuedConnection);
     connect(
         TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
+    connect(
+        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_saved, this, &ChatController::slotOnMessageSaved,
+        Qt::QueuedConnection);
+    connect(
+        &FileSendMgr::Instance(), &FileSendMgr::sigSendProgress, this,
+        [this](int64_t task_id, int progress, int64_t sent, int64_t total)
+        { emit sigFileSendProgress(task_id, progress, sent, total); }, Qt::QueuedConnection);
+    connect(
+        &FileSendMgr::Instance(), &FileSendMgr::sigSendComplete, this,
+        [this](int64_t task_id, bool success, const QString &error)
+        { emit sigFileSendComplete(task_id, success, error); }, Qt::QueuedConnection);
 }
 
 void ChatController::DisconnectSignals()
 {
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &ChatController::slotOnConnectionStateChanged);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineAck);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected);
+    disconnect(&DbThreadPool::Instance(), &DbThreadPool::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
+    disconnect(&FileSendMgr::Instance(), nullptr, this, nullptr);
 }
 
 int ChatController::GetCurrentUid() const
@@ -207,10 +224,13 @@ void ChatController::slotOnChatAck(const ChatAckStruct &ack)
 
     // 区分在线送达(delivered)和离线存储(stored)
     int status = 1;
-    if (ack.error != 0) {
-        status = -1;  // 发送失败
-    } else if (ack.message == QStringLiteral("stored")) {
-        status = 2;  // 对方离线/已存离线
+    if (ack.error != 0)
+    {
+        status = -1; // 发送失败
+    }
+    else if (ack.message == QStringLiteral("stored"))
+    {
+        status = 2; // 对方离线/已存离线
     }
     // else: status = 1, 在线已送达
     emit sigMessageStatusChanged(ack.client_msg_id, status);
@@ -232,11 +252,19 @@ void ChatController::slotOnOfflineAck(const OfflineAckStruct &ack)
     TcpMgr::Instance()->slot_send_offline_ack_req(req);
 }
 
+void ChatController::slotOnConnectionStateChanged(bool connected)
+{
+    if (_is_connected == connected)
+    {
+        return;
+    }
+
+    _is_connected = connected;
+    emit sigConnectionStatusChanged();
+}
+
 void ChatController::slotOnReconnected()
 {
-    _is_connected = true;
-    emit sigConnectionStatusChanged();
-
     ChatLoginReqStruct req;
     req.uid = UserMgr::Instance()->GetUid();
     req.token = UserMgr::Instance()->GetToken();
@@ -263,6 +291,7 @@ void ChatController::slotOnMessageSaved(bool success)
     if (!success)
     {
         qWarning() << "[ChatController] Failed to save message to database";
+        emit sigError(QStringLiteral("消息保存失败"));
     }
 }
 
@@ -329,19 +358,6 @@ void ChatController::sendFile(const QString &filePath)
     FileSendMgr::Instance().StartSend(task_id, _target_uid, filePath);
 
     emit sigFileSendStarted(task_id, req.filename, total_size);
-
-    connect(&FileSendMgr::Instance(), &FileSendMgr::sigSendProgress, this,
-            [this, task_id](int64_t id, int progress, int64_t sent, int64_t total) {
-                if (id == task_id)
-                    emit sigFileSendProgress(id, progress, sent, total);
-            },
-            Qt::QueuedConnection);
-    connect(&FileSendMgr::Instance(), &FileSendMgr::sigSendComplete, this,
-            [this, task_id](int64_t id, bool success, const QString &error) {
-                if (id == task_id)
-                    emit sigFileSendComplete(id, success, error);
-            },
-            Qt::QueuedConnection);
 }
 
 QVariantMap ChatController::ChatMessageToVariant(const ChatMessage &msg)
