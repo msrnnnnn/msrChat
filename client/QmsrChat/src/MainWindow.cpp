@@ -164,7 +164,5 @@ void MainWindow::slotLoginSuccess()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     QMainWindow::closeEvent(event);
-
-    TcpMgr::Destroy();
     QApplication::quit();
 }

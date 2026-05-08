@@ -31,11 +31,7 @@ TcpWorker::TcpWorker(QObject *parent)
       _reconnect_timer(nullptr),
       _reconnect_interval(3000),
       _is_first_connection(true),
-      _last_pong_time(0),
-      _b_bin_head_parsed(false),
-      _bin_message_id(0),
-      _bin_total_len(0),
-      _bin_json_len(0)
+      _last_pong_time(0)
 {
 }
 
@@ -99,6 +95,7 @@ void TcpWorker::slot_stop()
 
 void TcpWorker::slot_tcp_connect(ServerInfo si)
 {
+    _stopping = false;
     if (!_socket)
     {
         _pending_connect = si;
@@ -241,70 +238,31 @@ void TcpWorker::slot_ready_read()
             }
             else if (_message_id == static_cast<quint16>(RequestType::MSG_FILE_CHUNK))
             {
-                if (!_b_bin_head_parsed)
+                qmsrchat::FileChunk chunk;
+                if (chunk.ParseFromArray(messageBody.constData(), messageBody.size()))
                 {
-                    if (_recv_buffer.Available() < HEAD_BIN_TOTAL_LEN)
-                    {
-                        _b_head_parsed = false;
-                        break;
-                    }
-
-                    char bin_header[HEAD_BIN_TOTAL_LEN];
-                    if (_recv_buffer.Read(bin_header, HEAD_BIN_TOTAL_LEN) < HEAD_BIN_TOTAL_LEN)
-                    {
-                        _b_head_parsed = false;
-                        break;
-                    }
-
-                    _bin_message_id = qFromBigEndian<quint16>(reinterpret_cast<const uchar *>(bin_header));
-                    _bin_total_len = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(bin_header + 2));
-                    _bin_json_len = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(bin_header + 6));
-
-                    if (_bin_total_len == 0 || _bin_json_len > _bin_total_len || _bin_total_len > HEAD_BIN_MAX_LENGTH)
-                    {
-                        qWarning() << "SECURITY: Invalid binary packet header. TotalLen=" << _bin_total_len
-                                   << " JsonLen=" << _bin_json_len;
-                        _socket->abort();
-                        return;
-                    }
-
-                    _b_bin_head_parsed = true;
-                    continue;
-                }
-
-                if (_recv_buffer.Available() < static_cast<std::size_t>(_bin_total_len))
-                {
-                    break;
-                }
-
-                QByteArray bin_body = readBytes(static_cast<qsizetype>(_bin_total_len));
-
-                QString json_str = QString::fromUtf8(bin_body.left(_bin_json_len));
-                QJsonDocument doc = QJsonDocument::fromJson(json_str.toUtf8());
-
-                if (!doc.isNull() && doc.isObject())
-                {
-                    QJsonObject header = doc.object();
-                    int64_t task_id = header["task_id"].toInteger();
-                    int64_t offset = header["offset"].toInteger();
-                    int64_t chunk_size = header["size"].toInteger();
-
-                    QByteArray chunk_data = bin_body.mid(_bin_json_len);
+                    int64_t task_id = chunk.task_id();
+                    int64_t offset = chunk.offset();
+                    QByteArray chunk_data(chunk.data().data(), static_cast<int>(chunk.data().size()));
 
                     if (!chunk_data.isEmpty())
                     {
                         FileRecvMgr::Instance().WriteChunk(task_id, chunk_data.constData(), chunk_data.size());
                     }
 
-                    QJsonObject ack;
-                    ack["task_id"] = task_id;
-                    ack["received"] = offset + chunk_data.size();
-                    QJsonDocument ack_doc(ack);
-                    slot_send_data(RequestType::MSG_FILE_ACK, ack_doc.toJson(QJsonDocument::Compact));
-                }
+                    qmsrchat::FileAck ack;
+                    ack.set_task_id(task_id);
+                    ack.set_error(0);
+                    ack.set_received(offset + chunk_data.size());
 
+                    std::string serialized;
+                    if (ack.SerializeToString(&serialized))
+                    {
+                        slot_send_data(RequestType::MSG_FILE_ACK,
+                                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+                    }
+                }
                 _b_head_parsed = false;
-                _b_bin_head_parsed = false;
                 continue;
             }
             else if (_message_id == static_cast<quint16>(RequestType::MSG_FILE_RSP))
@@ -340,6 +298,21 @@ void TcpWorker::slot_ready_read()
                     int64_t task_id = fileAck.task_id();
                     int64_t received = fileAck.received();
                     FileRecvMgr::Instance().OnChunkAck(task_id, received);
+                }
+                _b_head_parsed = false;
+                continue;
+            }
+            else if (_message_id == static_cast<quint16>(RequestType::MSG_FILE_REQ))
+            {
+                qmsrchat::FileReq fileReq;
+                if (fileReq.ParseFromArray(messageBody.constData(), messageBody.size()))
+                {
+                    int64_t task_id = fileReq.task_id();
+                    int from_uid = fileReq.from_uid();
+                    std::string filename = fileReq.filename();
+                    int64_t total_size = fileReq.total_size();
+
+                    FileRecvMgr::Instance().StartRecv(task_id, from_uid, filename, total_size);
                 }
                 _b_head_parsed = false;
                 continue;
@@ -458,5 +431,4 @@ void TcpWorker::reset_buffer()
 {
     _recv_buffer.Clear();
     _b_head_parsed = false;
-    _b_bin_head_parsed = false;
 }

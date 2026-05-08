@@ -120,7 +120,6 @@ set(PROJECT_SOURCES
         include/ClickedLabel.h
         include/ChatListModel.h
         include/ChatItemDelegate.h
-        include/ChatModel.h
         include/DbMgr.h
         include/DbWorker.h
         include/RingBuffer.h
@@ -146,7 +145,6 @@ set(PROJECT_SOURCES
         src/ClickedLabel.cpp
         src/ChatListModel.cpp
         src/ChatItemDelegate.cpp
-        src/ChatModel.cpp
         src/DbMgr.cpp
         src/DbWorker.cpp
         src/ChatController.cpp

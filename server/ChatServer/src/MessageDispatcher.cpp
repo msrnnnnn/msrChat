@@ -486,19 +486,15 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
             session.Send(serialized, MSG_FILE_ACK);
         }
 
-        nlohmann::json forward;
-        forward["task_id"] = task_id;
-        forward["from_uid"] = session.GetUserUid();
-        forward["filename"] = filename;
-        forward["total_size"] = total_size;
+        spdlog::info(
+            "[MessageDispatcher] File transfer ready: task={}, file={}, size={}", task_id, filename, total_size);
+
         auto server = session.GetServer();
         if (server)
         {
-            server->ForwardMessage(to_uid, forward.dump());
+            server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
         }
 
-        spdlog::info(
-            "[MessageDispatcher] File transfer ready: task={}, file={}, size={}", task_id, filename, total_size);
         session.ContinueReading();
     }
     catch (const std::exception &e)
@@ -562,71 +558,53 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
 
     try
     {
-        nlohmann::json json_data;
-        std::string_view chunk_view;
-
-        auto json_start = body_view.find('{');
-        if (json_start != std::string_view::npos)
+        qmsrchat::FileChunk chunk;
+        if (!chunk.ParseFromString(std::string(body_view)))
         {
-            auto json_end = body_view.find('}', json_start);
-            if (json_end != std::string_view::npos)
-            {
-                std::string_view json_view = body_view.substr(json_start, json_end - json_start + 1);
-                json_data = nlohmann::json::parse(json_view);
-
-                size_t data_start = json_end + 1;
-                if (data_start < body_view.size())
-                {
-                    chunk_view = body_view.substr(data_start);
-                }
-            }
+            spdlog::error("[MessageDispatcher] Failed to parse FileChunk");
+            session.ContinueReading();
+            return true;
         }
 
-        if (json_data.empty())
-        {
-            json_data = nlohmann::json::parse(body_view);
-            chunk_view = std::string_view();
-        }
+        int64_t task_id = chunk.task_id();
+        int64_t offset = chunk.offset();
+        int64_t size = chunk.size();
+        const std::string &data = chunk.data();
 
-        int64_t task_id = json_data.value("task_id", 0);
-        int64_t chunk_size = json_data.value("size", 0);
-
-        bool transfer_ready = session.IsFileTransferReady(task_id);
-        if (!transfer_ready)
+        bool ready = session.IsFileTransferReady(task_id);
+        if (!ready)
         {
             spdlog::warn("[MessageDispatcher] File chunk received without proper setup, task_id={}", task_id);
             session.ContinueReading();
             return true;
         }
 
-        if (!chunk_view.empty())
+        if (!data.empty())
         {
-            session.AppendFileChunk(task_id, chunk_view);
-        }
-        else if (chunk_size > 0 && static_cast<int64_t>(body_view.size()) > chunk_size)
-        {
-            size_t actual_data_start = body_view.size() - static_cast<size_t>(chunk_size);
-            std::string_view data_view = body_view.substr(actual_data_start);
-            session.AppendFileChunk(task_id, data_view);
+            session.AppendFileChunk(task_id, std::string_view(data));
         }
 
         int progress = session.GetFileTransferProgress(task_id);
         spdlog::debug("[MessageDispatcher] File chunk: task={}, progress={}%", task_id, progress);
 
+        qmsrchat::FileAck ack;
+        ack.set_task_id(task_id);
         if (session.IsFileTransferComplete(task_id))
         {
-            spdlog::info("[MessageDispatcher] File transfer completed: task_id={}", task_id);
-
-            nlohmann::json response{{"error", 0}, {"task_id", task_id}, {"message", "transfer complete"}};
-            session.Send(response.dump(), MSG_FILE_ACK);
-
+            ack.set_error(0);
+            ack.set_message("transfer complete");
             session.FinishFileReceive(task_id);
         }
         else
         {
-            int64_t received = session.GetReceivedFileSize(task_id);
-            nlohmann::json response{{"error", 0}, {"task_id", task_id}, {"received", received}};
-            session.Send(response.dump(), MSG_FILE_ACK);
+            ack.set_error(0);
+            ack.set_received(session.GetReceivedFileSize(task_id));
+        }
+
+        std::string serialized;
+        if (ack.SerializeToString(&serialized))
+        {
+            session.Send(serialized, MSG_FILE_ACK);
         }
 
         session.ContinueReading();

@@ -555,21 +555,6 @@ private:
     void AsyncReadBody(int total_len);
     void AsyncReadBinBody(int total_len);
 
-    void HandleLoginRequest(const std::string &body_data);
-
-    void HandleRegisterRequest(const std::string &body_data);
-    void HandleLoginAuthRequest(const std::string &body_data);
-    void HandleGetVerifyCodeRequest(const std::string &body_data);
-    void HandleResetPwdRequest(const std::string &body_data);
-
-    void HandleFileReq(const std::string &body_data);
-    void HandleFileChunk(const std::string &body_data);
-    void HandleFileChunk(std::string_view body_view);
-    void HandleFileAck(const std::string &body_data);
-    void HandleFileRsp(const std::string &body_data);
-    void HandleOfflineAck(const std::string &body_data);
-    void SendNextOfflinePage();
-
     void HandleZeroCopyStart(const std::string &body_data);
     void HandleZeroCopyReady(const std::string &body_data);
     void HandleZeroCopyData(const std::string &body_data);
