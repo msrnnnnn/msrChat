@@ -492,7 +492,17 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
         auto server = session.GetServer();
         if (server)
         {
-            server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
+            qmsrchat::FileReq forwardReq;
+            forwardReq.set_task_id(task_id);
+            forwardReq.set_from_uid(session.GetUserUid());
+            forwardReq.set_to_uid(to_uid);
+            forwardReq.set_filename(filename);
+            forwardReq.set_total_size(total_size);
+            std::string forwardData;
+            if (forwardReq.SerializeToString(&forwardData))
+            {
+                server->ForwardRawMessage(to_uid, MSG_FILE_REQ, forwardData);
+            }
         }
 
         session.ContinueReading();
