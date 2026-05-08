@@ -21,9 +21,6 @@ bool HandleFileChunk(CSession &session, const std::string &body_data);
 bool HandleFileChunk(CSession &session, std::string_view body_view);
 bool HandleFileAck(CSession &session, const std::string &body_data);
 bool HandleOfflineAck(CSession &session, const std::string &body_data);
-bool HandleZeroCopyReady(CSession &session, const std::string &body_data);
-bool HandleZeroCopyComplete(CSession &session, const std::string &body_data);
-bool HandleZeroCopyError(CSession &session, const std::string &body_data);
 } // namespace
 
 void MessageDispatcher::RegisterDefaultHandlers()
@@ -48,9 +45,6 @@ void MessageDispatcher::RegisterDefaultHandlers()
         }, true);
     RegisterHandler(MSG_FILE_ACK, HandleFileAck, true);
     RegisterHandler(MSG_OFFLINE_ACK, HandleOfflineAck, true);
-    RegisterHandler(MSG_ZEROCOPY_READY, HandleZeroCopyReady, true);
-    RegisterHandler(MSG_ZEROCOPY_COMPLETE, HandleZeroCopyComplete, true);
-    RegisterHandler(MSG_ZEROCOPY_ERROR, HandleZeroCopyError, true);
 }
 
 namespace
@@ -473,36 +467,15 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
             return true;
         }
 
-        session.PrepareFileReceive(task_id, to_uid, filename, total_size);
+        // 记录 P2P 路由映射，用于后续转发
+        FileTransfer::Instance().AddTask(
+            task_id, session.GetUserUid(), to_uid, filename, total_size);
 
-        qmsrchat::FileAck response;
-        response.set_error(0);
-        response.set_task_id(task_id);
-        response.set_message("ready to receive");
-
-        std::string serialized;
-        if (response.SerializeToString(&serialized))
-        {
-            session.Send(serialized, MSG_FILE_ACK);
-        }
-
-        spdlog::info(
-            "[MessageDispatcher] File transfer ready: task={}, file={}, size={}", task_id, filename, total_size);
-
+        // 转发给接收方 B
         auto server = session.GetServer();
         if (server)
         {
-            qmsrchat::FileReq forwardReq;
-            forwardReq.set_task_id(task_id);
-            forwardReq.set_from_uid(session.GetUserUid());
-            forwardReq.set_to_uid(to_uid);
-            forwardReq.set_filename(filename);
-            forwardReq.set_total_size(total_size);
-            std::string forwardData;
-            if (forwardReq.SerializeToString(&forwardData))
-            {
-                server->ForwardRawMessage(to_uid, MSG_FILE_REQ, forwardData);
-            }
+            server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
         }
 
         session.ContinueReading();
@@ -537,10 +510,23 @@ bool HandleFileRsp(CSession &session, const std::string &body_data)
         }
 
         int64_t task_id = fileRsp.task_id();
-        int error = fileRsp.error();
-        std::string message = fileRsp.message();
+        auto task = FileTransfer::Instance().GetTask(task_id);
+        if (!task)
+        {
+            spdlog::warn("[MessageDispatcher] FileRsp: task {} not found", task_id);
+            session.ContinueReading();
+            return true;
+        }
 
-        spdlog::info("[MessageDispatcher] File rsp: task_id={}, error={}, message={}", task_id, error, message);
+        // 转发给发送方 A
+        int from_uid = task->GetFromUid();
+        auto server = session.GetServer();
+        if (server)
+        {
+            server->ForwardRawMessage(from_uid, MSG_FILE_RSP, body_data);
+        }
+
+        spdlog::info("[MessageDispatcher] FileRsp forwarded: task_id={}, from_uid={}", task_id, from_uid);
         session.ContinueReading();
     }
     catch (const std::exception &e)
@@ -560,8 +546,12 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
 {
     if (session.GetUserUid() == 0)
     {
-        nlohmann::json response{{"error", 1}, {"message", "not login"}};
-        session.Send(response.dump(), MSG_FILE_ACK);
+        qmsrchat::FileAck response;
+        response.set_error(1);
+        response.set_message("not login");
+        std::string serialized;
+        if (response.SerializeToString(&serialized))
+            session.Send(serialized, MSG_FILE_ACK);
         session.ContinueReading();
         return true;
     }
@@ -577,51 +567,33 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
         }
 
         int64_t task_id = chunk.task_id();
-        const std::string &data = chunk.data();
-
-        bool ready = session.IsFileTransferReady(task_id);
-        if (!ready)
+        auto task = FileTransfer::Instance().GetTask(task_id);
+        if (!task)
         {
-            spdlog::warn("[MessageDispatcher] File chunk received without proper setup, task_id={}", task_id);
+            spdlog::warn("[MessageDispatcher] FileChunk: task {} not found", task_id);
             session.ContinueReading();
             return true;
         }
 
-        if (!data.empty())
+        int to_uid = task->GetToUid();
+        auto server = session.GetServer();
+        if (server)
         {
-            session.AppendFileChunk(task_id, std::string_view(data));
+            server->ForwardRawMessage(to_uid, MSG_FILE_CHUNK, std::string(body_view));
         }
 
-        int progress = session.GetFileTransferProgress(task_id);
-        spdlog::debug("[MessageDispatcher] File chunk: task={}, progress={}%", task_id, progress);
-
-        qmsrchat::FileAck ack;
-        ack.set_task_id(task_id);
-        if (session.IsFileTransferComplete(task_id))
-        {
-            ack.set_error(0);
-            ack.set_message("transfer complete");
-            session.FinishFileReceive(task_id);
-        }
-        else
-        {
-            ack.set_error(0);
-            ack.set_received(session.GetReceivedFileSize(task_id));
-        }
-
-        std::string serialized;
-        if (ack.SerializeToString(&serialized))
-        {
-            session.Send(serialized, MSG_FILE_ACK);
-        }
-
+        spdlog::debug("[MessageDispatcher] FileChunk forwarded: task_id={}, to_uid={}", task_id, to_uid);
         session.ContinueReading();
     }
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleFileChunk error: {}", e.what());
-        nlohmann::json response{{"error", 1}, {"message", "chunk processing error"}};
-        session.Send(response.dump(), MSG_FILE_ACK);
+        qmsrchat::FileAck response;
+        response.set_error(1);
+        response.set_message("chunk processing error");
+        std::string serialized;
+        if (response.SerializeToString(&serialized))
+            session.Send(serialized, MSG_FILE_ACK);
         session.ContinueReading();
     }
     return true;
@@ -646,26 +618,26 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
         }
 
         int64_t task_id = fileAck.task_id();
-        int error = fileAck.error();
-        std::string message = fileAck.message();
-        int64_t received = fileAck.received();
+        auto task = FileTransfer::Instance().GetTask(task_id);
+        if (!task)
+        {
+            spdlog::warn("[MessageDispatcher] FileAck: task {} not found", task_id);
+            session.ContinueReading();
+            return true;
+        }
 
-        if (error == 0 && message == "ready to receive")
+        // 转发给发送方 A
+        int from_uid = task->GetFromUid();
+        auto server = session.GetServer();
+        if (server)
         {
-            session.StartFileSend(task_id);
+            server->ForwardRawMessage(from_uid, MSG_FILE_ACK, body_data);
         }
-        else if (error == 0 && received > 0)
+
+        if (fileAck.message() == "transfer complete")
         {
-            session.UpdateFileSendProgress(task_id, received);
-        }
-        else if (message == "transfer complete")
-        {
-            session.FinishFileSend(task_id);
-        }
-        else if (error != 0)
-        {
-            spdlog::warn("[MessageDispatcher] File send error: task_id={}, error={}", task_id, error);
-            session.CancelFileSend(task_id);
+            FileTransfer::Instance().RemoveTask(task_id);
+            spdlog::info("[MessageDispatcher] File transfer completed, task_id={} removed", task_id);
         }
 
         session.ContinueReading();
@@ -690,79 +662,6 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleOfflineAck error: {}", e.what());
-        session.ContinueReading();
-    }
-    return true;
-}
-
-bool HandleZeroCopyReady(CSession &session, const std::string &body_data)
-{
-    try
-    {
-        qmsrchat::ZeroCopyReady zcReady;
-        if (!zcReady.ParseFromString(body_data))
-        {
-            spdlog::error("[MessageDispatcher] Failed to parse ZeroCopyReady from Protobuf");
-            session.ContinueReading();
-            return true;
-        }
-
-        int64_t task_id = zcReady.task_id();
-        spdlog::info("[MessageDispatcher] ZeroCopy ready: task_id={}", task_id);
-        session.ContinueReading();
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("[MessageDispatcher] HandleZeroCopyReady error: {}", e.what());
-        session.ContinueReading();
-    }
-    return true;
-}
-
-bool HandleZeroCopyComplete(CSession &session, const std::string &body_data)
-{
-    try
-    {
-        qmsrchat::ZeroCopyComplete zcComplete;
-        if (!zcComplete.ParseFromString(body_data))
-        {
-            spdlog::error("[MessageDispatcher] Failed to parse ZeroCopyComplete from Protobuf");
-            session.ContinueReading();
-            return true;
-        }
-
-        int64_t task_id = zcComplete.task_id();
-        spdlog::info("[MessageDispatcher] ZeroCopy complete: task_id={}", task_id);
-        session.ContinueReading();
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("[MessageDispatcher] HandleZeroCopyComplete error: {}", e.what());
-        session.ContinueReading();
-    }
-    return true;
-}
-
-bool HandleZeroCopyError(CSession &session, const std::string &body_data)
-{
-    try
-    {
-        qmsrchat::ZeroCopyError zcError;
-        if (!zcError.ParseFromString(body_data))
-        {
-            spdlog::error("[MessageDispatcher] Failed to parse ZeroCopyError from Protobuf");
-            session.ContinueReading();
-            return true;
-        }
-
-        int64_t task_id = zcError.task_id();
-        std::string message = zcError.message();
-        spdlog::warn("[MessageDispatcher] ZeroCopy error: task_id={}, message={}", task_id, message);
-        session.ContinueReading();
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("[MessageDispatcher] HandleZeroCopyError error: {}", e.what());
         session.ContinueReading();
     }
     return true;

@@ -323,8 +323,23 @@ void TcpWorker::slot_ready_read()
                     int from_uid = fileReq.from_uid();
                     std::string filename = fileReq.filename();
                     int64_t total_size = fileReq.total_size();
+                    std::string md5 = fileReq.md5();
 
-                    FileRecvMgr::Instance().StartRecv(task_id, from_uid, filename, total_size);
+                    FileRecvMgr::Instance().StartRecv(task_id, from_uid, filename, total_size, md5);
+
+                    // 回复接收就绪，驱动发送方开始发送 chunk
+                    qmsrchat::FileRsp rsp;
+                    rsp.set_task_id(task_id);
+                    rsp.set_error(0);
+                    rsp.set_offset(0);
+                    rsp.set_message("ready to receive");
+
+                    std::string serialized;
+                    if (rsp.SerializeToString(&serialized))
+                    {
+                        slot_send_data(RequestType::MSG_FILE_RSP,
+                                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+                    }
                 }
                 _b_head_parsed = false;
                 continue;
