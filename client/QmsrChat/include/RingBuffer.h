@@ -1,6 +1,7 @@
 #ifndef RINGBUFFER_H
 #define RINGBUFFER_H
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
