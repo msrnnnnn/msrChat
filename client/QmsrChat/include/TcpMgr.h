@@ -25,6 +25,8 @@ public:
     static void Destroy();
     ~TcpMgr();
 
+    bool IsConnected() const;
+
     void slot_tcp_connect(ServerInfo si);
     void slot_send_data(RequestType reqId, const QByteArray &data);
 
@@ -76,6 +78,7 @@ private:
 
     QThread *_netThread;
     TcpWorker *_worker;
+    bool _is_connected = false;
 };
 
 #endif

@@ -6,11 +6,11 @@
 #include "CSession.h"
 #include "CServer.h"
 #include "LogicSystem.h"
+#include "Message.pb.h"
 #include "MessageDispatcher.h"
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
 #include "const.h"
-#include "Message.pb.h"
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -20,6 +20,81 @@
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+
+namespace
+{
+bool BuildFileChunkPayload(
+    std::string_view json_meta_view, std::string_view binary_payload_view, std::string &out_payload)
+{
+    const auto json_meta = nlohmann::json::parse(std::string(json_meta_view), nullptr, false);
+    if (json_meta.is_discarded())
+    {
+        spdlog::warn("[CSession] Invalid binary chunk json metadata");
+        return false;
+    }
+
+    const auto task_id = json_meta.value("task_id", static_cast<int64_t>(0));
+    const auto offset = json_meta.value("offset", static_cast<int64_t>(0));
+    const auto declared_size = json_meta.value("size", static_cast<int64_t>(binary_payload_view.size()));
+
+    if (task_id <= 0 || offset < 0 || declared_size < 0)
+    {
+        spdlog::warn(
+            "[CSession] Invalid binary chunk metadata: task_id={}, offset={}, size={}", task_id, offset, declared_size);
+        return false;
+    }
+
+    if (static_cast<std::size_t>(declared_size) != binary_payload_view.size())
+    {
+        spdlog::warn(
+            "[CSession] Binary chunk size mismatch: declared={}, actual={}", declared_size, binary_payload_view.size());
+    }
+
+    qmsrchat::FileChunk chunk;
+    chunk.set_task_id(task_id);
+    chunk.set_offset(offset);
+    chunk.set_size(static_cast<int64_t>(binary_payload_view.size()));
+    chunk.set_data(binary_payload_view.data(), static_cast<int>(binary_payload_view.size()));
+
+    return chunk.SerializeToString(&out_payload);
+}
+
+bool DecodeBinaryPayload(uint16_t msg_id, const char *data, int total_len, std::string &out_payload)
+{
+    if (total_len < HEAD_BIN_JSON_LEN_FIELD)
+    {
+        spdlog::warn("[CSession] Binary payload too short: {}", total_len);
+        return false;
+    }
+
+    uint32_t json_len = 0;
+    std::memcpy(&json_len, data, HEAD_BIN_JSON_LEN_FIELD);
+    json_len = boost::asio::detail::socket_ops::network_to_host_long(json_len);
+
+    const auto packet_body_len = static_cast<uint32_t>(total_len - HEAD_BIN_JSON_LEN_FIELD);
+    if (json_len > packet_body_len)
+    {
+        spdlog::warn("[CSession] Invalid binary packet lengths: json_len={}, body_len={}", json_len, packet_body_len);
+        return false;
+    }
+
+    const std::string_view json_meta_view(data + HEAD_BIN_JSON_LEN_FIELD, json_len);
+    const std::string_view binary_payload_view(data + HEAD_BIN_JSON_LEN_FIELD + json_len, packet_body_len - json_len);
+
+    if (msg_id == MSG_FILE_CHUNK)
+    {
+        if (!BuildFileChunkPayload(json_meta_view, binary_payload_view, out_payload))
+        {
+            spdlog::warn("[CSession] Failed to convert binary file chunk to dispatcher payload");
+            return false;
+        }
+        return true;
+    }
+
+    out_payload.assign(data, total_len);
+    return true;
+}
+} // namespace
 
 CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server)
     : _socket(ioc),
@@ -169,7 +244,7 @@ void CSession::AsyncReadHead()
 
                 if (IsBinaryPacket(msg_id))
                 {
-                    if (msg_len > HEAD_BIN_TOTAL_LEN)
+                    if (msg_len >= HEAD_BIN_JSON_LEN_FIELD && msg_len <= HEAD_BIN_MAX_LENGTH)
                     {
                         _bin_packet_state.msg_id = msg_id;
                         _bin_packet_state.total_len = msg_len;
@@ -210,7 +285,8 @@ void CSession::AsyncReadBody(int total_len)
         _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
         boost::asio::bind_executor(
             _strand,
-            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
+            [this, self, recv_msg_node,
+             total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -421,8 +497,7 @@ void CSession::SendNextOfflinePage()
         return;
     }
 
-    auto messages = SQLiteMgr::Instance().GetOfflineMessages(
-        _offline_send_state.uid, OFFLINE_PAGE_SIZE);
+    auto messages = SQLiteMgr::Instance().GetOfflineMessages(_offline_send_state.uid, OFFLINE_PAGE_SIZE);
 
     if (messages.empty())
     {
@@ -503,7 +578,8 @@ void CSession::AsyncReadBinBody(int total_len)
         _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
         boost::asio::bind_executor(
             _strand,
-            [this, self, recv_msg_node, total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
+            [this, self, recv_msg_node,
+             total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
             {
                 if (ec)
                 {
@@ -526,12 +602,25 @@ void CSession::AsyncReadBinBody(int total_len)
                 }
 
                 _bin_packet_state.receiving = false;
-                spdlog::info(
-                    "[CSession] Binary packet received: task_id={}, total_len={}", _bin_packet_state.msg_id, total_len);
+                ResetReadDeadline();
 
-                nlohmann::json response{{"error", 0}, {"msg_id", _bin_packet_state.msg_id}};
-                Send(response.dump(), MSG_CHAT_ACK);
+                std::string body_data;
+                if (!DecodeBinaryPayload(_bin_packet_state.msg_id, recv_msg_node->_data, total_len, body_data))
+                {
+                    Close();
+                    auto server = _server.lock();
+                    if (server)
+                    {
+                        server->ClearSession(_uuid);
+                    }
+                    return;
+                }
 
-                AsyncReadHead();
+                spdlog::debug(
+                    "[CSession] Binary packet decoded: msg_id={}, total_len={}, body_len={}", _bin_packet_state.msg_id,
+                    total_len, body_data.size());
+
+                MessageTask task(shared_from_this(), _bin_packet_state.msg_id, std::move(body_data));
+                LogicSystem::getInstance().PostTask(std::move(task));
             }));
 }

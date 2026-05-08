@@ -54,14 +54,21 @@ void LogicSystem::ProcessTask(MessageTask task)
 
     spdlog::debug("[LogicSystem] Processing msg_id {} for session {}", task.msg_id, session->GetUuid());
 
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
-    auto it = _handlers.find(task.msg_id);
+    BusinessHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(_handlers_mutex);
+        auto it = _handlers.find(task.msg_id);
+        if (it != _handlers.end())
+        {
+            handler = it->second;
+        }
+    }
 
-    if (it != _handlers.end())
+    if (handler)
     {
         try
         {
-            it->second(session, task.body_data);
+            handler(session, task.body_data);
             return;
         }
         catch (const std::exception &e)

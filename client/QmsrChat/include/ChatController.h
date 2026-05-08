@@ -62,6 +62,7 @@ public slots:
     void sendFile(const QString &filePath);
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
     void slotOnChatAck(const ChatAckStruct &ack);
+    void slotOnConnectionStateChanged(bool connected);
     void slotOnOfflineAck(const OfflineAckStruct &ack);
     void slotOnReconnected();
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);

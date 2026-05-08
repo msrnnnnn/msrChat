@@ -95,6 +95,11 @@ TcpMgr::~TcpMgr()
     }
 }
 
+bool TcpMgr::IsConnected() const
+{
+    return _is_connected;
+}
+
 /**
  * @brief 初始化网络线程与信号连接
  */
@@ -104,7 +109,12 @@ void TcpMgr::init_thread()
     connect(_netThread, &QThread::started, _worker, &TcpWorker::slot_init);
     // 删除 finished->deleteLater：会导致 deleteLater 投递到已退出 worker 线程的事件队列
 
-    connect(_worker, &TcpWorker::sig_con_success, this, &TcpMgr::sig_con_success, Qt::QueuedConnection);
+    connect(_worker, &TcpWorker::sig_con_success, this,
+            [this](bool connected) {
+                _is_connected = connected;
+                emit sig_con_success(connected);
+            },
+            Qt::QueuedConnection);
     connect(_worker, &TcpWorker::sig_reconnected, this, &TcpMgr::sig_reconnected, Qt::QueuedConnection);
 
     connect(
