@@ -3,11 +3,10 @@
  * @brief   重置密码对话框实现
  */
 
+#include "AuthUiHelpers.h"
 #include "ResetDialog.h"
 #include "TcpMgr.h"
 #include "ui_resetdialog.h"
-#include <QRegularExpression>
-
 /**
  * @brief 构造函数
  * @param parent 父窗口
@@ -46,13 +45,8 @@ ResetDialog::~ResetDialog()
  */
 bool ResetDialog::checkUserValid()
 {
-    if (ui->user_edit->text().isEmpty())
-    {
-        AddTipErr(TipErr::TIP_USER_ERR, tr("用户名不能为空"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_USER_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_USER_ERR, AuthUiHelpers::ValidateUsername(ui->user_edit->text()), ui->error_label);
 }
 
 /**
@@ -61,20 +55,8 @@ bool ResetDialog::checkUserValid()
  */
 bool ResetDialog::checkPassValid()
 {
-    auto pass = ui->pwd_edit->text();
-    if (pass.length() < 6 || pass.length() > 15)
-    {
-        AddTipErr(TipErr::TIP_PWD_ERR, tr("密码长度应为6~15"));
-        return false;
-    }
-    QRegularExpression regExp("^[a-zA-Z0-9!@#$%^&*]{6,15}$");
-    if (!regExp.match(pass).hasMatch())
-    {
-        AddTipErr(TipErr::TIP_PWD_ERR, tr("不能包含非法字符"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_PWD_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_PWD_ERR, AuthUiHelpers::ValidatePassword(ui->pwd_edit->text()), ui->error_label);
 }
 
 /**
@@ -83,15 +65,8 @@ bool ResetDialog::checkPassValid()
  */
 bool ResetDialog::checkEmailValid()
 {
-    auto email = ui->email_edit->text();
-    QRegularExpression regex(R"((\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+)");
-    if (!regex.match(email).hasMatch())
-    {
-        AddTipErr(TipErr::TIP_EMAIL_ERR, tr("邮箱地址不正确"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_EMAIL_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_EMAIL_ERR, AuthUiHelpers::ValidateEmail(ui->email_edit->text()), ui->error_label);
 }
 
 /**
@@ -100,14 +75,9 @@ bool ResetDialog::checkEmailValid()
  */
 bool ResetDialog::checkVarifyValid()
 {
-    auto pass = ui->varify_edit->text();
-    if (pass.isEmpty())
-    {
-        AddTipErr(TipErr::TIP_VARIFY_ERR, tr("验证码不能为空"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_VARIFY_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_VARIFY_ERR, AuthUiHelpers::ValidateVerifyCode(ui->varify_edit->text()),
+        ui->error_label);
 }
 
 /**
@@ -209,8 +179,7 @@ void ResetDialog::slot_reset_pwd_rsp(const ResetPwdRspStruct &rsp)
  */
 void ResetDialog::AddTipErr(TipErr te, QString tips)
 {
-    _tip_errs[te] = tips;
-    showTip(tips, false);
+    AuthUiHelpers::AddTipError(_tip_errs, te, tips, ui->error_label);
 }
 
 /**
@@ -219,15 +188,7 @@ void ResetDialog::AddTipErr(TipErr te, QString tips)
  */
 void ResetDialog::DelTipErr(TipErr te)
 {
-    _tip_errs.remove(te);
-    if (_tip_errs.empty())
-    {
-        ui->error_label->setProperty("state", "normal");
-        ui->error_label->setText("");
-        repolish(ui->error_label);
-        return;
-    }
-    showTip(_tip_errs.first(), false);
+    AuthUiHelpers::RemoveTipError(_tip_errs, te, ui->error_label);
 }
 
 /**
@@ -237,14 +198,5 @@ void ResetDialog::DelTipErr(TipErr te)
  */
 void ResetDialog::showTip(QString str, bool isCorrect)
 {
-    if (isCorrect)
-    {
-        ui->error_label->setProperty("state", "normal");
-    }
-    else
-    {
-        ui->error_label->setProperty("state", "error");
-    }
-    ui->error_label->setText(str);
-    repolish(ui->error_label);
+    AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
 }

@@ -3,6 +3,7 @@
  * @brief 登录对话框实现
  */
 #include "LoginDialog.h"
+#include "AuthUiHelpers.h"
 #include "DPIHelper.h"
 #include "Global.h"
 #include "TcpMgr.h"
@@ -47,26 +48,7 @@ LoginDialog::LoginDialog(QWidget *parent)
     ui->forget_password_label->setCursor(Qt::PointingHandCursor);
     connect(ui->forget_password_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
 
-    ui->password_Edit->setEchoMode(QLineEdit::Password);
-    ui->pass_visible->setCursor(Qt::PointingHandCursor);
-    ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
-    ui->pass_visible->setText(tr("显示"));
-    connect(
-        ui->pass_visible, &ClickedLabel::clicked, this,
-        [this]()
-        {
-            auto state = ui->pass_visible->GetCurState();
-            if (state == ClickLbState::Normal)
-            {
-                ui->password_Edit->setEchoMode(QLineEdit::Password);
-                ui->pass_visible->setText(tr("显示"));
-            }
-            else
-            {
-                ui->password_Edit->setEchoMode(QLineEdit::Normal);
-                ui->pass_visible->setText(tr("隐藏"));
-            }
-        });
+    AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
 
     QPushButton *devBtn = new QPushButton(tr("开发模式"), this);
 
@@ -137,24 +119,12 @@ bool LoginDialog::nativeEvent(const QByteArray &eventType, void *message, qintpt
 
 bool LoginDialog::checkUserValid()
 {
-    auto user = ui->user_Edit->text();
-    if (user.isEmpty())
-    {
-        qDebug() << "User empty ";
-        return false;
-    }
-    return true;
+    return AuthUiHelpers::ValidateUsername(ui->user_Edit->text()).isEmpty();
 }
 
 bool LoginDialog::checkPwdValid()
 {
-    auto pwd = ui->password_Edit->text();
-    if (pwd.length() < 6 || pwd.length() > 15)
-    {
-        qDebug() << "Pass length invalid";
-        return false;
-    }
-    return true;
+    return AuthUiHelpers::ValidatePassword(ui->password_Edit->text()).isEmpty();
 }
 
 /**
@@ -164,12 +134,12 @@ void LoginDialog::on_login_Button_clicked()
 {
     if (checkUserValid() == false)
     {
-        showTip(tr("用户名不能为空"), false);
+        showTip(AuthUiHelpers::ValidateUsername(ui->user_Edit->text()), false);
         return;
     }
     if (checkPwdValid() == false)
     {
-        showTip(tr("密码长度应为6~15"), false);
+        showTip(AuthUiHelpers::ValidatePassword(ui->password_Edit->text()), false);
         return;
     }
     auto user = ui->user_Edit->text();
@@ -283,14 +253,5 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
  */
 void LoginDialog::showTip(QString str, bool isCorrect)
 {
-    if (isCorrect)
-    {
-        ui->error_label->setProperty("state", "normal");
-    }
-    else
-    {
-        ui->error_label->setProperty("state", "error");
-    }
-    ui->error_label->setText(str);
-    repolish(ui->error_label);
+    AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
 }

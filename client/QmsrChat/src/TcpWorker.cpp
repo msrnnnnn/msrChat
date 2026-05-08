@@ -249,7 +249,7 @@ void TcpWorker::slot_ready_read()
 
                     if (!chunk_data.isEmpty())
                     {
-                        FileRecvMgr::Instance().WriteChunk(task_id, chunk_data.constData(), chunk_data.size());
+                        FileRecvMgr::Instance().WriteChunk(task_id, offset, chunk_data.constData(), chunk_data.size());
                     }
 
                     qmsrchat::FileAck ack;
