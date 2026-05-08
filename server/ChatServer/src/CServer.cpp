@@ -93,7 +93,7 @@ bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
 
 bool CServer::ForwardRawMessage(int target_uid, uint16_t msg_id, const std::string &body_data)
 {
-    auto session = MessageRouter::Instance().GetSession(target_uid);
+    auto session = SessionManager::Instance().GetSession(target_uid);
     if (!session)
     {
         spdlog::warn("[CServer] ForwardRawMessage: target user {} not online", target_uid);

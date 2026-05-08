@@ -363,6 +363,7 @@ public:
 
     void StartFileSend(int64_t task_id, const std::string &filepath);
     void SendNextFileChunk();
+    void SendNextOfflinePage();
 
     std::string GetUuid() const
     {
