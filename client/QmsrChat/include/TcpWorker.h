@@ -44,8 +44,6 @@ private slots:
     void slot_reconnect_timeout();
 
 private:
-    bool peekBytes(qsizetype offset, char *dest, qsizetype len) const;
-    void consumeBytes(qsizetype len);
     QByteArray readBytes(qsizetype len);
     void schedule_reconnect();
     void reset_buffer();
