@@ -89,20 +89,24 @@ void ChatDialog::SetupQmlView()
         qWarning() << "[ChatDialog] QML rootObject is null";
     }
 
-    // 彻底重建布局：保存 UID 行控件后删除旧布局，创建新布局避免布局损坏
-    QWidget *uidLabel = ui->label;
-    QWidget *uidEdit = ui->dest_uid_edit;
-    QWidget *oldList = ui->chat_list_view;
-    QWidget *oldEdit = ui->chat_edit;
-    QWidget *oldBtn = ui->pushButton;
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout *>(this->layout());
+    if (!mainLayout)
+    {
+        mainLayout = new QVBoxLayout(this);
+        mainLayout->setContentsMargins(11, 11, 11, 11);
+        mainLayout->setSpacing(0);
+    }
 
-    delete this->layout();
+    QLayoutItem *child = nullptr;
+    while ((child = mainLayout->takeAt(0)) != nullptr)
+    {
+        if (child->widget())
+        {
+            child->widget()->hide();
+        }
+        delete child;
+    }
 
-    QVBoxLayout *newLayout = new QVBoxLayout(this);
-    newLayout->setContentsMargins(11, 11, 11, 11);
-    newLayout->setSpacing(0);
-
-    // 显示当前用户ID + 目标UID输入框
     QHBoxLayout *uidRow = new QHBoxLayout();
     uidRow->setContentsMargins(0, 0, 0, 8);
 
@@ -110,17 +114,13 @@ void ChatDialog::SetupQmlView()
     myIdLabel->setStyleSheet("color: #666666; font-size: 13px;");
     uidRow->addWidget(myIdLabel);
     uidRow->addSpacing(20);
-    uidRow->addWidget(uidLabel);
-    uidRow->addWidget(uidEdit);
-    newLayout->addLayout(uidRow);
+    uidRow->addWidget(ui->label);
+    uidRow->addWidget(ui->dest_uid_edit);
 
-    newLayout->addWidget(_qml_widget, 1);
+    mainLayout->addLayout(uidRow);
+    mainLayout->addWidget(_qml_widget, 1);
 
-    oldList->hide();
-    oldEdit->hide();
-    oldBtn->hide();
-
-    qDebug() << "[ChatDialog] Layout rebuilt, QML widget size:" << _qml_widget->size();
+    qDebug() << "[ChatDialog] Layout updated, QML widget size:" << _qml_widget->size();
 }
 
 ChatDialog::~ChatDialog()

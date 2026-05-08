@@ -10,6 +10,13 @@
 #include <QMetaObject>
 #include <QMutexLocker>
 
+namespace {
+QByteArray MakeJsonPayload(const QJsonObject &obj)
+{
+    return QJsonDocument(obj).toJson(QJsonDocument::Compact);
+}
+} // namespace
+
 QMutex TcpMgr::_mutex;
 TcpMgr *TcpMgr::_instance = nullptr;
 
@@ -73,18 +80,12 @@ TcpMgr::~TcpMgr()
 {
     if (_worker)
     {
-        QMetaObject::invokeMethod(_worker, "slot_stop", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(_worker, "slot_stop", Qt::BlockingQueuedConnection);
     }
     if (_netThread)
     {
         _netThread->quit();
         _netThread->wait();
-
-        if (_worker)
-        {
-            delete _worker;
-            _worker = nullptr;
-        }
     }
 }
 
@@ -140,20 +141,12 @@ void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
 
 void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["user"] = req.user;
-    jsonObj["passwd"] = req.passwd;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::ID_LOGIN_USER, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::ID_LOGIN_USER, MakeJsonPayload({{"user", req.user}, {"passwd", req.passwd}}));
 }
 
 void TcpMgr::slot_send_chat_login_req(const ChatLoginReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["uid"] = req.uid;
-    jsonObj["token"] = req.token;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::MSG_CHAT_LOGIN, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::MSG_CHAT_LOGIN, MakeJsonPayload({{"uid", req.uid}, {"token", req.token}}));
 }
 
 void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
@@ -173,40 +166,24 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
 
 void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["email"] = req.email;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::ID_GET_VARIFY_CODE, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::ID_GET_VARIFY_CODE, MakeJsonPayload({{"email", req.email}}));
 }
 
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["user"] = req.user;
-    jsonObj["email"] = req.email;
-    jsonObj["passwd"] = req.passwd;
-    jsonObj["varifycode"] = req.varifycode;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::ID_REGISTER_USER, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::ID_REGISTER_USER,
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["user"] = req.user;
-    jsonObj["email"] = req.email;
-    jsonObj["passwd"] = req.passwd;
-    jsonObj["varifycode"] = req.varifycode;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::ID_RESET_PWD, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::ID_RESET_PWD,
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
 void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
 {
-    QJsonObject jsonObj;
-    jsonObj["received"] = req.received;
-    QJsonDocument doc(jsonObj);
-    slot_send_data(RequestType::MSG_OFFLINE_ACK, doc.toJson(QJsonDocument::Compact));
+    slot_send_data(RequestType::MSG_OFFLINE_ACK, MakeJsonPayload({{"received", req.received}}));
 }
 
 void TcpMgr::slot_parse_login_rsp(RequestType req_type, const QByteArray &data)

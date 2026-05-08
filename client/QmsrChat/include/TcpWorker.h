@@ -67,11 +67,6 @@ private:
     qint64 _last_pong_time;
 
     static const quint32 MAX_MESSAGE_LEN = 1024 * 1024;
-
-    bool _b_bin_head_parsed;
-    quint16 _bin_message_id;
-    quint32 _bin_total_len;
-    quint32 _bin_json_len;
     std::atomic<bool> _stopping{false};
 };
 
