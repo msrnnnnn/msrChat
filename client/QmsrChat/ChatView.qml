@@ -28,18 +28,29 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 10
-            spacing: 8
-            verticalLayoutDirection: ListView.BottomToTop
+            spacing: 4
+            verticalLayoutDirection: ListView.TopToBottom
             clip: true
 
             model: chatModel
 
-            delegate: MessageBubble {
-                isSelf: model.isSelf
-                content: model.content
-                timestamp: model.displayTime
-                status: model.status
+            delegate: Item {
                 width: chatViewRoot.width - 20
+                height: bubbleLoader.item ? bubbleLoader.item.height + 8 : 0
+
+                Loader {
+                    id: bubbleLoader
+                    anchors.left: isSelf ? undefined : parent.left
+                    anchors.right: isSelf ? parent.right : undefined
+                    anchors.top: parent.top
+                    anchors.margins: 4
+                    sourceComponent: MessageBubble {
+                        isSelf: model.isSelf
+                        content: model.content
+                        timestamp: model.displayTime
+                        status: model.status
+                    }
+                }
             }
 
             ScrollBar.vertical: ScrollBar {
@@ -57,83 +68,80 @@ Rectangle {
                 }
             }
 
-            Component.onCompleted: {
-                positionViewAtEnd()
+            onCountChanged: {
+                Qt.callLater(function() {
+                    positionViewAtEnd()
+                })
             }
         }
 
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 120
+            Layout.preferredHeight: 100
             color: "#FFFFFF"
             border.width: 1
             border.color: "#E0E0E0"
 
-            ColumnLayout {
-                anchors.fill: parent
+            TextArea {
+                id: messageInput
+                anchors.left: parent.left
+                anchors.right: sendButton.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
                 anchors.margins: 10
-                spacing: 8
+                anchors.rightMargin: 8
+                placeholderText: qsTr("输入消息...")
+                wrapMode: TextArea.Wrap
+                font.pixelSize: 14
+                verticalAlignment: TextInput.AlignVCenter
+                padding: 8
 
-                TextArea {
-                    id: messageInput
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 60
-                    placeholderText: qsTr("输入消息...")
-                    wrapMode: TextArea.Wrap
-                    font.pixelSize: 14
-                    verticalAlignment: TextInput.AlignVCenter
-                    padding: 8
-
-                    background: Rectangle {
-                        color: "#F8F8F8"
-                        radius: 8
-                        border.width: 1
-                        border.color: "#E0E0E0"
-                    }
-
-                    Keys.onPressed: function(event) {
-                        if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
-                            event.accepted = true
-                            sendButton.clicked()
-                        }
-                    }
+                background: Rectangle {
+                    color: "#F8F8F8"
+                    radius: 8
+                    border.width: 1
+                    border.color: "#E0E0E0"
                 }
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 36
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
+                        event.accepted = true
+                        sendButton.clicked()
+                    }
+                }
+            }
 
-                    Button {
-                        id: sendButton
-                        anchors.right: parent.right
-                        width: 80
-                        height: 32
-                        text: qsTr("发送")
-                        font.pixelSize: 14
-                        font.bold: true
-                        enabled: isConnected && messageInput.text.trim().length > 0
+            Button {
+                id: sendButton
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: 70
+                height: 36
+                text: qsTr("发送")
+                font.pixelSize: 14
+                font.bold: true
+                enabled: isConnected && messageInput.text.trim().length > 0
 
-                        contentItem: Text {
-                            text: parent.text
-                            color: parent.enabled ? "#FFFFFF" : "#A0A0A0"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            font: parent.font
-                        }
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.enabled ? "#FFFFFF" : "#A0A0A0"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font: parent.font
+                }
 
-                        background: Rectangle {
-                            color: parent.enabled ? "#2196F3" : "#E0E0E0"
-                            radius: 8
-                            border.width: 0
-                        }
+                background: Rectangle {
+                    color: parent.enabled ? "#2196F3" : "#E0E0E0"
+                    radius: 8
+                    border.width: 0
+                }
 
-                        onClicked: {
-                            if (messageInput.text.trim().length > 0) {
-                                chatController.sendMessage(messageInput.text)
-                                messageInput.text = ""
-                            }
-                        }
+                onClicked: {
+                    if (messageInput.text.trim().length > 0) {
+                        chatController.sendMessage(messageInput.text)
+                        messageInput.text = ""
                     }
                 }
             }

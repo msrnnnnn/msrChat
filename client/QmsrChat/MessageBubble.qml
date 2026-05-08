@@ -13,17 +13,12 @@ Rectangle {
     property string timestamp: ""
     property int status: 0
 
-    width: bubbleLayout.width + 24
-    height: bubbleLayout.height + 16
+    property int maxBubbleWidth: Math.min(chatViewRoot.width * 0.7, 300)
+
+    implicitWidth: bubbleLayout.width + 24
+    implicitHeight: bubbleLayout.height + 16
     radius: 12
     color: isSelf ? "#2196F3" : "#FFFFFF"
-
-    anchors {
-        right: isSelf ? parent.right : undefined
-        left: isSelf ? undefined : parent.left
-        top: parent.top
-        margins: 4
-    }
 
     border.width: 1
     border.color: isSelf ? "#1976D2" : "#E0E0E0"
@@ -40,11 +35,9 @@ Rectangle {
             font.pixelSize: 14
             font.family: "Microsoft YaHei"
             wrapMode: Text.WordWrap
-            Layout.maximumWidth: bubbleMaxWidth
-            Layout.preferredWidth: Math.min(bubbleMaxWidth, messageText.contentWidth + 1)
+            Layout.maximumWidth: maxBubbleWidth - 16
+            Layout.preferredWidth: Math.min(maxBubbleWidth - 16, messageText.contentWidth + 1)
             Layout.margins: 8
-
-            property int bubbleMaxWidth: parent.parent.width * 0.7
         }
 
         RowLayout {
@@ -70,6 +63,7 @@ Rectangle {
                     switch (status) {
                         case 0: return "发送中"
                         case 1: return "已送达"
+                        case 2: return "离线"
                         case -1: return "失败"
                         default: return ""
                     }

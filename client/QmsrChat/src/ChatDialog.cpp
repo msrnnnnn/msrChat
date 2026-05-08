@@ -102,8 +102,14 @@ void ChatDialog::SetupQmlView()
     newLayout->setContentsMargins(11, 11, 11, 11);
     newLayout->setSpacing(0);
 
+    // 显示当前用户ID + 目标UID输入框
     QHBoxLayout *uidRow = new QHBoxLayout();
     uidRow->setContentsMargins(0, 0, 0, 8);
+
+    QLabel *myIdLabel = new QLabel(QString("我的ID: %1").arg(UserMgr::Instance()->GetUid()));
+    myIdLabel->setStyleSheet("color: #666666; font-size: 13px;");
+    uidRow->addWidget(myIdLabel);
+    uidRow->addSpacing(20);
     uidRow->addWidget(uidLabel);
     uidRow->addWidget(uidEdit);
     newLayout->addLayout(uidRow);
