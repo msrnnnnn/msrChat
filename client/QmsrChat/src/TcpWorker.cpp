@@ -75,6 +75,8 @@ void TcpWorker::slot_init()
 
 void TcpWorker::slot_stop()
 {
+    _stopping = true;
+
     if (_heartbeat_timer && _heartbeat_timer->isActive())
     {
         _heartbeat_timer->stop();
@@ -361,6 +363,10 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 {
     Q_UNUSED(error)
 
+    if (_stopping) {
+        return;
+    }
+
     if (_heartbeat_timer && _heartbeat_timer->isActive())
     {
         _heartbeat_timer->stop();
@@ -380,6 +386,10 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 
 void TcpWorker::slot_disconnected()
 {
+    if (_stopping) {
+        return;
+    }
+
     if (_heartbeat_timer && _heartbeat_timer->isActive())
     {
         _heartbeat_timer->stop();

@@ -33,9 +33,21 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     _chat_controller = new ChatController(this);
     _chat_controller->initialize();
-    _chat_controller->setTargetUid(1002);
+    // 开发模式默认目标为 1，普通模式默认目标为 1001
+    int current_uid = UserMgr::Instance()->GetUid();
+    int default_target = (current_uid == 1001) ? 1 : 1001;
+    _chat_controller->setTargetUid(default_target);
 
     SetupQmlView();
+
+    // 连接目标UID输入框到ChatController
+    connect(ui->dest_uid_edit, &QLineEdit::editingFinished, this, [this]() {
+        bool ok = false;
+        int uid = ui->dest_uid_edit->text().toInt(&ok);
+        if (ok && uid > 0) {
+            _chat_controller->setTargetUid(uid);
+        }
+    });
 
     connect(
         _chat_controller, &ChatController::sigMessageReceived, this, &ChatDialog::slotOnMessageReceived,

@@ -57,3 +57,9 @@ std::size_t SessionManager::SessionCount() const
     }
     return total;
 }
+
+void SessionManager::ClearAll()
+{
+    _uid_sessions.Clear();
+    _uuid_sessions.Clear();
+}

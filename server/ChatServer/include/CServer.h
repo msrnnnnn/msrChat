@@ -30,7 +30,7 @@ public:
     void ClearSession(const std::string &uuid);
 
     bool ForwardMessage(int target_uid, const std::string &msg_data);
-    void StoreOfflineMessage(int target_uid, const std::string &msg_data);
+    bool StoreOfflineMessage(int target_uid, const std::string &msg_data);
     void SendOfflineMessages(int uid, std::shared_ptr<CSession> session);
 
     void SetToken(int uid, const std::string &token);
