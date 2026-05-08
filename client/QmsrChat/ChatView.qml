@@ -6,6 +6,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 Rectangle {
     id: chatViewRoot
@@ -145,6 +146,48 @@ Rectangle {
                     }
                 }
             }
+
+            Button {
+                id: fileButton
+                anchors.right: sendButton.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: 36
+                height: 36
+                text: qsTr("📎")
+                font.pixelSize: 16
+                enabled: isConnected
+
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.enabled ? "#666666" : "#A0A0A0"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font: parent.font
+                }
+
+                background: Rectangle {
+                    color: "#F0F0F0"
+                    radius: 8
+                    border.width: 1
+                    border.color: "#E0E0E0"
+                }
+
+                onClicked: {
+                    fileDialog.open()
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: fileDialog
+        title: qsTr("选择要发送的文件")
+        selectedFile: ""
+        onAccepted: {
+            if (selectedFile) {
+                chatController.sendFile(selectedFile)
+            }
         }
     }
 
@@ -176,5 +219,83 @@ Rectangle {
         anchors.right: parent.right
         anchors.margins: 10
         visible: !isConnected
+    }
+
+    ListModel {
+        id: fileProgressModel
+    }
+
+    Rectangle {
+        id: fileProgressPanel
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 10
+        width: 240
+        height: fileProgressList.height + 10
+        visible: fileProgressModel.count > 0
+        color: "#FFFFFF"
+        border.width: 1
+        border.color: "#E0E0E0"
+        radius: 8
+
+        ListView {
+            id: fileProgressList
+            anchors.centerIn: parent
+            width: parent.width - 10
+            height: contentHeight
+            model: fileProgressModel
+            interactive: false
+
+            delegate: Rectangle {
+                width: parent.width
+                height: 40
+                color: "transparent"
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+                    Text {
+                        text: filename
+                        font.pixelSize: 12
+                        color: "#333333"
+                    }
+                    ProgressBar {
+                        width: parent.width
+                        from: 0
+                        to: 100
+                        value: progress
+                    }
+                    Text {
+                        text: progress + "%"
+                        font.pixelSize: 10
+                        color: "#666666"
+                    }
+                }
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        if (chatController) {
+            chatController.onFileSendStarted.connect(function(task_id, filename, total_size) {
+                fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0})
+            })
+            chatController.onFileSendProgress.connect(function(task_id, prog, sent, total) {
+                for (var i = 0; i < fileProgressModel.count; i++) {
+                    if (fileProgressModel.get(i).task_id === task_id) {
+                        fileProgressModel.setProperty(i, "progress", prog)
+                        break
+                    }
+                }
+            })
+            chatController.onFileSendComplete.connect(function(task_id, success, error) {
+                for (var i = 0; i < fileProgressModel.count; i++) {
+                    if (fileProgressModel.get(i).task_id === task_id) {
+                        fileProgressModel.remove(i)
+                        break
+                    }
+                }
+            })
+        }
     }
 }

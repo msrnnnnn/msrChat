@@ -87,6 +87,12 @@ TcpMgr::~TcpMgr()
         _netThread->quit();
         _netThread->wait();
     }
+    // 在 worker 线程已安全退出后，直接在主线程 delete _worker
+    if (_worker)
+    {
+        delete _worker;
+        _worker = nullptr;
+    }
 }
 
 /**
@@ -96,7 +102,7 @@ void TcpMgr::init_thread()
 {
     _worker->moveToThread(_netThread);
     connect(_netThread, &QThread::started, _worker, &TcpWorker::slot_init);
-    connect(_netThread, &QThread::finished, _worker, &QObject::deleteLater);
+    // 删除 finished->deleteLater：会导致 deleteLater 投递到已退出 worker 线程的事件队列
 
     connect(_worker, &TcpWorker::sig_con_success, this, &TcpMgr::sig_con_success, Qt::QueuedConnection);
     connect(_worker, &TcpWorker::sig_reconnected, this, &TcpMgr::sig_reconnected, Qt::QueuedConnection);
@@ -184,6 +190,23 @@ void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
 {
     slot_send_data(RequestType::MSG_OFFLINE_ACK, MakeJsonPayload({{"received", req.received}}));
+}
+
+void TcpMgr::slot_send_file_req(const FileReqStruct &req)
+{
+    qmsrchat::FileReq fileReq;
+    fileReq.set_task_id(req.task_id);
+    fileReq.set_from_uid(req.from_uid);
+    fileReq.set_to_uid(req.to_uid);
+    fileReq.set_filename(req.filename.toStdString());
+    fileReq.set_total_size(req.total_size);
+    fileReq.set_md5(req.md5.toStdString());
+
+    std::string serialized;
+    if (fileReq.SerializeToString(&serialized))
+    {
+        slot_send_data(RequestType::MSG_FILE_REQ, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    }
 }
 
 void TcpMgr::slot_parse_login_rsp(RequestType req_type, const QByteArray &data)

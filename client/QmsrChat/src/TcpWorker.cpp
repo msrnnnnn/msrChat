@@ -4,8 +4,9 @@
  * @details 负责长连接生命周期、协议解包、心跳检测与自动重连。
  */
 #include "TcpWorker.h"
-#include "Message.pb.h"
 #include "FileRecvMgr.h"
+#include "FileSendMgr.h"
+#include "Message.pb.h"
 #include <QAbstractSocket>
 #include <QDataStream>
 #include <QDebug>
@@ -37,7 +38,8 @@ TcpWorker::TcpWorker(QObject *parent)
 
 TcpWorker::~TcpWorker()
 {
-    slot_stop();
+    // slot_stop() 已统一由 TcpMgr::~TcpMgr() 通过 BlockingQueuedConnection 调用
+    // 此处不再重复调用，防止 socket/timers 在 Qt 全局清理阶段被二次操作
 }
 
 void TcpWorker::slot_init()
@@ -87,8 +89,8 @@ void TcpWorker::slot_stop()
     }
     if (_socket)
     {
-        _socket->disconnectFromHost();
-        _socket->close();
+        // abort() 立即丢弃缓冲区并关闭 socket，不会触发 disconnected/error 信号风暴
+        _socket->abort();
     }
     reset_buffer();
 }
@@ -274,17 +276,16 @@ void TcpWorker::slot_ready_read()
                     int error = fileRsp.error();
                     int64_t offset = fileRsp.offset();
 
-                    if (error == 0 && offset > 0)
+                    if (error == 0)
                     {
-                        qmsrchat::FileRsp ack;
-                        ack.set_task_id(task_id);
-                        ack.set_offset(offset);
-
-                        std::string serialized;
-                        if (ack.SerializeToString(&serialized))
-                        {
-                            slot_send_data(RequestType::MSG_FILE_RSP, QByteArray(serialized.data(), serialized.size()));
-                        }
+                        // 接收端已就绪（或要求从 offset 续传），驱动发送状态机
+                        FileSendMgr::Instance().OnRecvReady(task_id, offset);
+                    }
+                    else
+                    {
+                        FileSendMgr::Instance().CancelSend(task_id);
+                        qWarning() << "File send rejected by receiver, task_id:" << task_id
+                                   << "error:" << QString::fromStdString(fileRsp.message());
                     }
                 }
                 _b_head_parsed = false;
@@ -297,7 +298,18 @@ void TcpWorker::slot_ready_read()
                 {
                     int64_t task_id = fileAck.task_id();
                     int64_t received = fileAck.received();
-                    FileRecvMgr::Instance().OnChunkAck(task_id, received);
+                    std::string message = fileAck.message();
+
+                    if (message == "transfer complete")
+                    {
+                        FileSendMgr::Instance().CancelSend(task_id);
+                        qDebug() << "File transfer complete acknowledged:" << task_id;
+                    }
+                    else if (received > 0)
+                    {
+                        // 接收端确认已收到 received 字节，继续发送下一批 chunk
+                        FileSendMgr::Instance().OnRecvReady(task_id, received);
+                    }
                 }
                 _b_head_parsed = false;
                 continue;
