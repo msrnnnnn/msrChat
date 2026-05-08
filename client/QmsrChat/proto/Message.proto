@@ -89,6 +89,7 @@ message FileReq {
     int32 to_uid = 3;
     string filename = 4;
     int64 total_size = 5;
+    string md5 = 6;
 }
 
 message FileRsp {
