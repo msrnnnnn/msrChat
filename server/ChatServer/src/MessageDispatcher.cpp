@@ -577,8 +577,6 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
         }
 
         int64_t task_id = chunk.task_id();
-        int64_t offset = chunk.offset();
-        int64_t size = chunk.size();
         const std::string &data = chunk.data();
 
         bool ready = session.IsFileTransferReady(task_id);
