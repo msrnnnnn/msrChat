@@ -110,6 +110,7 @@ set(PROJECT_SOURCES
         include/TcpMgr.h
         include/TcpWorker.h
         include/FileRecvMgr.h
+        include/FileSendMgr.h
         include/singleton.h
         include/Logger.h
         include/logmacros.h
@@ -141,6 +142,7 @@ set(PROJECT_SOURCES
         src/TcpMgr.cpp
         src/TcpWorker.cpp
         src/FileRecvMgr.cpp
+        src/FileSendMgr.cpp
         src/TimerBtn.cpp
         src/ClickedLabel.cpp
         src/ChatListModel.cpp

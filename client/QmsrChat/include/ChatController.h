@@ -54,8 +54,12 @@ signals:
     void sigMessageStatusChanged(const QString &clientMsgId, int status);
     void sigHistoryLoaded(const QVariantList &messages);
     void sigError(const QString &error);
+    void sigFileSendStarted(int64_t task_id, QString filename, int64_t total_size);
+    void sigFileSendProgress(int64_t task_id, int progress, int64_t sent, int64_t total);
+    void sigFileSendComplete(int64_t task_id, bool success, QString error);
 
-private slots:
+public slots:
+    void sendFile(const QString &filePath);
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
     void slotOnChatAck(const ChatAckStruct &ack);
     void slotOnOfflineAck(const OfflineAckStruct &ack);

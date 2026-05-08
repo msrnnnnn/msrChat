@@ -159,27 +159,6 @@ struct BinaryPacketState
     bool receiving = false;
 };
 
-struct ZeroCopySendState
-{
-    int64_t task_id = 0;
-    FileDescriptor fd;
-    int64_t total_size = 0;
-    int64_t sent_size = 0;
-    std::string filename;
-    bool sending = false;
-    bool waiting_sendfile = false;
-};
-
-struct ZeroCopyRecvState
-{
-    int64_t task_id = 0;
-    FileDescriptor fd;
-    int64_t total_size = 0;
-    int64_t received_size = 0;
-    std::string filename;
-    bool receiving = false;
-};
-
 class RecvNode
 {
 public:
@@ -556,16 +535,6 @@ private:
     void AsyncReadBody(int total_len);
     void AsyncReadBinBody(int total_len);
 
-    void HandleZeroCopyStart(const std::string &body_data);
-    void HandleZeroCopyReady(const std::string &body_data);
-    void HandleZeroCopyData(const std::string &body_data);
-    void HandleZeroCopyComplete(const std::string &body_data);
-    void HandleZeroCopyError(const std::string &body_data);
-
-    void StartZeroCopySend(int64_t task_id, const std::string &filepath);
-    void ContinueZeroCopySend();
-    void OnZeroCopySendComplete(bool success, const std::string &message);
-
     void AsyncWriteMsg();
 
     std::string _uuid;
@@ -590,8 +559,6 @@ private:
     FileSendState _file_send_state;
     OfflineSendState _offline_send_state;
     BinaryPacketState _bin_packet_state;
-    ZeroCopySendState _zc_send_state;
-    ZeroCopyRecvState _zc_recv_state;
 
     std::mutex _file_mutex;
     std::mutex _offline_mutex;

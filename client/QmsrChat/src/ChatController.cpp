@@ -4,7 +4,10 @@
  */
 #include "ChatController.h"
 #include "ChatListModel.h"
+#include "FileSendMgr.h"
+#include <QCryptographicHash>
 #include <QDebug>
+#include <QFileInfo>
 #include <QTimer>
 
 ChatController::ChatController(QObject *parent)
@@ -283,6 +286,62 @@ void ChatController::slotCleanTimeoutMessages()
         emit sigMessageStatusChanged(id, -1);
         qDebug() << "[ChatController] Message timeout, client_msg_id:" << id;
     }
+}
+
+void ChatController::sendFile(const QString &filePath)
+{
+    if (_target_uid <= 0)
+    {
+        emit sigError(QStringLiteral("目标用户无效"));
+        return;
+    }
+
+    QFileInfo info(filePath);
+    if (!info.exists() || !info.isFile())
+    {
+        emit sigError(QStringLiteral("文件不存在"));
+        return;
+    }
+
+    int64_t task_id = QDateTime::currentMSecsSinceEpoch();
+    int64_t total_size = info.size();
+
+    // 计算 MD5
+    QFile file(filePath);
+    QByteArray md5;
+    if (file.open(QIODevice::ReadOnly))
+    {
+        QCryptographicHash hash(QCryptographicHash::Md5);
+        hash.addData(&file);
+        md5 = hash.result().toHex();
+        file.close();
+    }
+
+    TcpMgr::FileReqStruct req;
+    req.task_id = task_id;
+    req.from_uid = _current_uid;
+    req.to_uid = _target_uid;
+    req.filename = info.fileName();
+    req.total_size = total_size;
+    req.md5 = QString(md5);
+
+    TcpMgr::Instance()->slot_send_file_req(req);
+    FileSendMgr::Instance().StartSend(task_id, _target_uid, filePath);
+
+    emit sigFileSendStarted(task_id, req.filename, total_size);
+
+    connect(&FileSendMgr::Instance(), &FileSendMgr::sigSendProgress, this,
+            [this, task_id](int64_t id, int progress, int64_t sent, int64_t total) {
+                if (id == task_id)
+                    emit sigFileSendProgress(id, progress, sent, total);
+            },
+            Qt::QueuedConnection);
+    connect(&FileSendMgr::Instance(), &FileSendMgr::sigSendComplete, this,
+            [this, task_id](int64_t id, bool success, const QString &error) {
+                if (id == task_id)
+                    emit sigFileSendComplete(id, success, error);
+            },
+            Qt::QueuedConnection);
 }
 
 QVariantMap ChatController::ChatMessageToVariant(const ChatMessage &msg)

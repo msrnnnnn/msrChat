@@ -36,6 +36,18 @@ public:
     void slot_send_reset_pwd_req(const ResetPwdReqStruct &req);
     void slot_send_offline_ack_req(const OfflineAckReqStruct &req);
 
+    struct FileReqStruct
+    {
+        int64_t task_id;
+        int from_uid;
+        int to_uid;
+        QString filename;
+        int64_t total_size;
+        QString md5;
+    };
+
+    void slot_send_file_req(const FileReqStruct &req);
+
 signals:
     void sig_con_success(bool bsuccess);
     void sig_login_failed(int err);

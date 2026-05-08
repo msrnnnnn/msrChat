@@ -177,13 +177,14 @@ void DbThreadPool::cleanup()
                            "Allowing thread to complete transaction naturally to prevent SQLite corruption.";
         }
 
+        // 直接 delete，替代投递到死线程的 deleteLater
         if (_worker != nullptr)
         {
-            _worker->deleteLater();
+            delete _worker;
             _worker = nullptr;
         }
 
-        _thread->deleteLater();
+        delete _thread;
         _thread = nullptr;
 
         qDebug() << "DbThreadPool thread stopped safely";
@@ -211,7 +212,7 @@ bool DbThreadPool::Init(const QString &db_path)
     _worker = new DbWorker();
     _worker->moveToThread(_thread);
 
-    connect(_thread, &QThread::finished, _worker, &QObject::deleteLater);
+    // 删除 finished->deleteLater：会导致 deleteLater 投递到死线程的事件队列
 
     connect(_worker, &DbWorker::sig_messages_loaded, this, &DbThreadPool::sig_messages_loaded, Qt::QueuedConnection);
     connect(_worker, &DbWorker::sig_messages_saved, this, &DbThreadPool::sig_messages_saved, Qt::QueuedConnection);
