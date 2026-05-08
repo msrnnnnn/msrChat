@@ -65,20 +65,20 @@ Rectangle {
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 120
             color: "#FFFFFF"
             border.width: 1
             border.color: "#E0E0E0"
 
-            RowLayout {
+            ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 10
-                spacing: 10
+                spacing: 8
 
                 TextArea {
                     id: messageInput
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 60
                     placeholderText: qsTr("输入消息...")
                     wrapMode: TextArea.Wrap
                     font.pixelSize: 14
@@ -100,33 +100,39 @@ Rectangle {
                     }
                 }
 
-                Button {
-                    id: sendButton
-                    Layout.preferredWidth: 80
-                    Layout.fillHeight: true
-                    text: qsTr("发送")
-                    font.pixelSize: 14
-                    font.bold: true
-                    enabled: isConnected && messageInput.text.trim().length > 0
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
 
-                    contentItem: Text {
-                        text: parent.text
-                        color: parent.enabled ? "#FFFFFF" : "#A0A0A0"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font: parent.font
-                    }
+                    Button {
+                        id: sendButton
+                        anchors.right: parent.right
+                        width: 80
+                        height: 32
+                        text: qsTr("发送")
+                        font.pixelSize: 14
+                        font.bold: true
+                        enabled: isConnected && messageInput.text.trim().length > 0
 
-                    background: Rectangle {
-                        color: parent.enabled ? "#2196F3" : "#E0E0E0"
-                        radius: 8
-                        border.width: 0
-                    }
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.enabled ? "#FFFFFF" : "#A0A0A0"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font: parent.font
+                        }
 
-                    onClicked: {
-                        if (messageInput.text.trim().length > 0) {
-                            chatController.sendMessage(messageInput.text)
-                            messageInput.text = ""
+                        background: Rectangle {
+                            color: parent.enabled ? "#2196F3" : "#E0E0E0"
+                            radius: 8
+                            border.width: 0
+                        }
+
+                        onClicked: {
+                            if (messageInput.text.trim().length > 0) {
+                                chatController.sendMessage(messageInput.text)
+                                messageInput.text = ""
+                            }
                         }
                     }
                 }

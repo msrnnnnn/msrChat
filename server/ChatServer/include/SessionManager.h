@@ -26,6 +26,7 @@ public:
     void RemoveSessionByUuid(const std::string &uuid);
     std::shared_ptr<CSession> GetSession(int uid) const;
     std::shared_ptr<CSession> GetSessionByUuid(const std::string &uuid) const;
+    void ClearAll();
 
     template <typename Func>
     void ForEachSession(Func &&func)

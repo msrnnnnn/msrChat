@@ -284,9 +284,11 @@ void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
         {
             ChatTextMsgStruct msg;
             msg.from_uid = chatMsg.from_uid();
+            msg.to_uid = chatMsg.to_uid();
             msg.content = QString::fromStdString(chatMsg.content());
             msg.client_msg_id = QString::fromStdString(chatMsg.client_msg_id());
             msg.server_msg_id = chatMsg.server_msg_id();
+            msg.timestamp = chatMsg.timestamp();
 
             emit sig_chat_text_msg(msg);
         }

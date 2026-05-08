@@ -202,9 +202,17 @@ void ChatController::slotOnChatAck(const ChatAckStruct &ack)
         return;
     }
 
-    int status = (ack.error == 0 || ack.message == QStringLiteral("stored")) ? 1 : -1;
+    // 区分在线送达(delivered)和离线存储(stored)
+    int status = 1;
+    if (ack.error != 0) {
+        status = -1;  // 发送失败
+    } else if (ack.message == QStringLiteral("stored")) {
+        status = 2;  // 对方离线/已存离线
+    }
+    // else: status = 1, 在线已送达
     emit sigMessageStatusChanged(ack.client_msg_id, status);
 
+    // 只有真正失败才发错误信号，stored 是正常状态（离线存储成功）
     if (ack.error != 0 && ack.message != QStringLiteral("stored"))
     {
         QString errorMsg = ack.message.isEmpty() ? QStringLiteral("发送失败") : ack.message;

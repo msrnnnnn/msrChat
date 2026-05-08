@@ -380,18 +380,27 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         std::string forward_data = forward.dump();
         auto server = session.GetServer();
         bool delivered = false;
+        bool stored = false;
         if (server)
         {
             delivered = server->ForwardMessage(to_uid, forward_data);
             if (!delivered)
             {
-                server->StoreOfflineMessage(to_uid, forward_data);
+                stored = server->StoreOfflineMessage(to_uid, forward_data);
             }
         }
 
         qmsrchat::ChatAck ack;
-        ack.set_error(delivered ? 0 : 1);
-        ack.set_message(delivered ? "delivered" : "stored");
+        if (delivered) {
+            ack.set_error(0);
+            ack.set_message("delivered");
+        } else if (stored) {
+            ack.set_error(0);
+            ack.set_message("stored");
+        } else {
+            ack.set_error(1);
+            ack.set_message("failed");
+        }
         ack.set_client_msg_id(client_msg_id);
 
         std::string serialized;

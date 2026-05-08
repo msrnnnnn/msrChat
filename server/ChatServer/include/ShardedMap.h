@@ -71,6 +71,15 @@ public:
         return _shards.size();
     }
 
+    void Clear()
+    {
+        for (auto &shard : _shards)
+        {
+            std::lock_guard<std::mutex> lock(shard.mutex);
+            shard.data.clear();
+        }
+    }
+
     std::unique_lock<std::mutex> GetLock(std::size_t idx) const
     {
         return std::unique_lock<std::mutex>(_shards[idx].mutex);

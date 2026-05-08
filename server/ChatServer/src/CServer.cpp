@@ -32,12 +32,20 @@ void CServer::Start()
 
 void CServer::DoAccept()
 {
+    if (_stopped) {
+        return;
+    }
+
     auto &ioc = AsioIOServicePool::getInstance().GetIOService();
     auto new_session = std::make_shared<CSession>(ioc, shared_from_this());
     _acceptor.async_accept(
         new_session->GetSocket(),
         [this, new_session](const boost::system::error_code &ec)
         {
+            if (_stopped) {
+                return;
+            }
+
             if (!ec)
             {
                 spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
@@ -83,12 +91,16 @@ bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
     return MessageRouter::Instance().ForwardMessage(target_uid, msg_data);
 }
 
-void CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
+bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 {
+    std::promise<bool> result_promise;
+    auto future = result_promise.get_future();
+
     auto self = shared_from_this();
     _thread_pool.Enqueue(
-        [this, self, target_uid, msg_data]()
+        [this, self, target_uid, msg_data, &result_promise]()
         {
+            bool success = false;
             try
             {
                 auto json_data = nlohmann::json::parse(msg_data);
@@ -99,12 +111,16 @@ void CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
                 msg.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
                 msg.status = 0;
                 SQLiteMgr::Instance().SaveOfflineMessage(msg);
+                success = true;
             }
             catch (const std::exception &e)
             {
                 spdlog::error("[CServer] StoreOfflineMessage failed: {}", e.what());
             }
+            result_promise.set_value(success);
         });
+
+    return future.get();
 }
 
 void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
@@ -175,6 +191,12 @@ void CServer::Stop()
     {
         spdlog::info("[CServer] Acceptor closed successfully");
     }
+
+    SessionManager::Instance().ForEachSession([](int uid, std::shared_ptr<CSession> session) {
+        session->Close();
+    });
+    SessionManager::Instance().ClearAll();
+    spdlog::info("[CServer] All sessions closed");
 
     _thread_pool.Shutdown();
     spdlog::info("[CServer] Server stopped");

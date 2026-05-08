@@ -74,6 +74,7 @@ private:
     quint16 _bin_message_id;
     quint32 _bin_total_len;
     quint32 _bin_json_len;
+    std::atomic<bool> _stopping{false};
 };
 
 #endif
