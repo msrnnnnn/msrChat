@@ -22,20 +22,20 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
         return;
     }
 
-    FileSendTask task;
-    task.task_id = task_id;
-    task.to_uid = to_uid;
-    task.filepath = filepath;
-    task.file.setFileName(filepath);
-    if (!task.file.open(QIODevice::ReadOnly))
+    FileSendTask newTask;
+    newTask.task_id = task_id;
+    newTask.to_uid = to_uid;
+    newTask.filepath = filepath;
+    newTask.file.setFileName(filepath);
+    if (!newTask.file.open(QIODevice::ReadOnly))
     {
         emit sigSendComplete(task_id, false, "Failed to open file");
         return;
     }
-    task.total_size = task.file.size();
-    task.sent_size = 0;
-    task.active = true;
-    _tasks[task_id] = std::move(task);
+    newTask.total_size = newTask.file.size();
+    newTask.sent_size = 0;
+    newTask.active = true;
+    _tasks.emplace(task_id, std::move(newTask));
 
     // 发送 FileReq 由调用方（如 ChatController/TcpMgr）负责，此处只管理发送状态机
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << task.total_size;
