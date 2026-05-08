@@ -1,6 +1,7 @@
 #include "MessageDispatcher.h"
 #include "CServer.h"
 #include "CSession.h"
+#include "FileTransfer.h"
 #include "Message.pb.h"
 #include "SQLiteMgr.h"
 #include "nlohmann/json.hpp"
