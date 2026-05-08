@@ -4,13 +4,13 @@
  * @note    此对话框依赖 main.cpp 启动时建立的全局 TCP 长连接。
  *          所有请求通过 TcpMgr 单例发送，无需单独建立连接。
  */
+#include "AuthUiHelpers.h"
 #include "RegisterDialog.h"
 #include "Global.h"
 #include "TcpMgr.h"
 #include "ui_registerdialog.h"
 #include <QDebug>
 #include <QMessageBox>
-#include <QRegularExpression>
 #include <QTimer>
 
 /**
@@ -35,47 +35,8 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     connect(ui->confirm_password_Edit, &QLineEdit::editingFinished, this, [this]() { checkConfirmValid(); });
     connect(ui->verifycode_Edit, &QLineEdit::editingFinished, this, [this]() { checkVarifyValid(); });
 
-    ui->password_Edit->setEchoMode(QLineEdit::Password);
-    ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
-
-    ui->pass_visible->setCursor(Qt::PointingHandCursor);
-    ui->confirm_visible->setCursor(Qt::PointingHandCursor);
-    ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
-    ui->confirm_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
-    ui->pass_visible->setText(tr("显示"));
-    ui->confirm_visible->setText(tr("显示"));
-    connect(
-        ui->pass_visible, &ClickedLabel::clicked, this,
-        [this]()
-        {
-            auto state = ui->pass_visible->GetCurState();
-            if (state == ClickLbState::Normal)
-            {
-                ui->password_Edit->setEchoMode(QLineEdit::Password);
-                ui->pass_visible->setText(tr("显示"));
-            }
-            else
-            {
-                ui->password_Edit->setEchoMode(QLineEdit::Normal);
-                ui->pass_visible->setText(tr("隐藏"));
-            }
-        });
-    connect(
-        ui->confirm_visible, &ClickedLabel::clicked, this,
-        [this]()
-        {
-            auto state = ui->confirm_visible->GetCurState();
-            if (state == ClickLbState::Normal)
-            {
-                ui->confirm_password_Edit->setEchoMode(QLineEdit::Password);
-                ui->confirm_visible->setText(tr("显示"));
-            }
-            else
-            {
-                ui->confirm_password_Edit->setEchoMode(QLineEdit::Normal);
-                ui->confirm_visible->setText(tr("隐藏"));
-            }
-        });
+    AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
+    AuthUiHelpers::BindPasswordToggle(ui->confirm_visible, ui->confirm_password_Edit);
 
     ui->confirm_verifycode_Button->setAutoStart(false);
 
@@ -236,80 +197,53 @@ void RegisterDialog::startVerifyCountdown(int seconds)
 
 void RegisterDialog::AddTipErr(TipErr te, QString tips)
 {
-    _tip_errs[te] = tips;
-    showTip(tips, false);
+    AuthUiHelpers::AddTipError(_tip_errs, te, tips, ui->error_label);
 }
 
 void RegisterDialog::DelTipErr(TipErr te)
 {
-    _tip_errs.remove(te);
-    if (_tip_errs.empty())
-    {
-        ui->error_label->setProperty("state", "normal");
-        ui->error_label->setText("");
-        repolish(ui->error_label);
-        return;
-    }
-    showTip(_tip_errs.first(), false);
+    AuthUiHelpers::RemoveTipError(_tip_errs, te, ui->error_label);
 }
 
 bool RegisterDialog::checkUserValid()
 {
-    if (ui->user_Edit->text().isEmpty())
-    {
-        AddTipErr(TipErr::TIP_USER_ERR, tr("用户名不能为空"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_USER_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_USER_ERR, AuthUiHelpers::ValidateUsername(ui->user_Edit->text()), ui->error_label);
 }
 
 bool RegisterDialog::checkEmailValid()
 {
-    auto email = ui->email_Edit->text().trimmed();
-    QRegularExpression regex(R"((\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+)");
-    bool match = regex.match(email).hasMatch();
-    if (!match)
-    {
-        AddTipErr(TipErr::TIP_EMAIL_ERR, tr("邮箱地址不正确"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_EMAIL_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_EMAIL_ERR, AuthUiHelpers::ValidateEmail(ui->email_Edit->text()), ui->error_label);
 }
 
 bool RegisterDialog::checkPassValid()
 {
-    auto pass = ui->password_Edit->text();
-    if (pass.length() < 6 || pass.length() > 15)
-    {
-        AddTipErr(TipErr::TIP_PWD_ERR, tr("密码长度应为6~15"));
-        return false;
-    }
-    QRegularExpression regExp("^[a-zA-Z0-9!@#$%^&*]{6,15}$");
-    bool match = regExp.match(pass).hasMatch();
-    if (!match)
-    {
-        AddTipErr(TipErr::TIP_PWD_ERR, tr("不能包含非法字符"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_PWD_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_PWD_ERR, AuthUiHelpers::ValidatePassword(ui->password_Edit->text()), ui->error_label);
 }
 
 bool RegisterDialog::checkConfirmValid()
 {
-    auto confirm = ui->confirm_password_Edit->text();
-    if (confirm.isEmpty())
+    const QString confirmError =
+        AuthUiHelpers::ValidateConfirmPassword(ui->password_Edit->text(), ui->confirm_password_Edit->text());
+    const bool isEmptyConfirm = ui->confirm_password_Edit->text().isEmpty();
+
+    if (!confirmError.isEmpty())
     {
-        AddTipErr(TipErr::TIP_CONFIRM_ERR, tr("确认密码不能为空"));
+        if (isEmptyConfirm)
+        {
+            AddTipErr(TipErr::TIP_CONFIRM_ERR, confirmError);
+            DelTipErr(TipErr::TIP_PWD_CONFIRM);
+        }
+        else
+        {
+            AddTipErr(TipErr::TIP_PWD_CONFIRM, confirmError);
+            DelTipErr(TipErr::TIP_CONFIRM_ERR);
+        }
         return false;
     }
-    if (confirm != ui->password_Edit->text())
-    {
-        AddTipErr(TipErr::TIP_PWD_CONFIRM, tr("密码和确认密码不匹配"));
-        return false;
-    }
+
     DelTipErr(TipErr::TIP_CONFIRM_ERR);
     DelTipErr(TipErr::TIP_PWD_CONFIRM);
     return true;
@@ -317,14 +251,9 @@ bool RegisterDialog::checkConfirmValid()
 
 bool RegisterDialog::checkVarifyValid()
 {
-    auto pass = ui->verifycode_Edit->text();
-    if (pass.isEmpty())
-    {
-        AddTipErr(TipErr::TIP_VARIFY_ERR, tr("验证码不能为空"));
-        return false;
-    }
-    DelTipErr(TipErr::TIP_VARIFY_ERR);
-    return true;
+    return AuthUiHelpers::ApplyValidationResult(
+        _tip_errs, TipErr::TIP_VARIFY_ERR, AuthUiHelpers::ValidateVerifyCode(ui->verifycode_Edit->text()),
+        ui->error_label);
 }
 
 /**
@@ -332,20 +261,7 @@ bool RegisterDialog::checkVarifyValid()
  */
 void RegisterDialog::showTip(QString str, bool isCorrect)
 {
-    // 利用 QSS 的动态属性选择器 (Property Selector) 切换样式
-    if (isCorrect)
-    {
-        ui->error_label->setProperty("state", "normal");
-    }
-    else
-    {
-        ui->error_label->setProperty("state", "error");
-    }
-
-    ui->error_label->setText(str);
-
-    // 属性改变后，必须手动触发 repolish 才能让样式表重新计算
-    repolish(ui->error_label);
+    AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
 }
 
 void RegisterDialog::on_return_btn_clicked()
