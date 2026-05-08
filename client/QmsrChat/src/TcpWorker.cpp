@@ -198,7 +198,7 @@ void TcpWorker::slot_ready_read()
             }
 
             char header[6];
-            if (!peekBytes(0, header, 6))
+            if (_recv_buffer.Read(header, 6) < 6)
             {
                 break;
             }
@@ -221,7 +221,6 @@ void TcpWorker::slot_ready_read()
                 return;
             }
 
-            consumeBytes(6);
             _b_head_parsed = true;
         }
 
@@ -251,7 +250,7 @@ void TcpWorker::slot_ready_read()
                     }
 
                     char bin_header[HEAD_BIN_TOTAL_LEN];
-                    if (!peekBytes(0, bin_header, HEAD_BIN_TOTAL_LEN))
+                    if (_recv_buffer.Read(bin_header, HEAD_BIN_TOTAL_LEN) < HEAD_BIN_TOTAL_LEN)
                     {
                         _b_head_parsed = false;
                         break;
@@ -269,7 +268,6 @@ void TcpWorker::slot_ready_read()
                         return;
                     }
 
-                    consumeBytes(HEAD_BIN_TOTAL_LEN);
                     _b_bin_head_parsed = true;
                     continue;
                 }
@@ -426,23 +424,6 @@ void TcpWorker::slot_reconnect_timeout()
     if (_socket)
     {
         _socket->connectToHost(_host, _port);
-    }
-}
-
-bool TcpWorker::peekBytes(qsizetype offset, char *dest, qsizetype len) const
-{
-    if (len <= 0 || offset < 0)
-    {
-        return false;
-    }
-    return _recv_buffer.Peek(static_cast<std::size_t>(offset), dest, static_cast<std::size_t>(len));
-}
-
-void TcpWorker::consumeBytes(qsizetype len)
-{
-    if (len > 0)
-    {
-        _recv_buffer.Consume(static_cast<std::size_t>(len));
     }
 }
 
