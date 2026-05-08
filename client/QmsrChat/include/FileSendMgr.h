@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QString>
 #include <map>
+#include <memory>
 
 struct FileSendTask
 {
@@ -15,7 +16,7 @@ struct FileSendTask
     int64_t total_size = 0;
     int64_t sent_size = 0;
     bool active = false;
-    QFile file;
+    std::unique_ptr<QFile> file;
 };
 
 class FileSendMgr : public QObject

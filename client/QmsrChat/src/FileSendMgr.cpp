@@ -26,20 +26,17 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     newTask.task_id = task_id;
     newTask.to_uid = to_uid;
     newTask.filepath = filepath;
-    newTask.file.setFileName(filepath);
-    if (!newTask.file.open(QIODevice::ReadOnly))
+    newTask.file = std::make_unique<QFile>(filepath);
+    if (!newTask.file->open(QIODevice::ReadOnly))
     {
         emit sigSendComplete(task_id, false, "Failed to open file");
         return;
     }
-    newTask.total_size = newTask.file.size();
+    newTask.total_size = newTask.file->size();
     newTask.sent_size = 0;
     newTask.active = true;
-    _tasks.insert(std::piecewise_construct,
-                 std::forward_as_tuple(task_id),
-                 std::forward_as_tuple(std::move(newTask)));
+    _tasks.insert_or_assign(task_id, std::move(newTask));
 
-    // 发送 FileReq 由调用方（如 ChatController/TcpMgr）负责，此处只管理发送状态机
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
 }
 
@@ -55,7 +52,7 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
     FileSendTask &task = it->second;
     if (offset > 0 && offset < task.total_size)
     {
-        if (!task.file.seek(offset))
+        if (!task.file->seek(offset))
         {
             emit sigSendComplete(task_id, false, "Failed to seek file");
             _tasks.erase(it);
@@ -73,19 +70,19 @@ void FileSendMgr::CancelSend(int64_t task_id)
     auto it = _tasks.find(task_id);
     if (it != _tasks.end())
     {
-        it->second.file.close();
+        it->second.file->close();
         _tasks.erase(it);
     }
 }
 
 void FileSendMgr::SendNextChunk(FileSendTask &task)
 {
-    if (!task.active || !task.file.isOpen())
+    if (!task.active || !task.file->isOpen())
     {
         return;
     }
 
-    QByteArray data = task.file.read(kChunkSize);
+    QByteArray data = task.file->read(kChunkSize);
     if (data.isEmpty())
     {
         if (task.sent_size >= task.total_size)
@@ -97,7 +94,7 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
             emit sigSendComplete(task.task_id, false, "Read empty chunk before EOF");
         }
         task.active = false;
-        task.file.close();
+        task.file->close();
         return;
     }
 
@@ -118,7 +115,7 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
     {
         emit sigSendComplete(task.task_id, false, "Failed to serialize FileChunk");
         task.active = false;
-        task.file.close();
+        task.file->close();
     }
 
     int progress = static_cast<int>((task.sent_size * 100) / task.total_size);
