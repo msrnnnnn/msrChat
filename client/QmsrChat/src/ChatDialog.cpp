@@ -93,10 +93,9 @@ void ChatDialog::SetupQmlView()
     if (!mainLayout)
     {
         mainLayout = new QVBoxLayout(this);
-        mainLayout->setContentsMargins(11, 11, 11, 11);
-        mainLayout->setSpacing(0);
     }
 
+    // 隐藏并移除现有控件
     QLayoutItem *child = nullptr;
     while ((child = mainLayout->takeAt(0)) != nullptr)
     {
@@ -107,6 +106,7 @@ void ChatDialog::SetupQmlView()
         delete child;
     }
 
+    // 创建新的布局：我的ID标签 + 目标UID输入框 + QML视图
     QHBoxLayout *uidRow = new QHBoxLayout();
     uidRow->setContentsMargins(0, 0, 0, 8);
 
