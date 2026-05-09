@@ -95,6 +95,35 @@ void ChatListModel::AddMessage(const ChatMessage &msg)
     emit scrollToBottomRequested();
 }
 
+void ChatListModel::UpsertMessage(const ChatMessage &msg)
+{
+    int changedRow = -1;
+    {
+        QMutexLocker locker(&_mutex);
+        for (int i = 0; i < _messages.size(); ++i)
+        {
+            const bool sameClientId = !msg.client_msg_id.isEmpty() && _messages[i].client_msg_id == msg.client_msg_id;
+            const bool sameServerId = msg.server_msg_id > 0 && _messages[i].server_msg_id == msg.server_msg_id;
+            if (sameClientId || sameServerId)
+            {
+                _messages[i] = msg;
+                changedRow = i;
+                break;
+            }
+        }
+    }
+
+    if (changedRow >= 0)
+    {
+        const QModelIndex idx = index(changedRow, 0);
+        emit dataChanged(idx, idx);
+        emit scrollToBottomRequested();
+        return;
+    }
+
+    AddMessage(msg);
+}
+
 void ChatListModel::AddMessages(const QVector<ChatMessage> &messages)
 {
     if (messages.isEmpty())
@@ -147,7 +176,18 @@ void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &message
     emit scrollToTopRequested();
 }
 
-void ChatListModel::UpdateMessageStatus(qint64 msg_id, int status)
+void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
+{
+    beginResetModel();
+    {
+        QMutexLocker locker(&_mutex);
+        _messages = messages;
+    }
+    endResetModel();
+    emit scrollToBottomRequested();
+}
+
+void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     int changedRow = -1;
 
@@ -155,7 +195,7 @@ void ChatListModel::UpdateMessageStatus(qint64 msg_id, int status)
         QMutexLocker locker(&_mutex);
         for (int i = 0; i < _messages.size(); ++i)
         {
-            if (_messages[i].id == msg_id)
+            if (_messages[i].client_msg_id == client_msg_id)
             {
                 _messages[i].status = status;
                 changedRow = i;

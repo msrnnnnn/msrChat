@@ -19,6 +19,7 @@ public:
 public slots:
     void slot_init(const QString &db_path);
     void slot_save_message(const ChatMessage &msg);
+    void slot_update_message_status(const QString &client_msg_id, int status);
     void slot_get_messages(int uid1, int uid2, qint64 before_time, int limit);
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
@@ -48,6 +49,7 @@ public:
     void Shutdown();
 
     void SaveMessage(const ChatMessage &msg);
+    void UpdateMessageStatus(const QString &client_msg_id, int status);
     void GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
     void SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     void DeleteMessages(int uid1, int uid2);

@@ -5,25 +5,16 @@
 #include "LoginDialog.h"
 #include "AuthUiHelpers.h"
 #include "DPIHelper.h"
-#include "Global.h"
 #include "TcpMgr.h"
+#include "Utils.h"
 #include "ui_logindialog.h"
 #include "UserMgr.h"
-#include <QCoreApplication>
 #include <QDebug>
-#include <QDir>
-#include <QFile>
 #include <QPushButton>
-#include <QSettings>
-#include <algorithm>
 
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
-
-static constexpr int DEV_BTN_WIDTH = 80;
-static constexpr int DEV_BTN_HEIGHT = 30;
-static constexpr int DEV_BTN_MARGIN = 10;
 
 /**
  * @brief 构造函数
@@ -35,7 +26,7 @@ LoginDialog::LoginDialog(QWidget *parent)
 {
     ui->setupUi(this);
     ui->error_label->setProperty("state", "normal");
-    repolish(ui->error_label);
+    Utils::repolish(ui->error_label);
 
     connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::on_login_Button_clicked);
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
@@ -49,45 +40,6 @@ LoginDialog::LoginDialog(QWidget *parent)
     connect(ui->forget_password_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
 
     AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
-
-    QPushButton *devBtn = new QPushButton(tr("开发模式"), this);
-
-    QSize scaledBtnSize = DPI.scaledSize(DEV_BTN_WIDTH, DEV_BTN_HEIGHT);
-    devBtn->setMinimumSize(scaledBtnSize);
-    devBtn->setMaximumSize(scaledBtnSize);
-
-    DPI.applySizePolicy(devBtn, false, false);
-
-    int dev_x = std::max(DPI.scaled(DEV_BTN_MARGIN), width() - scaledBtnSize.width() - DPI.scaled(DEV_BTN_MARGIN));
-    int dev_y = DPI.scaled(340);
-    devBtn->setGeometry(dev_x, dev_y, scaledBtnSize.width(), scaledBtnSize.height());
-
-    devBtn->setStyleSheet(
-        "QPushButton { background-color: #FF9800; color: white; border: none; padding: 5px; }"
-        "QPushButton:hover { background-color: #F57C00; }");
-    devBtn->show();
-
-    connect(
-        devBtn, &QPushButton::clicked, this,
-        [this]()
-        {
-            qDebug() << "Dev Mode activated - TCP already connected at startup";
-
-            int devUid = 1001;
-            QString devToken = "dev_token";
-            UserMgr::Instance()->SetUid(devUid);
-            UserMgr::Instance()->SetToken(devToken);
-            _uid = devUid;
-            _token = devToken;
-            _chat_login_ready = false;
-
-            showTip(tr("开发模式：正在登录聊天服务..."), true);
-
-            ChatLoginReqStruct req;
-            req.uid = _uid;
-            req.token = _token;
-            TcpMgr::Instance()->slot_send_chat_login_req(req);
-        });
 }
 
 /**
@@ -146,7 +98,7 @@ void LoginDialog::on_login_Button_clicked()
     auto pwd = ui->password_Edit->text();
     LoginReqStruct req;
     req.user = user;
-    req.passwd = hashPassword(pwd);
+    req.passwd = Utils::hashPassword(pwd);
     TcpMgr::Instance()->slot_send_login_req(req);
 }
 

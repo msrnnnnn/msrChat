@@ -7,54 +7,8 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <QCryptographicHash>
 #include <QMetaType>
 #include <QString>
-#include <QStyle>
-#include <QWidget>
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <mutex>
-
-/**
- * @brief 带盐密码哈希函数
- * @param input 原始密码
- * @return 十六进制哈希字符串 (salt + SHA256)
- * @deprecated 请使用 Utils::hashPassword()
- */
-inline QString HashPassword(const QString &input)
-{
-    QString salted = input + QStringLiteral("MsrChat_v1_Salt_2024");
-    QByteArray data = QCryptographicHash::hash(salted.toUtf8(), QCryptographicHash::Sha256);
-    return QStringLiteral("MsrChat_v1_Salt_2024") + data.toHex();
-}
-
-/**
- * @brief 刷新控件样式
- * @param w 需要刷新样式的 QWidget 指针
- * @deprecated 请使用 Utils::repolish()
- */
-inline void Repolish(QWidget *w)
-{
-    if (w)
-    {
-        w->style()->unpolish(w);
-        w->style()->polish(w);
-    }
-}
-
-/**
- * @brief 向后兼容别名
- * @deprecated 请使用 Utils::hashPassword()
- */
-extern std::function<QString(QString)> hashPassword;
-
-/**
- * @brief 向后兼容别名
- * @deprecated 请使用 Utils::repolish()
- */
-extern std::function<void(QWidget *)> repolish;
 
 /**
  * @brief 网络请求类型枚举
@@ -74,11 +28,6 @@ enum class RequestType
     MSG_FILE_RSP = 2002,          ///< 文件传输响应(断点续传)
     MSG_FILE_CHUNK = 2003,        ///< 文件数据分片
     MSG_FILE_ACK = 2004,          ///< 数据块接收确认
-    MSG_ZEROCOPY_START = 2010,    ///< 零拷贝传输启动请求
-    MSG_ZEROCOPY_READY = 2011,    ///< 零拷贝传输就绪
-    MSG_ZEROCOPY_DATA = 2012,     ///< 零拷贝数据传输
-    MSG_ZEROCOPY_COMPLETE = 2013, ///< 零拷贝传输完成
-    MSG_ZEROCOPY_ERROR = 2014,    ///< 零拷贝传输错误
 };
 
 Q_DECLARE_METATYPE(RequestType)

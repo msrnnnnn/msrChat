@@ -1,48 +1,14 @@
 #include "FileRecvMgr.h"
-#include <QCryptographicHash>
-#include <QDateTime>
-#include <QDebug>
 #include <QDir>
-#include <QFile>
-#include <QStandardPaths>
+#include <QMutexLocker>
 
-FileWriteTask::FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath, QObject *parent)
-    : QObject(parent),
-      QRunnable(),
-      _task_id(task_id),
-      _data(std::move(data)),
-      _temp_filepath(temp_filepath)
+FileRecvMgr::FileRecvMgr()
+    : QObject(nullptr)
 {
-    setAutoDelete(true);
 }
 
-void FileWriteTask::run()
+FileRecvMgr::~FileRecvMgr()
 {
-    QFile file(_temp_filepath);
-    bool success = false;
-    QString error;
-
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Append))
-    {
-        error = "Failed to open file for writing";
-        qDebug() << error << _temp_filepath;
-    }
-    else
-    {
-        qint64 written = file.write(_data);
-        if (written == _data.size())
-        {
-            success = true;
-        }
-        else
-        {
-            error = QString("Write failed: wrote %1 of %2 bytes").arg(written).arg(_data.size());
-            qDebug() << error;
-        }
-        file.close();
-    }
-
-    emit sigWriteComplete(_task_id, success, error);
 }
 
 FileRecvMgr &FileRecvMgr::Instance()
@@ -51,316 +17,191 @@ FileRecvMgr &FileRecvMgr::Instance()
     return instance;
 }
 
-FileRecvMgr::FileRecvMgr()
-{
-    _threadPool.setMaxThreadCount(4);
-    _threadPool.setExpiryTimeout(30000);
-}
-
-FileRecvMgr::~FileRecvMgr()
-{
-    _threadPool.waitForDone(5000);
-    QMutexLocker locker(&_mutex);
-    for (auto &pair : _tasks)
-    {
-        if (!pair.second.temp_filepath.empty() && QFile::exists(pair.second.temp_filepath_qstring))
-        {
-            QFile::remove(pair.second.temp_filepath_qstring);
-        }
-    }
-}
-
-QString FileRecvMgr::GetTempDir() const
-{
-    QString temp_dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/msrchat_files";
-    QDir dir(temp_dir);
-    if (!dir.exists())
-    {
-        dir.mkpath(temp_dir);
-    }
-    return temp_dir;
-}
-
-QString FileRecvMgr::GetFinalPath(const std::string &filename) const
-{
-    QString download_dir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/msrchat";
-    QDir dir(download_dir);
-    if (!dir.exists())
-    {
-        dir.mkpath(download_dir);
-    }
-    return download_dir + "/" + QString::fromStdString(filename);
-}
-
-bool FileRecvMgr::OpenTempFile(FileRecvTask &task)
-{
-    QString temp_dir = GetTempDir();
-    QString timestamp = QString::number(QDateTime::currentMSecsSinceEpoch());
-    QString temp_filename =
-        QString::number(task.task_id) + "_" + timestamp + "_" + QString::fromStdString(task.filename) + ".tmp";
-    task.temp_filepath_qstring = temp_dir + "/" + temp_filename;
-    task.temp_filepath = task.temp_filepath_qstring.toStdString();
-
-    QFile file(task.temp_filepath_qstring);
-    if (!file.open(QIODevice::WriteOnly))
-    {
-        qDebug() << "Failed to create temp file:" << task.temp_filepath_qstring;
-        return false;
-    }
-    file.close();
-    return true;
-}
-
 bool FileRecvMgr::StartRecv(
     int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5,
     QString *error)
 {
-    QMutexLocker locker(&_mutex);
+    QMutexLocker lock(&_mutex);
 
-    if (_tasks.find(task_id) != _tasks.end())
+    if (_tasks.contains(task_id))
     {
-        qDebug() << "Task already exists:" << task_id;
-        if (error != nullptr)
-        {
-            *error = "Task already exists";
-        }
-        return false;
+        return Fail(error, "task already exists");
+    }
+    if (total_size <= 0)
+    {
+        return Fail(error, "invalid total size");
     }
 
     FileRecvTask task;
     task.task_id = task_id;
     task.from_uid = from_uid;
-    task.filename = filename;
+    task.filename = QString::fromStdString(filename);
     task.total_size = total_size;
-    task.received_size = 0;
-    task.buffered_size = 0;
-    task.md5 = md5;
-    task.completed = false;
+    task.md5 = QString::fromStdString(md5);
+    task.temp_filepath = BuildTempPath(task_id, task.filename);
+    task.final_filepath = BuildFinalPath(task.filename);
+    task.file = std::make_unique<QFile>(task.temp_filepath);
 
-    if (!OpenTempFile(task))
+    if (!task.file->open(QIODevice::WriteOnly | QIODevice::Truncate))
     {
-        const QString message = "Failed to create temp file";
-        if (error != nullptr)
-        {
-            *error = message;
-        }
-        emit SigRecvComplete(task_id, "", false, message);
-        return false;
+        return Fail(error, "open temp file failed");
     }
 
-    _tasks[task_id] = task;
-    qDebug() << "Start recv task:" << task_id << "file:" << QString::fromStdString(filename) << "size:" << total_size;
+    _tasks.insert(task_id, std::move(task));
     return true;
 }
 
-bool FileRecvMgr::WriteChunk(int64_t task_id, int64_t offset, const char *data, size_t len, QString *error)
+bool FileRecvMgr::WriteChunk(
+    int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed, QString *error)
 {
-    FileRecvTask *task = nullptr;
+    QMutexLocker lock(&_mutex);
 
+    auto it = _tasks.find(task_id);
+    if (it == _tasks.end())
     {
-        QMutexLocker locker(&_mutex);
-        auto it = _tasks.find(task_id);
-        if (it == _tasks.end() || it->second.completed)
-        {
-            qDebug() << "Task not found or already completed:" << task_id;
-            if (error != nullptr)
-            {
-                *error = "Task not found or already completed";
-            }
-            return false;
-        }
-        task = &it->second;
-
-        if (offset != task->buffered_size)
-        {
-            qDebug() << "Unexpected chunk offset:" << task_id << "offset:" << offset
-                     << "expected:" << task->buffered_size;
-            if (error != nullptr)
-            {
-                *error = QString("Unexpected chunk offset: %1").arg(offset);
-            }
-            return false;
-        }
-
-        if (task->buffered_size + static_cast<int64_t>(len) > task->total_size)
-        {
-            qDebug() << "Chunk exceeds total size:" << task_id;
-            if (error != nullptr)
-            {
-                *error = "Chunk exceeds total size";
-            }
-            return false;
-        }
-
-        task->buffered_size += static_cast<int64_t>(len);
+        return Fail(error, "task not found");
     }
 
-    QByteArray data_copy(data, static_cast<int>(len));
-    FileWriteTask *write_task = new FileWriteTask(task_id, std::move(data_copy), task->temp_filepath_qstring);
+    FileRecvTask &task = it.value();
 
-    QObject::connect(
-        write_task, &FileWriteTask::sigWriteComplete, this, &FileRecvMgr::onWriteComplete, Qt::QueuedConnection);
+    if (offset != task.received_size)
+    {
+        return Fail(error, "unexpected chunk offset");
+    }
+    if (data.isEmpty())
+    {
+        return Fail(error, "empty chunk");
+    }
+    if (task.received_size + data.size() > task.total_size)
+    {
+        return Fail(error, "chunk exceeds total size");
+    }
 
-    _threadPool.start(write_task);
+    if (!task.file->seek(offset))
+    {
+        return Fail(error, "seek failed");
+    }
+
+    const qint64 written = task.file->write(data);
+    if (written != data.size())
+    {
+        return Fail(error, "write failed");
+    }
+    if (!task.file->flush())
+    {
+        return Fail(error, "flush failed");
+    }
+
+    task.received_size += written;
+    if (committed)
+    {
+        *committed = task.received_size;
+    }
+
+    emit SigRecvProgress(
+        task_id, CalcProgress(task.received_size, task.total_size), task.received_size, task.total_size);
+
+    if (task.received_size == task.total_size)
+    {
+        return CompleteTask(it, error);
+    }
     return true;
-}
-
-void FileRecvMgr::onWriteComplete(int64_t task_id, bool success, const QString &error)
-{
-    if (!success)
-    {
-        qDebug() << "Async write failed for task:" << task_id << error;
-        QMutexLocker locker(&_mutex);
-        auto it = _tasks.find(task_id);
-        if (it != _tasks.end())
-        {
-            emit SigChunkStored(task_id, it->second.received_size, false, error);
-            emit SigRecvComplete(task_id, "", false, error);
-            _tasks.erase(it);
-        }
-        return;
-    }
-
-    QMutexLocker locker(&_mutex);
-    auto it = _tasks.find(task_id);
-    if (it == _tasks.end())
-    {
-        return;
-    }
-
-    FileRecvTask &task = it->second;
-    task.received_size = task.buffered_size;
-    UpdateProgress(task_id);
-
-    if (task.received_size >= task.total_size)
-    {
-        emit SigChunkStored(task_id, task.received_size, true, "");
-        CompleteTask(task_id);
-        return;
-    }
-
-    emit SigChunkStored(task_id, task.received_size, false, "");
-}
-
-void FileRecvMgr::UpdateProgress(int64_t task_id)
-{
-    FileRecvTask *task = nullptr;
-    {
-        QMutexLocker locker(&_mutex);
-        auto it = _tasks.find(task_id);
-        if (it == _tasks.end())
-        {
-            return;
-        }
-        task = &it->second;
-    }
-
-    int progress = static_cast<int>((task->received_size * 100) / task->total_size);
-    emit SigRecvProgress(task_id, progress, task->received_size, task->total_size);
-}
-
-void FileRecvMgr::OnChunkAck(int64_t task_id, int64_t received_size)
-{
-    QMutexLocker locker(&_mutex);
-
-    auto it = _tasks.find(task_id);
-    if (it == _tasks.end())
-    {
-        return;
-    }
-
-    qDebug() << "Chunk ACK:" << task_id << "offset:" << received_size;
-}
-
-void FileRecvMgr::CompleteTask(int64_t task_id)
-{
-    auto it = _tasks.find(task_id);
-    if (it == _tasks.end())
-    {
-        return;
-    }
-
-    FileRecvTask &task = it->second;
-    QString final_path = GetFinalPath(task.filename);
-
-    if (QFile::exists(final_path))
-    {
-        QFile::remove(final_path);
-    }
-
-    if (QFile::rename(task.temp_filepath_qstring, final_path))
-    {
-        bool md5_ok = true;
-        if (!task.md5.empty())
-        {
-            md5_ok = ValidateMd5(final_path, task.md5);
-        }
-
-        if (md5_ok)
-        {
-            task.completed = true;
-            emit SigRecvComplete(task_id, final_path, true, "");
-            qDebug() << "File recv completed:" << task_id << final_path;
-        }
-        else
-        {
-            QFile::remove(final_path);
-            emit SigRecvComplete(task_id, "", false, "MD5 validation failed");
-            qDebug() << "File MD5 validation failed:" << task_id;
-        }
-    }
-    else
-    {
-        emit SigRecvComplete(task_id, "", false, "Failed to rename file");
-        qDebug() << "Failed to rename file:" << task_id;
-    }
-
-    _tasks.erase(it);
 }
 
 void FileRecvMgr::CancelRecv(int64_t task_id)
 {
-    QMutexLocker locker(&_mutex);
-
+    QMutexLocker lock(&_mutex);
     auto it = _tasks.find(task_id);
     if (it == _tasks.end())
     {
         return;
     }
 
-    FileRecvTask &task = it->second;
-
-    if (!task.temp_filepath.empty() && QFile::exists(task.temp_filepath_qstring))
-    {
-        QFile::remove(task.temp_filepath_qstring);
-    }
-
+    it->file->close();
+    QFile::remove(it->temp_filepath);
     _tasks.erase(it);
-    qDebug() << "Task cancelled:" << task_id;
 }
 
-bool FileRecvMgr::ValidateMd5(const QString &filepath, const std::string &expected_md5)
+bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask>::iterator it, QString *error)
+{
+    FileRecvTask &task = it.value();
+    task.file->close();
+
+    QFile::remove(task.final_filepath);
+    if (!QFile::rename(task.temp_filepath, task.final_filepath))
+    {
+        return FailAndEmit(task.task_id, error, "rename failed");
+    }
+
+    if (!task.md5.isEmpty() && CalcMd5(task.final_filepath) != task.md5)
+    {
+        QFile::remove(task.final_filepath);
+        return FailAndEmit(task.task_id, error, "md5 mismatch");
+    }
+
+    const QString finalPath = task.final_filepath;
+    const int64_t taskId = task.task_id;
+    _tasks.erase(it);
+    emit SigRecvComplete(taskId, finalPath, true, {});
+    return true;
+}
+
+bool FileRecvMgr::FailAndEmit(int64_t task_id, QString *error, const char *message)
+{
+    if (error)
+    {
+        *error = QString::fromLatin1(message);
+    }
+    emit SigRecvComplete(task_id, {}, false, QString::fromLatin1(message));
+    return false;
+}
+
+bool FileRecvMgr::Fail(QString *error, const char *message) const
+{
+    if (error)
+    {
+        *error = QString::fromLatin1(message);
+    }
+    return false;
+}
+
+int FileRecvMgr::CalcProgress(int64_t received, int64_t total) const
+{
+    return total == 0 ? 0 : static_cast<int>((received * 100) / total);
+}
+
+QString FileRecvMgr::GetTempDir() const
+{
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/msrchat";
+    QDir().mkpath(base);
+    return base;
+}
+
+QString FileRecvMgr::GetFinalPath(const QString &filename) const
+{
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/msrchat";
+    QDir().mkpath(base);
+    return base + "/" + filename;
+}
+
+QString FileRecvMgr::BuildTempPath(int64_t task_id, const QString &fileName) const
+{
+    return GetTempDir() + "/" + QString::number(task_id) + "_" + fileName + ".part";
+}
+
+QString FileRecvMgr::BuildFinalPath(const QString &fileName) const
+{
+    return GetFinalPath(fileName);
+}
+
+QString FileRecvMgr::CalcMd5(const QString &filepath) const
 {
     QFile file(filepath);
     if (!file.open(QIODevice::ReadOnly))
     {
-        return false;
+        return {};
     }
-
     QCryptographicHash hash(QCryptographicHash::Md5);
-    const int chunk_size = 4096;
-    QByteArray buffer;
-
-    while (!file.atEnd())
-    {
-        buffer = file.read(chunk_size);
-        if (buffer.isEmpty())
-        {
-            break;
-        }
-        hash.addData(buffer);
-    }
-
-    QString actual_md5 = QString::fromLatin1(hash.result().toHex());
-    return actual_md5.toStdString() == expected_md5;
+    hash.addData(&file);
+    return QString::fromLatin1(hash.result().toHex());
 }

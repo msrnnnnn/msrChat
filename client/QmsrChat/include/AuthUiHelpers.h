@@ -2,7 +2,7 @@
 #define AUTHUIHELPERS_H
 
 #include "ClickedLabel.h"
-#include "Global.h"
+#include "Utils.h"
 #include <QLabel>
 #include <QLineEdit>
 #include <QMap>
@@ -55,7 +55,7 @@ inline void ShowTip(QLabel *label, const QString &text, bool isCorrect)
 
     label->setProperty("state", isCorrect ? "normal" : "error");
     label->setText(text);
-    repolish(label);
+    Utils::repolish(label);
 }
 
 inline void BindPasswordToggle(ClickedLabel *toggle, QLineEdit *edit)
