@@ -6,8 +6,8 @@
  */
 #include "AuthUiHelpers.h"
 #include "RegisterDialog.h"
-#include "Global.h"
 #include "TcpMgr.h"
+#include "Utils.h"
 #include "ui_registerdialog.h"
 #include <QDebug>
 #include <QMessageBox>
@@ -24,7 +24,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     ui->setupUi(this);
 
     ui->error_label->setProperty("state", "normal");
-    repolish(ui->error_label);
+    Utils::repolish(ui->error_label);
 
     connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &RegisterDialog::slot_verify_code_rsp);
     connect(TcpMgr::Instance(), &TcpMgr::sig_register_rsp, this, &RegisterDialog::slot_register_rsp);
@@ -97,7 +97,7 @@ void RegisterDialog::on_Confirm_Button_clicked()
     RegisterReqStruct req;
     req.user = ui->user_Edit->text();
     req.email = ui->email_Edit->text();
-    req.passwd = hashPassword(ui->password_Edit->text());
+    req.passwd = Utils::hashPassword(ui->password_Edit->text());
     req.varifycode = ui->verifycode_Edit->text();
 
     TcpMgr::Instance()->slot_send_register_req(req);

@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQml
 
 Rectangle {
     id: chatViewRoot
@@ -174,19 +175,10 @@ Rectangle {
                 }
 
                 onClicked: {
-                    fileDialog.open()
+                    if (chatController) {
+                        chatController.sendFile("")
+                    }
                 }
-            }
-        }
-    }
-
-    FileDialog {
-        id: fileDialog
-        title: qsTr("选择要发送的文件")
-        selectedFile: ""
-        onAccepted: {
-            if (selectedFile) {
-                chatController.sendFile(selectedFile)
             }
         }
     }
@@ -275,27 +267,29 @@ Rectangle {
         }
     }
 
-    Component.onCompleted: {
-        if (chatController) {
-            chatController.onFileSendStarted.connect(function(task_id, filename, total_size) {
-                fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0})
-            })
-            chatController.onFileSendProgress.connect(function(task_id, prog, sent, total) {
-                for (var i = 0; i < fileProgressModel.count; i++) {
-                    if (fileProgressModel.get(i).task_id === task_id) {
-                        fileProgressModel.setProperty(i, "progress", prog)
-                        break
-                    }
+    Connections {
+        target: chatController
+
+        function onSigFileSendStarted(task_id, filename, total_size) {
+            fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0})
+        }
+
+        function onSigFileSendProgress(task_id, prog, sent, total) {
+            for (var i = 0; i < fileProgressModel.count; i++) {
+                if (fileProgressModel.get(i).task_id === task_id) {
+                    fileProgressModel.setProperty(i, "progress", prog)
+                    break
                 }
-            })
-            chatController.onFileSendComplete.connect(function(task_id, success, error) {
-                for (var i = 0; i < fileProgressModel.count; i++) {
-                    if (fileProgressModel.get(i).task_id === task_id) {
-                        fileProgressModel.remove(i)
-                        break
-                    }
+            }
+        }
+
+        function onSigFileSendComplete(task_id, success, error) {
+            for (var i = 0; i < fileProgressModel.count; i++) {
+                if (fileProgressModel.get(i).task_id === task_id) {
+                    fileProgressModel.remove(i)
+                    break
                 }
-            })
+            }
         }
     }
 }

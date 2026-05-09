@@ -6,6 +6,7 @@
 #ifndef CHATCONTROLLER_H
 #define CHATCONTROLLER_H
 
+#include "ChatListModel.h"
 #include "DbWorker.h"
 #include "ProtocolStructs.h"
 #include "TcpMgr.h"
@@ -18,9 +19,7 @@
 
 struct PendingMessageInfo
 {
-    QString content;
-    qint64 send_time;
-    qint64 msg_id;
+    qint64 send_time = 0;
 };
 
 class ChatController : public QObject
@@ -35,35 +34,31 @@ public:
     ~ChatController();
 
     Q_INVOKABLE void sendMessage(const QString &content);
+    Q_INVOKABLE void sendFile(const QString &filePath);
     Q_INVOKABLE void setTargetUid(int uid);
     Q_INVOKABLE void loadHistory();
     Q_INVOKABLE void clearHistory();
+    Q_INVOKABLE void initialize();
 
     int GetCurrentUid() const;
     int GetTargetUid() const;
     bool IsConnected() const;
-
-    Q_INVOKABLE void initialize();
+    void setChatModel(ChatListModel *model);
 
 signals:
     void sigCurrentUidChanged();
     void sigTargetUidChanged();
     void sigConnectionStatusChanged();
-    void sigMessageReceived(const QVariantMap &msgData);
-    void sigMessageSent(const QVariantMap &msgData);
-    void sigMessageStatusChanged(const QString &clientMsgId, int status);
-    void sigHistoryLoaded(const QVariantList &messages);
     void sigError(const QString &error);
     void sigFileSendStarted(int64_t task_id, QString filename, int64_t total_size);
     void sigFileSendProgress(int64_t task_id, int progress, int64_t sent, int64_t total);
     void sigFileSendComplete(int64_t task_id, bool success, QString error);
 
 public slots:
-    void sendFile(const QString &filePath);
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
     void slotOnChatAck(const ChatAckStruct &ack);
     void slotOnConnectionStateChanged(bool connected);
-    void slotOnOfflineAck(const OfflineAckStruct &ack);
+    void slotOnOfflineProgress(const OfflineAckStruct &ack);
     void slotOnReconnected();
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);
     void slotOnMessageSaved(bool success);
@@ -72,14 +67,15 @@ public slots:
 private:
     void ConnectSignals();
     void DisconnectSignals();
-    void AddMessageToModel(const ChatMessage &msg);
     QVariantMap ChatMessageToVariant(const ChatMessage &msg);
 
     int _target_uid;
     int _current_uid;
     bool _is_connected;
+    ChatListModel *_chat_model = nullptr;
     QSet<QString> _received_msg_ids;
     QHash<QString, PendingMessageInfo> _pending_messages;
+    qint64 _last_offline_received = -1;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
     static constexpr int HISTORY_PAGE_SIZE = 50;

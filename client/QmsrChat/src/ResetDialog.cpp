@@ -6,6 +6,7 @@
 #include "AuthUiHelpers.h"
 #include "ResetDialog.h"
 #include "TcpMgr.h"
+#include "Utils.h"
 #include "ui_resetdialog.h"
 /**
  * @brief 构造函数
@@ -18,7 +19,7 @@ ResetDialog::ResetDialog(QWidget *parent)
     ui->setupUi(this);
 
     ui->error_label->setProperty("state", "normal");
-    repolish(ui->error_label);
+    Utils::repolish(ui->error_label);
 
     connect(ui->cancel_btn, &QPushButton::clicked, this, &ResetDialog::switchLogin);
     connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &ResetDialog::slot_verify_code_rsp);
@@ -116,7 +117,7 @@ void ResetDialog::on_sure_btn_clicked()
     ResetPwdReqStruct req;
     req.user = ui->user_edit->text();
     req.email = ui->email_edit->text();
-    req.passwd = hashPassword(ui->pwd_edit->text());
+    req.passwd = Utils::hashPassword(ui->pwd_edit->text());
     req.varifycode = ui->varify_edit->text();
     TcpMgr::Instance()->slot_send_reset_pwd_req(req);
 }

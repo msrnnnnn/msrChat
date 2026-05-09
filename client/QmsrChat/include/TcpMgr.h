@@ -65,13 +65,14 @@ signals:
     void sig_reset_pwd_rsp(const ResetPwdRspStruct &rsp);
 
 private slots:
-    void slot_parse_login_rsp(RequestType req_type, const QByteArray &data);
-    void slot_parse_chat_login_rsp(quint16 msg_id, const QByteArray &data);
-    void slot_parse_chat_msg(quint16 msg_id, const QByteArray &data);
+    void slot_dispatch_packet(quint16 msg_id, const QByteArray &data);
 
 private:
     explicit TcpMgr(QObject *parent = nullptr);
     void init_thread();
+    void parse_login_packet(RequestType req_type, const QByteArray &data);
+    void parse_chat_packet(RequestType req_type, const QByteArray &data);
+    void handle_file_packet(RequestType req_type, const QByteArray &data);
 
     static QMutex _mutex;
     static TcpMgr *_instance;

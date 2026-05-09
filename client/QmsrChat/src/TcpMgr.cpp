@@ -3,8 +3,11 @@
  * @brief TCP 管理单例实现
  */
 #include "TcpMgr.h"
+#include "FileRecvMgr.h"
+#include "FileSendMgr.h"
 #include "Message.pb.h"
 #include "TcpWorker.h"
+#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
@@ -117,12 +120,7 @@ void TcpMgr::init_thread()
             Qt::QueuedConnection);
     connect(_worker, &TcpWorker::sig_reconnected, this, &TcpMgr::sig_reconnected, Qt::QueuedConnection);
 
-    connect(
-        _worker, static_cast<void (TcpWorker::*)(RequestType, QByteArray)>(&TcpWorker::sig_msg_received), this,
-        &TcpMgr::slot_parse_login_rsp, Qt::QueuedConnection);
-    connect(
-        _worker, static_cast<void (TcpWorker::*)(quint16, QByteArray)>(&TcpWorker::sig_msg_received), this,
-        &TcpMgr::slot_parse_chat_msg, Qt::QueuedConnection);
+    connect(_worker, &TcpWorker::sig_packet_received, this, &TcpMgr::slot_dispatch_packet, Qt::QueuedConnection);
 
     _netThread->start();
 }
@@ -219,7 +217,35 @@ void TcpMgr::slot_send_file_req(const FileReqStruct &req)
     }
 }
 
-void TcpMgr::slot_parse_login_rsp(RequestType req_type, const QByteArray &data)
+void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
+{
+    const auto req_type = static_cast<RequestType>(msg_id);
+    switch (req_type)
+    {
+        case RequestType::ID_LOGIN_USER:
+        case RequestType::ID_GET_VARIFY_CODE:
+        case RequestType::ID_REGISTER_USER:
+        case RequestType::ID_RESET_PWD:
+            parse_login_packet(req_type, data);
+            return;
+        case RequestType::MSG_CHAT_LOGIN:
+        case RequestType::MSG_CHAT_TEXT:
+        case RequestType::MSG_CHAT_ACK:
+        case RequestType::MSG_OFFLINE_ACK:
+            parse_chat_packet(req_type, data);
+            return;
+        case RequestType::MSG_FILE_REQ:
+        case RequestType::MSG_FILE_RSP:
+        case RequestType::MSG_FILE_CHUNK:
+        case RequestType::MSG_FILE_ACK:
+            handle_file_packet(req_type, data);
+            return;
+        default:
+            return;
+    }
+}
+
+void TcpMgr::parse_login_packet(RequestType req_type, const QByteArray &data)
 {
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (doc.isNull() || !doc.isObject())
@@ -264,30 +290,26 @@ void TcpMgr::slot_parse_login_rsp(RequestType req_type, const QByteArray &data)
     }
 }
 
-void TcpMgr::slot_parse_chat_login_rsp(quint16 msg_id, const QByteArray &data)
+void TcpMgr::parse_chat_packet(RequestType req_type, const QByteArray &data)
 {
-    if (msg_id != static_cast<quint16>(RequestType::MSG_CHAT_LOGIN))
+    if (req_type == RequestType::MSG_CHAT_LOGIN)
     {
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isNull() || !doc.isObject())
+        {
+            return;
+        }
+
+        QJsonObject obj = doc.object();
+        ChatLoginRspStruct rsp;
+        rsp.error = obj.value("error").toInt(1);
+        rsp.message = obj.value("message").toString();
+
+        emit sig_chat_login_rsp(rsp);
         return;
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (doc.isNull() || !doc.isObject())
-    {
-        return;
-    }
-
-    QJsonObject obj = doc.object();
-    ChatLoginRspStruct rsp;
-    rsp.error = obj.value("error").toInt(1);
-    rsp.message = obj.value("message").toString();
-
-    emit sig_chat_login_rsp(rsp);
-}
-
-void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
-{
-    if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_TEXT))
+    if (req_type == RequestType::MSG_CHAT_TEXT)
     {
         qmsrchat::ServerChatMsg chatMsg;
         if (chatMsg.ParseFromArray(data.constData(), data.size()))
@@ -306,8 +328,9 @@ void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
         {
             qWarning() << "Failed to parse ServerChatMsg from Protobuf";
         }
+        return;
     }
-    else if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_ACK))
+    if (req_type == RequestType::MSG_CHAT_ACK)
     {
         qmsrchat::ChatAck chatAck;
         if (!chatAck.ParseFromArray(data.constData(), data.size()))
@@ -322,8 +345,9 @@ void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
         ack.client_msg_id = QString::fromStdString(chatAck.client_msg_id());
 
         emit sig_chat_ack(ack);
+        return;
     }
-    else if (msg_id == static_cast<quint16>(RequestType::MSG_OFFLINE_ACK))
+    if (req_type == RequestType::MSG_OFFLINE_ACK)
     {
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (doc.isNull() || !doc.isObject())
@@ -338,8 +362,107 @@ void TcpMgr::slot_parse_chat_msg(quint16 msg_id, const QByteArray &data)
 
         emit sig_offline_ack(ack);
     }
-    else if (msg_id == static_cast<quint16>(RequestType::MSG_CHAT_LOGIN))
+}
+
+void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
+{
+    if (req_type == RequestType::MSG_FILE_CHUNK)
     {
-        slot_parse_chat_login_rsp(msg_id, data);
+        qmsrchat::FileChunk chunk;
+        if (!chunk.ParseFromArray(data.constData(), data.size()))
+        {
+            return;
+        }
+
+        const int64_t task_id = chunk.task_id();
+        const int64_t offset = chunk.offset();
+        const QByteArray chunk_data(chunk.data().data(), static_cast<int>(chunk.data().size()));
+
+        int64_t committed = offset;
+        QString error;
+        const bool ok = !chunk_data.isEmpty() &&
+                        FileRecvMgr::Instance().WriteChunk(task_id, offset, chunk_data, &committed, &error);
+
+        qmsrchat::FileAck ack;
+        ack.set_task_id(task_id);
+        ack.set_error(ok ? 0 : 1);
+        ack.set_received(ok ? committed : offset);
+        if (!error.isEmpty())
+        {
+            ack.set_message(error.toStdString());
+        }
+
+        std::string serialized;
+        if (ack.SerializeToString(&serialized))
+        {
+            slot_send_data(RequestType::MSG_FILE_ACK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        }
+        return;
+    }
+
+    if (req_type == RequestType::MSG_FILE_REQ)
+    {
+        qmsrchat::FileReq fileReq;
+        if (!fileReq.ParseFromArray(data.constData(), data.size()))
+        {
+            return;
+        }
+
+        QString error;
+        const bool ok = FileRecvMgr::Instance().StartRecv(
+            fileReq.task_id(), fileReq.from_uid(), fileReq.filename(), fileReq.total_size(), fileReq.md5(), &error);
+
+        qmsrchat::FileRsp rsp;
+        rsp.set_task_id(fileReq.task_id());
+        rsp.set_error(ok ? 0 : 1);
+        rsp.set_offset(0);
+        rsp.set_message((ok ? QStringLiteral("ready to receive") : error).toStdString());
+
+        std::string serialized;
+        if (rsp.SerializeToString(&serialized))
+        {
+            slot_send_data(RequestType::MSG_FILE_RSP, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        }
+        return;
+    }
+
+    if (req_type == RequestType::MSG_FILE_RSP)
+    {
+        qmsrchat::FileRsp fileRsp;
+        if (!fileRsp.ParseFromArray(data.constData(), data.size()))
+        {
+            return;
+        }
+
+        if (fileRsp.error() == 0)
+        {
+            FileSendMgr::Instance().OnRecvReady(fileRsp.task_id(), fileRsp.offset());
+        }
+        else
+        {
+            FileSendMgr::Instance().CancelSend(fileRsp.task_id());
+            qWarning() << "File send rejected by receiver, task_id:" << fileRsp.task_id()
+                       << "error:" << QString::fromStdString(fileRsp.message());
+        }
+        return;
+    }
+
+    if (req_type == RequestType::MSG_FILE_ACK)
+    {
+        qmsrchat::FileAck fileAck;
+        if (!fileAck.ParseFromArray(data.constData(), data.size()))
+        {
+            return;
+        }
+
+        if (fileAck.message() == "transfer complete")
+        {
+            FileSendMgr::Instance().CancelSend(fileAck.task_id());
+            return;
+        }
+        if (fileAck.received() > 0)
+        {
+            FileSendMgr::Instance().OnRecvReady(fileAck.task_id(), fileAck.received());
+        }
     }
 }

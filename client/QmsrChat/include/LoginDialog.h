@@ -52,11 +52,6 @@ private:
      */
     void showTip(QString str, bool isCorrect);
 
-    /**
-     * @brief 初始化网络回包处理器
-     */
-    void initHandlers();
-
 private slots:
     /**
      * @brief 登录按钮点击槽

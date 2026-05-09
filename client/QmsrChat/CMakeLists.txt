@@ -120,7 +120,6 @@ set(PROJECT_SOURCES
         include/TimerBtn.h
         include/ClickedLabel.h
         include/ChatListModel.h
-        include/ChatItemDelegate.h
         include/DbMgr.h
         include/DbWorker.h
         include/RingBuffer.h
@@ -136,7 +135,6 @@ set(PROJECT_SOURCES
         src/RegisterDialog.cpp
         src/ResetDialog.cpp
         src/ChatDialog.cpp
-        src/Global.cpp
         src/Logger.cpp
         src/UserMgr.cpp
         src/TcpMgr.cpp
@@ -146,7 +144,6 @@ set(PROJECT_SOURCES
         src/TimerBtn.cpp
         src/ClickedLabel.cpp
         src/ChatListModel.cpp
-        src/ChatItemDelegate.cpp
         src/DbMgr.cpp
         src/DbWorker.cpp
         src/ChatController.cpp

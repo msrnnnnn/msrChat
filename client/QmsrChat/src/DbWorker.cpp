@@ -55,6 +55,32 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
     }
 }
 
+void DbWorker::slot_update_message_status(const QString &client_msg_id, int status)
+{
+    QMutexLocker locker(&_mutex);
+
+    if (_stop_flag.load())
+    {
+        emit sig_messages_saved(false);
+        return;
+    }
+
+    if (!_dbInitialized)
+    {
+        emit sig_error(QString("Database not initialized"));
+        emit sig_messages_saved(false);
+        return;
+    }
+
+    const bool success = DbMgr::Instance().UpdateMessageStatus(client_msg_id, status);
+    emit sig_messages_saved(success);
+
+    if (!success)
+    {
+        emit sig_error(QString("Failed to update message status: %1").arg(client_msg_id));
+    }
+}
+
 void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int limit)
 {
     QMutexLocker locker(&_mutex);
@@ -152,6 +178,8 @@ DbThreadPool::DbThreadPool()
       _thread(nullptr),
       _worker(nullptr)
 {
+    qRegisterMetaType<ChatMessage>("ChatMessage");
+    qRegisterMetaType<QVector<ChatMessage>>("QVector<ChatMessage>");
 }
 
 DbThreadPool::~DbThreadPool()
@@ -241,6 +269,18 @@ void DbThreadPool::SaveMessage(const ChatMessage &msg)
     }
 
     QMetaObject::invokeMethod(_worker, "slot_save_message", Qt::QueuedConnection, Q_ARG(ChatMessage, msg));
+}
+
+void DbThreadPool::UpdateMessageStatus(const QString &client_msg_id, int status)
+{
+    if (_worker == nullptr)
+    {
+        qWarning() << "DbThreadPool not initialized";
+        return;
+    }
+
+    QMetaObject::invokeMethod(
+        _worker, "slot_update_message_status", Qt::QueuedConnection, Q_ARG(QString, client_msg_id), Q_ARG(int, status));
 }
 
 void DbThreadPool::GetMessages(int uid1, int uid2, qint64 before_time, int limit)

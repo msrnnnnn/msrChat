@@ -4,6 +4,7 @@
  */
 
 #include "ClickedLabel.h"
+#include "Utils.h"
 #include <QMouseEvent>
 
 /**
@@ -34,7 +35,7 @@ void ClickedLabel::mousePressEvent(QMouseEvent *event)
             _curstate = ClickLbState::Normal;
             setProperty("state", _normal_press.isEmpty() ? _normal_hover : _normal_press);
         }
-        repolish(this);
+        Utils::repolish(this);
         update();
         emit clicked();
     }
@@ -57,7 +58,7 @@ void ClickedLabel::mouseReleaseEvent(QMouseEvent *event)
         {
             setProperty("state", _selected_hover);
         }
-        repolish(this);
+        Utils::repolish(this);
         update();
         return;
     }
@@ -86,7 +87,7 @@ void ClickedLabel::enterEvent(QEvent *event)
     {
         setProperty("state", _selected_hover);
     }
-    repolish(this);
+    Utils::repolish(this);
     update();
     QLabel::enterEvent(event);
 }
@@ -105,7 +106,7 @@ void ClickedLabel::leaveEvent(QEvent *event)
     {
         setProperty("state", _selected);
     }
-    repolish(this);
+    Utils::repolish(this);
     update();
     QLabel::leaveEvent(event);
 }
@@ -131,7 +132,7 @@ void ClickedLabel::SetState(QString normal, QString hover, QString press, QStrin
     _selected_press = select_press;
 
     setProperty("state", normal);
-    repolish(this);
+    Utils::repolish(this);
 }
 
 /**

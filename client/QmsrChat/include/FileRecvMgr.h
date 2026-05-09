@@ -1,47 +1,29 @@
 #ifndef FILERECVMGR_H
 #define FILERECVMGR_H
 
-#include <QDir>
+#include <QCryptographicHash>
 #include <QFile>
-#include <QJsonDocument>
-#include <QJsonObject>
+#include <QHash>
 #include <QMutex>
 #include <QObject>
-#include <QRunnable>
+#include <QStandardPaths>
 #include <QString>
-#include <QThreadPool>
-#include <map>
-#include <string>
 
 struct FileRecvTask
 {
     int64_t task_id = 0;
     int from_uid = 0;
-    std::string filename;
+    QString filename;
+    QString temp_filepath;
+    QString final_filepath;
+    QString md5;
     int64_t total_size = 0;
     int64_t received_size = 0;
-    int64_t buffered_size = 0;
-    std::string temp_filepath;
-    std::string md5;
-    QString temp_filepath_qstring;
-    bool completed = false;
-};
+    std::unique_ptr<QFile> file;
 
-class FileWriteTask : public QObject, public QRunnable
-{
-    Q_OBJECT
-
-public:
-    FileWriteTask(int64_t task_id, QByteArray data, const QString &temp_filepath, QObject *parent = nullptr);
-    void run() override;
-
-signals:
-    void sigWriteComplete(int64_t task_id, bool success, const QString &error);
-
-private:
-    int64_t _task_id;
-    QByteArray _data;
-    QString _temp_filepath;
+    FileRecvTask() = default;
+    FileRecvTask(FileRecvTask &&) = default;
+    FileRecvTask &operator=(FileRecvTask &&) = default;
 };
 
 class FileRecvMgr : public QObject
@@ -52,19 +34,16 @@ public:
     static FileRecvMgr &Instance();
 
     bool StartRecv(
-        int64_t task_id, int from_uid, const std::string &filename, int64_t total_size,
-        const std::string &md5 = "", QString *error = nullptr);
-    bool WriteChunk(int64_t task_id, int64_t offset, const char *data, size_t len, QString *error = nullptr);
-    void OnChunkAck(int64_t task_id, int64_t received_size);
+        int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5 = "",
+        QString *error = nullptr);
+    bool WriteChunk(
+        int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed = nullptr,
+        QString *error = nullptr);
     void CancelRecv(int64_t task_id);
-
-private slots:
-    void onWriteComplete(int64_t task_id, bool success, const QString &error);
 
 signals:
     void SigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void SigRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
-    void SigChunkStored(int64_t task_id, int64_t received, bool completed, const QString &error);
 
 private:
     FileRecvMgr();
@@ -72,16 +51,18 @@ private:
     FileRecvMgr(const FileRecvMgr &) = delete;
     FileRecvMgr &operator=(const FileRecvMgr &) = delete;
 
-    bool OpenTempFile(FileRecvTask &task);
+    bool CompleteTask(QHash<int64_t, FileRecvTask>::iterator it, QString *error);
+    bool Fail(QString *error, const char *message) const;
+    bool FailAndEmit(int64_t task_id, QString *error, const char *message);
+    int CalcProgress(int64_t received, int64_t total) const;
     QString GetTempDir() const;
-    QString GetFinalPath(const std::string &filename) const;
-    bool ValidateMd5(const QString &filepath, const std::string &expected_md5);
-    void CompleteTask(int64_t task_id);
-    void UpdateProgress(int64_t task_id);
+    QString GetFinalPath(const QString &filename) const;
+    QString BuildTempPath(int64_t task_id, const QString &fileName) const;
+    QString BuildFinalPath(const QString &fileName) const;
+    QString CalcMd5(const QString &filepath) const;
 
-    std::map<int64_t, FileRecvTask> _tasks;
+    QHash<int64_t, FileRecvTask> _tasks;
     QMutex _mutex;
-    QThreadPool _threadPool;
 };
 
 #endif // FILERECVMGR_H

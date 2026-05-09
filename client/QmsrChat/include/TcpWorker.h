@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QTcpSocket>
 #include <QTimer>
+#include <optional>
 
 class TcpWorker : public QObject
 {
@@ -30,8 +31,7 @@ public slots:
 
 signals:
     void sig_con_success(bool bsuccess);
-    void sig_msg_received(RequestType reqId, QByteArray data);
-    void sig_msg_received(quint16 msg_id, QByteArray data);
+    void sig_packet_received(quint16 msg_id, QByteArray data);
     void sig_reconnected();
 
 private slots:
@@ -44,15 +44,25 @@ private slots:
     void slot_reconnect_timeout();
 
 private:
+    enum class ConnectionState
+    {
+        Idle,
+        Connecting,
+        Connected,
+        Reconnecting,
+        Stopping
+    };
+
     QByteArray readBytes(qsizetype len);
     void schedule_reconnect();
     void reset_buffer();
+    void stop_timers();
+    bool can_send() const;
 
     QTcpSocket *_socket;
     QString _host;
     uint16_t _port;
-    ServerInfo _pending_connect;
-    bool _has_pending_connect;
+    std::optional<ServerInfo> _pending_connect;
 
     RingBuffer _recv_buffer;
     bool _b_head_parsed;
@@ -63,11 +73,10 @@ private:
     QTimer *_pong_check_timer;
     QTimer *_reconnect_timer;
     int _reconnect_interval;
-    bool _is_first_connection;
     qint64 _last_pong_time;
+    ConnectionState _state;
 
     static const quint32 MAX_MESSAGE_LEN = 1024 * 1024;
-    std::atomic<bool> _stopping{false};
 };
 
 #endif
