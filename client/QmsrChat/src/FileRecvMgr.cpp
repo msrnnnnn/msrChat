@@ -9,6 +9,17 @@ FileRecvMgr::FileRecvMgr()
 
 FileRecvMgr::~FileRecvMgr()
 {
+    QMutexLocker lock(&_mutex);
+    for (auto it = _tasks.begin(); it != _tasks.end(); ++it)
+    {
+        if (it.value())
+        {
+            it.value()->file.close();
+            QFile::remove(it.value()->temp_filepath);
+            delete it.value();
+        }
+    }
+    _tasks.clear();
 }
 
 FileRecvMgr &FileRecvMgr::Instance()
@@ -32,22 +43,23 @@ bool FileRecvMgr::StartRecv(
         return Fail(error, "invalid total size");
     }
 
-    FileRecvTask task;
-    task.task_id = task_id;
-    task.from_uid = from_uid;
-    task.filename = QString::fromStdString(filename);
-    task.total_size = total_size;
-    task.md5 = QString::fromStdString(md5);
-    task.temp_filepath = BuildTempPath(task_id, task.filename);
-    task.final_filepath = BuildFinalPath(task.filename);
-    task.file = std::make_unique<QFile>(task.temp_filepath);
+    auto *task = new FileRecvTask();
+    task->task_id = task_id;
+    task->from_uid = from_uid;
+    task->filename = QString::fromStdString(filename);
+    task->total_size = total_size;
+    task->md5 = QString::fromStdString(md5);
+    task->temp_filepath = BuildTempPath(task_id, task->filename);
+    task->final_filepath = BuildFinalPath(task->filename);
+    task->file.setFileName(task->temp_filepath);
 
-    if (!task.file->open(QIODevice::WriteOnly | QIODevice::Truncate))
+    if (!task->file.open(QIODevice::WriteOnly | QIODevice::Truncate))
     {
+        delete task;
         return Fail(error, "open temp file failed");
     }
 
-    _tasks.insert(task_id, std::move(task));
+    _tasks.insert(task_id, task);
     return true;
 }
 
@@ -62,9 +74,13 @@ bool FileRecvMgr::WriteChunk(
         return Fail(error, "task not found");
     }
 
-    FileRecvTask &task = it.value();
+    FileRecvTask *task = it.value();
+    if (!task)
+    {
+        return Fail(error, "task not found");
+    }
 
-    if (offset != task.received_size)
+    if (offset != task->received_size)
     {
         return Fail(error, "unexpected chunk offset");
     }
@@ -72,36 +88,36 @@ bool FileRecvMgr::WriteChunk(
     {
         return Fail(error, "empty chunk");
     }
-    if (task.received_size + data.size() > task.total_size)
+    if (task->received_size + data.size() > task->total_size)
     {
         return Fail(error, "chunk exceeds total size");
     }
 
-    if (!task.file->seek(offset))
+    if (!task->file.seek(offset))
     {
         return Fail(error, "seek failed");
     }
 
-    const qint64 written = task.file->write(data);
+    const qint64 written = task->file.write(data);
     if (written != data.size())
     {
         return Fail(error, "write failed");
     }
-    if (!task.file->flush())
+    if (!task->file.flush())
     {
         return Fail(error, "flush failed");
     }
 
-    task.received_size += written;
+    task->received_size += written;
     if (committed)
     {
-        *committed = task.received_size;
+        *committed = task->received_size;
     }
 
     emit SigRecvProgress(
-        task_id, CalcProgress(task.received_size, task.total_size), task.received_size, task.total_size);
+        task_id, CalcProgress(task->received_size, task->total_size), task->received_size, task->total_size);
 
-    if (task.received_size == task.total_size)
+    if (task->received_size == task->total_size)
     {
         return CompleteTask(it, error);
     }
@@ -117,30 +133,48 @@ void FileRecvMgr::CancelRecv(int64_t task_id)
         return;
     }
 
-    it->file->close();
-    QFile::remove(it->temp_filepath);
+    FileRecvTask *task = it.value();
+    if (task)
+    {
+        task->file.close();
+        QFile::remove(task->temp_filepath);
+        delete task;
+    }
     _tasks.erase(it);
 }
 
-bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask>::iterator it, QString *error)
+bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QString *error)
 {
-    FileRecvTask &task = it.value();
-    task.file->close();
-
-    QFile::remove(task.final_filepath);
-    if (!QFile::rename(task.temp_filepath, task.final_filepath))
+    FileRecvTask *task = it.value();
+    if (!task)
     {
-        return FailAndEmit(task.task_id, error, "rename failed");
+        return Fail(error, "task not found");
     }
 
-    if (!task.md5.isEmpty() && CalcMd5(task.final_filepath) != task.md5)
+    task->file.close();
+
+    QFile::remove(task->final_filepath);
+    if (!QFile::rename(task->temp_filepath, task->final_filepath))
     {
-        QFile::remove(task.final_filepath);
-        return FailAndEmit(task.task_id, error, "md5 mismatch");
+        const bool emitted = FailAndEmit(task->task_id, error, "rename failed");
+        QFile::remove(task->temp_filepath);
+        delete task;
+        _tasks.erase(it);
+        return emitted;
     }
 
-    const QString finalPath = task.final_filepath;
-    const int64_t taskId = task.task_id;
+    if (!task->md5.isEmpty() && CalcMd5(task->final_filepath) != task->md5)
+    {
+        QFile::remove(task->final_filepath);
+        const bool emitted = FailAndEmit(task->task_id, error, "md5 mismatch");
+        delete task;
+        _tasks.erase(it);
+        return emitted;
+    }
+
+    const QString finalPath = task->final_filepath;
+    const int64_t taskId = task->task_id;
+    delete task;
     _tasks.erase(it);
     emit SigRecvComplete(taskId, finalPath, true, {});
     return true;
