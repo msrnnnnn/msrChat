@@ -19,11 +19,7 @@ struct FileRecvTask
     QString md5;
     int64_t total_size = 0;
     int64_t received_size = 0;
-    std::unique_ptr<QFile> file;
-
-    FileRecvTask() = default;
-    FileRecvTask(FileRecvTask &&) = default;
-    FileRecvTask &operator=(FileRecvTask &&) = default;
+    QFile file;
 };
 
 class FileRecvMgr : public QObject
@@ -51,7 +47,7 @@ private:
     FileRecvMgr(const FileRecvMgr &) = delete;
     FileRecvMgr &operator=(const FileRecvMgr &) = delete;
 
-    bool CompleteTask(QHash<int64_t, FileRecvTask>::iterator it, QString *error);
+    bool CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QString *error);
     bool Fail(QString *error, const char *message) const;
     bool FailAndEmit(int64_t task_id, QString *error, const char *message);
     int CalcProgress(int64_t received, int64_t total) const;
@@ -61,7 +57,7 @@ private:
     QString BuildFinalPath(const QString &fileName) const;
     QString CalcMd5(const QString &filepath) const;
 
-    QHash<int64_t, FileRecvTask> _tasks;
+    QHash<int64_t, FileRecvTask *> _tasks;
     QMutex _mutex;
 };
 
