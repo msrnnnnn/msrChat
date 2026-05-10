@@ -9,20 +9,20 @@
 
 ---
 
-## 📖 项目简介
+## 项目简介
 
 **msrChat** 是一个现代化的分布式即时通讯（IM）系统，采用 **C++17** 标准开发。
 
 服务端基于 **Boost.Asio** 异步网络库构建高性能 TCP 服务器，内置用户认证（注册/登录/重置密码），使用 **SQLite** 本地存储用户与消息数据，支持文件传输。客户端使用 **Qt 6** 框架，通过单一 TCP 长连接与服务端通信。
 
-### 🎯 最新优化 (Recent Optimizations)
+### 最新优化
 
 - **零拷贝文件传输**: 基于 `std::string_view` 实现文件分块零拷贝传输，消除 Asio 线程阻塞
 - **智能缓冲区管理**: RingBuffer 自动扩容机制，容量上限 4MB，防止内存溢出
 - **安全增强**: 恶意数据包检测、缓冲区空间校验，防止 DoS 攻击
 - **优雅关闭**: DbWorker 线程安全停止机制，确保 SQLite 事务完整性
 
-## 🏗️ 系统架构
+## 系统架构
 
 ```mermaid
 graph TD
@@ -48,7 +48,7 @@ graph TD
   - 智能缓冲区管理（RingBuffer）
   - 心跳检测与自动重连
 
-## 📂 目录结构
+## 目录结构
 
 ```
 msrChat/
@@ -68,30 +68,30 @@ msrChat/
 │       │   ├── CSession.h     # 会话管理
 │       │   ├── CServer.h      # 服务器核心
 │       │   ├── SQLiteMgr.h    # SQLite 数据库
-│       │   ├── ThreadPool.h  # 线程池
-│       │   ├── ObjectPool.h  # 对象池
+│       │   ├── ThreadPool.h   # 线程池
+│       │   ├── ObjectPool.h   # 对象池
 │       │   └── Protocol/     # 协议实现
 │       └── src/              # 源文件
 └── README.md
 ```
 
-## ✨ 核心特性
+## 核心特性
 
-### ⚡ 高性能网络模型
+### 高性能网络模型
 
 - **Boost.Asio 异步 I/O**: 基于 Epoll (Linux) / IOCP (Windows) 实现非阻塞 I/O
 - **单一 TCP 长连接**: 注册、登录、聊天、文件传输全部复用一条连接
 - **TLV 协议封装**: Type-Length-Value 格式，完美解决 TCP 粘包/拆包问题
 - **智能缓冲区**: RingBuffer 自动扩容，支持 64KB ~ 4MB 动态调整
 
-### 📦 高效文件传输
+### 高效文件传输
 
 - **零拷贝架构**: 使用 `std::string_view` 避免内存拷贝
 - **分块传输**: 大文件分块处理，每块独立 JSON 头 + 二进制数据
 - **断点续传**: 支持文件传输中断后的续传功能
 - **进度跟踪**: 实时文件传输进度反馈
 
-### 🔒 安全机制
+### 安全机制
 
 - **缓冲区保护**:
   - 单次数据包大小校验（上限 4MB）
@@ -101,14 +101,14 @@ msrChat/
 - **密码安全**: SHA256 哈希存储
 - **数据库完整性**: 优雅关闭机制，防止 SQLite 损坏
 
-### 💾 数据存储
+### 数据存储
 
 - **SQLite 本地存储**: 零外部依赖，零配置
 - **对象池**: 减少 `new/delete` 开销，降低内存碎片
 - **线程池**: 数据库操作在独立线程池中执行
 - **优雅关闭**: DbWorker 支持原子停止标志，确保事务完整性
 
-## 🛠️ 技术栈
+## 技术栈
 
 | 类别 | 技术 | 说明 |
 |------|------|------|
@@ -118,9 +118,9 @@ msrChat/
 | **客户端** | Qt 6 | 跨平台 GUI、网络、数据库 |
 | **构建** | CMake | 跨平台构建系统 |
 
-## 🚀 编译与运行
+## 编译与运行
 
-### 1. 依赖项
+### 依赖项
 
 **服务端:**
 - GCC 9+ / Clang 10+ / MSVC 2019+
@@ -133,7 +133,7 @@ msrChat/
 - CMake 3.15+
 - C++17 编译器
 
-### 2. 服务端编译
+### 服务端编译
 
 ```bash
 # Linux/macOS
@@ -150,7 +150,7 @@ cmake .. -G "Visual Studio 16 2019" -A x64
 cmake --build . --config Release
 ```
 
-### 3. 运行服务
+### 运行服务
 
 ```bash
 # Linux/macOS
@@ -160,7 +160,7 @@ cmake --build . --config Release
 ./Release/ChatServer.exe
 ```
 
-### 4. 客户端编译
+### 客户端编译
 
 ```bash
 cd client/QmsrChat
@@ -170,7 +170,7 @@ make -j$(nproc)  # Linux/macOS
 # Windows: 使用 Qt Creator 或 cmake --build .
 ```
 
-### 5. 运行客户端
+### 运行客户端
 
 ```bash
 # Linux/macOS
@@ -180,7 +180,7 @@ make -j$(nproc)  # Linux/macOS
 ./release/QmsrChat.exe
 ```
 
-## 📖 核心模块详解
+## 核心模块详解
 
 ### 客户端 TcpWorker
 
@@ -198,7 +198,7 @@ void slot_ready_read() {
         _socket->abort();
         return;
     }
-    
+
     // 2. 写入缓冲区（支持自动扩容）
     if (!_recv_buffer.Write(data.constData(), data_size)) {
         // 缓冲区耗尽，断开连接
@@ -218,7 +218,7 @@ void HandleFileChunk(std::string_view body_view) {
     // JSON 解析
     auto json_view = body_view.substr(json_start, json_end - json_start + 1);
     nlohmann::json json_data = nlohmann::json::parse(json_view);
-    
+
     // 二进制数据：直接传递视图，无拷贝
     auto binary_view = body_view.substr(data_start);
     AppendFileChunk(task_id, binary_view);
@@ -257,7 +257,7 @@ void cleanup() {
 }
 ```
 
-## 🧪 测试
+## 测试
 
 ### 消息发送测试
 
@@ -283,7 +283,7 @@ dd if=/dev/zero of=test.bin bs=1M count=10
 # 观察传输进度和日志
 ```
 
-## 📊 性能基准
+## 性能基准
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
@@ -293,7 +293,7 @@ dd if=/dev/zero of=test.bin bs=1M count=10
 | **内存占用** | < 100MB | 空闲状态内存使用 |
 | **连接延迟** | < 10ms | 本地网络环境 |
 
-## 🐛 调试
+## 调试
 
 ### 日志配置
 
@@ -331,7 +331,7 @@ brew install boost
 - 确保没有多个进程同时访问同一数据库
 - 检查是否有未关闭的连接
 
-## 📝 协议文档
+## 协议文档
 
 ### TLV 协议格式
 
@@ -351,11 +351,11 @@ brew install boost
 +----------------+----------------+----------------+----------------+
 ```
 
-## 🤝 贡献
+## 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
-## 📄 许可证
+## 许可证
 
 本项目采用 [MIT License](LICENSE) 许可证。
 
