@@ -24,6 +24,7 @@ public slots:
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
     void slot_stop();
+    void stopAsync();
 
 signals:
     void sig_messages_loaded(const QVector<ChatMessage> &messages);
@@ -43,10 +44,10 @@ class DbThreadPool : public QObject
 
 public:
     static DbThreadPool &Instance();
-    static void Destroy();
 
     bool Init(const QString &db_path);
     void Shutdown();
+    void cleanup();
 
     void SaveMessage(const ChatMessage &msg);
     void UpdateMessageStatus(const QString &client_msg_id, int status);
@@ -70,8 +71,6 @@ private:
 
     QThread *_thread;
     DbWorker *_worker;
-
-    static DbThreadPool *_instance;
 };
 
 #endif

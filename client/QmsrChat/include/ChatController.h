@@ -73,7 +73,6 @@ private:
     int _current_uid;
     bool _is_connected;
     ChatListModel *_chat_model = nullptr;
-    QSet<QString> _received_msg_ids;
     QHash<QString, PendingMessageInfo> _pending_messages;
     qint64 _last_offline_received = -1;
     QTimer *_cleanup_timer;

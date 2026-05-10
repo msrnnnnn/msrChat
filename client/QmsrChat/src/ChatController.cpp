@@ -165,8 +165,41 @@ void ChatController::sendMessage(const QString &content)
 
 void ChatController::sendFile(const QString &filePath)
 {
-    Q_UNUSED(filePath);
-    emit sigError(QStringLiteral("文件传输暂不可用"));
+    if (_target_uid <= 0)
+    {
+        emit sigError(QStringLiteral("请先指定目标用户"));
+        return;
+    }
+
+    // 跨平台处理 URL 前缀 (兼容 QML 传入的 file:///)
+    QString cleanPath = filePath;
+    if (cleanPath.startsWith("file:///")) {
+        cleanPath = cleanPath.mid(8);
+    }
+
+    QFileInfo fileInfo(cleanPath);
+    if (!fileInfo.exists() || !fileInfo.isFile())
+    {
+        emit sigError(QStringLiteral("文件不存在或路径无效"));
+        return;
+    }
+
+    // 生成临时任务 ID (毫秒级时间戳)
+    int64_t task_id = QDateTime::currentMSecsSinceEpoch();
+    int64_t total_size = fileInfo.size();
+
+    // 1. 发送文件传输握手请求
+    TcpMgr::FileReqStruct req;
+    req.task_id = task_id;
+    req.from_uid = _current_uid;
+    req.to_uid = _target_uid;
+    req.filename = fileInfo.fileName();
+    req.total_size = total_size;
+    req.md5 = ""; // 延迟或异步计算 MD5 以防止阻塞主线程
+    TcpMgr::Instance()->slot_send_file_req(req);
+
+    // 2. 压入发送队列，等待对端 FileRsp 后自动分片发送
+    FileSendMgr::Instance().StartSend(task_id, _target_uid, cleanPath);
 }
 
 void ChatController::loadHistory()
@@ -185,25 +218,7 @@ void ChatController::clearHistory()
 
 void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
 {
-    QString dedup_key;
-    if (!msg.client_msg_id.isEmpty())
-    {
-        dedup_key = msg.client_msg_id;
-    }
-    else if (msg.server_msg_id > 0)
-    {
-        dedup_key = QString::number(msg.server_msg_id);
-    }
-
-    if (!dedup_key.isEmpty() && _received_msg_ids.contains(dedup_key))
-    {
-        return;
-    }
-    if (!dedup_key.isEmpty())
-    {
-        _received_msg_ids.insert(dedup_key);
-    }
-
+    // 直接构造实体，信任底层的幂等性与 Upsert 逻辑
     ChatMessage chat_msg;
     chat_msg.client_msg_id = msg.client_msg_id;
     chat_msg.server_msg_id = msg.server_msg_id;
@@ -213,9 +228,13 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
     chat_msg.timestamp = msg.timestamp;
     chat_msg.status = 1;
 
+    // 1. DB 层持久化
     DbThreadPool::Instance().SaveMessage(chat_msg);
-    if (_chat_model != nullptr && ((chat_msg.from_uid == _target_uid && chat_msg.to_uid == _current_uid) ||
-                                   (chat_msg.from_uid == _current_uid && chat_msg.to_uid == _target_uid)))
+
+    // 2. UI 层渲染更新
+    if (_chat_model != nullptr &&
+       ((chat_msg.from_uid == _target_uid && chat_msg.to_uid == _current_uid) ||
+        (chat_msg.from_uid == _current_uid && chat_msg.to_uid == _target_uid)))
     {
         _chat_model->UpsertMessage(chat_msg);
     }

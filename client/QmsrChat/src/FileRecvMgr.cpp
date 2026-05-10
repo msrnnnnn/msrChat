@@ -1,6 +1,45 @@
 #include "FileRecvMgr.h"
 #include <QDir>
 #include <QMutexLocker>
+#include <QThreadPool>
+#include <QDebug>
+
+namespace
+{
+QString CalcMd5Sync(const QString &filepath)
+{
+    QFile file(filepath);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return {};
+    }
+    QCryptographicHash hash(QCryptographicHash::Md5);
+    hash.addData(&file);
+    return QString::fromLatin1(hash.result().toHex());
+}
+
+class Md5Runnable : public QRunnable
+{
+public:
+    Md5Runnable(int64_t task_id, const QString &filepath)
+        : _task_id(task_id), _filepath(filepath)
+    {
+    }
+
+    void run() override
+    {
+        QString md5 = CalcMd5Sync(_filepath);
+        bool ok = !md5.isEmpty();
+        QMetaObject::invokeMethod(
+            &FileRecvMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
+            Q_ARG(int64_t, _task_id), Q_ARG(QString, _filepath), Q_ARG(bool, ok), Q_ARG(QString, md5));
+    }
+
+private:
+    int64_t _task_id;
+    QString _filepath;
+};
+}  // namespace
 
 FileRecvMgr::FileRecvMgr()
     : QObject(nullptr)
@@ -163,20 +202,20 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
         return emitted;
     }
 
-    if (!task->md5.isEmpty() && CalcMd5(task->final_filepath) != task->md5)
+    if (task->md5.isEmpty())
     {
-        QFile::remove(task->final_filepath);
-        const bool emitted = FailAndEmit(task->task_id, error, "md5 mismatch");
+        const QString finalPath = task->final_filepath;
+        const int64_t taskId = task->task_id;
         delete task;
         _tasks.erase(it);
-        return emitted;
+        emit SigRecvComplete(taskId, finalPath, true, {});
+        return true;
     }
 
-    const QString finalPath = task->final_filepath;
-    const int64_t taskId = task->task_id;
+    _pendingMd5.insert(task->task_id, task->md5);
+    QThreadPool::globalInstance()->start(new Md5Runnable(task->task_id, task->final_filepath));
     delete task;
     _tasks.erase(it);
-    emit SigRecvComplete(taskId, finalPath, true, {});
     return true;
 }
 
@@ -238,4 +277,35 @@ QString FileRecvMgr::CalcMd5(const QString &filepath) const
     QCryptographicHash hash(QCryptographicHash::Md5);
     hash.addData(&file);
     return QString::fromLatin1(hash.result().toHex());
+}
+
+void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool success, const QString &md5)
+{
+    if (!success)
+    {
+        QFile::remove(filepath);
+        emit SigRecvComplete(task_id, {}, false, "md5 computation failed");
+        return;
+    }
+
+    QMutexLocker lock(&_mutex);
+    auto it = _pendingMd5.find(task_id);
+    if (it == _pendingMd5.end())
+    {
+        QFile::remove(filepath);
+        emit SigRecvComplete(task_id, {}, false, "task not found");
+        return;
+    }
+
+    QString expectedMd5 = it.value();
+    _pendingMd5.erase(it);
+
+    if (!expectedMd5.isEmpty() && md5 != expectedMd5)
+    {
+        QFile::remove(filepath);
+        emit SigRecvComplete(task_id, {}, false, "md5 mismatch");
+        return;
+    }
+
+    emit SigRecvComplete(task_id, filepath, true, {});
 }

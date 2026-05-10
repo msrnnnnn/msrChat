@@ -62,6 +62,11 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
     }
 
     SendNextChunk(task);
+
+    if (!task.active)
+    {
+        _tasks.erase(it);
+    }
 }
 
 void FileSendMgr::CancelSend(int64_t task_id)
@@ -105,18 +110,17 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
     chunk.set_data(data.toStdString());
 
     std::string serialized;
-    if (chunk.SerializeToString(&serialized))
-    {
-        TcpMgr::Instance()->slot_send_data(
-            RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
-        task.sent_size += data.size();
-    }
-    else
+    if (!chunk.SerializeToString(&serialized))
     {
         emit sigSendComplete(task.task_id, false, "Failed to serialize FileChunk");
         task.active = false;
         task.file->close();
+        return;
     }
+
+    TcpMgr::Instance()->slot_send_data(
+        RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    task.sent_size += data.size();
 
     int progress = static_cast<int>((task.sent_size * 100) / task.total_size);
     emit sigSendProgress(task.task_id, progress, task.sent_size, task.total_size);

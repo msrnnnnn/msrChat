@@ -270,6 +270,11 @@ Rectangle {
     Connections {
         target: chatController
 
+        function onSigError(errorMsg) {
+            console.error("[Chat业务异常]: " + errorMsg)
+            // TODO: 替换为实际的 Toast 或 MessageDialog 组件调用
+        }
+
         function onSigFileSendStarted(task_id, filename, total_size) {
             fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0})
         }
@@ -291,5 +296,16 @@ Rectangle {
                 }
             }
         }
+    }
+
+    // 临时状态显示栏
+    Text {
+        text: "当前UID: " + (chatController ? chatController.currentUid : "未知")
+              + " | 目标UID: " + (chatController ? chatController.targetUid : "未选择")
+        color: "#666666"
+        font.pixelSize: 12
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.margins: 5
     }
 }

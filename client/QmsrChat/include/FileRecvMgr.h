@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QStandardPaths>
 #include <QString>
+#include <QThreadPool>
 
 struct FileRecvTask
 {
@@ -41,6 +42,9 @@ signals:
     void SigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void SigRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
 
+public slots:
+    void OnMd5Computed(int64_t task_id, const QString &filepath, bool success, const QString &md5);
+
 private:
     FileRecvMgr();
     ~FileRecvMgr();
@@ -58,6 +62,7 @@ private:
     QString CalcMd5(const QString &filepath) const;
 
     QHash<int64_t, FileRecvTask *> _tasks;
+    QHash<int64_t, QString> _pendingMd5;
     QMutex _mutex;
 };
 
