@@ -524,6 +524,11 @@ void CSession::SendNextOfflinePage()
 
     _offline_send_state.sent_count += messages.size();
 
+    nlohmann::json ack;
+    ack["received"] = _offline_send_state.sent_count;
+    ack["total"] = _offline_send_state.total_count;
+    Send(ack.dump(), MSG_OFFLINE_ACK);
+
     if (_offline_send_state.sent_count >= _offline_send_state.total_count)
     {
         SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
@@ -544,6 +549,7 @@ void CSession::SendNextFileChunk()
     if (remain <= 0)
     {
         _file_send_state.sending = false;
+        _file_send_state.fd.Reset();
         return;
     }
 
@@ -558,16 +564,25 @@ void CSession::SendNextFileChunk()
         return;
     }
 
-    std::vector<char> chunk_data(buffer, buffer + bytes_read);
-    nlohmann::json json_meta;
-    json_meta["task_id"] = _file_send_state.task_id;
-    json_meta["offset"] = _file_send_state.sent_size;
-    json_meta["size"] = bytes_read;
+    qmsrchat::FileChunk chunk;
+    chunk.set_task_id(_file_send_state.task_id);
+    chunk.set_offset(_file_send_state.sent_size);
+    chunk.set_size(bytes_read);
+    chunk.set_data(buffer, bytes_read);
 
-    std::string json_str = json_meta.dump();
-    SendBinary(json_str, chunk_data, MSG_FILE_CHUNK);
+    std::string serialized;
+    if (chunk.SerializeToString(&serialized))
+    {
+        Send(serialized, MSG_FILE_CHUNK);
+    }
 
     _file_send_state.sent_size += bytes_read;
+
+    if (_file_send_state.sent_size >= _file_send_state.total_size)
+    {
+        _file_send_state.sending = false;
+        _file_send_state.fd.Reset();
+    }
 }
 
 void CSession::AsyncReadBinBody(int total_len)

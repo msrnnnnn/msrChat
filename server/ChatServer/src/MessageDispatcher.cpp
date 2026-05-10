@@ -117,8 +117,9 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
         std::string username = json_data.value("user", "");
         std::string password_hash = json_data.value("passwd", "");
         std::string email = json_data.value("email", "");
+        std::string verifycode = json_data.value("varifycode", "");
 
-        if (username.empty() || password_hash.empty() || email.empty())
+        if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
             nlohmann::json response{{"error", 1}};
             session.Send(response.dump(), ID_REGISTER_USER);
@@ -133,8 +134,18 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
         }
 
         server->GetThreadPool().Enqueue(
-            [&session, username, password_hash, email]()
+            [&session, username, password_hash, email, verifycode]()
             {
+                int verifyResult = SQLiteMgr::Instance().CheckVerifyCode(email, verifycode);
+                if (verifyResult != 0)
+                {
+                    nlohmann::json response;
+                    response["error"] = verifyResult;
+                    session.Send(response.dump(), ID_REGISTER_USER);
+                    session.ContinueReading();
+                    return;
+                }
+
                 AuthResult result = SQLiteMgr::Instance().RegisterUser(username, password_hash, email);
 
                 nlohmann::json response;
@@ -656,8 +667,14 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
     try
     {
         auto json_data = nlohmann::json::parse(body_data);
-        int64_t page = json_data.value("page", 0);
-        spdlog::debug("[MessageDispatcher] Offline ack page: {}", page);
+        int64_t received = json_data.value("received", 0);
+        spdlog::debug("[MessageDispatcher] Offline ack received={}", received);
+
+        if (session._offline_send_state.sending &&
+            session._offline_send_state.sent_count < session._offline_send_state.total_count)
+        {
+            session.SendNextOfflinePage();
+        }
         session.ContinueReading();
     }
     catch (const std::exception &e)
