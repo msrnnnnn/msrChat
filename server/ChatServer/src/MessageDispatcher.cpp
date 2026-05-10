@@ -156,7 +156,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
                 if (result.error == 0)
                 {
                     response["uid"] = result.uid;
-                    response["username"] = result.username;
+                    response["user"] = result.username;
                 }
                 safe_session->Send(response.dump(), ID_REGISTER_USER);
                 safe_session->ContinueReading();
@@ -215,7 +215,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
 
                 server->SetToken(result.uid, result.token);
                 response["uid"] = result.uid;
-                response["username"] = result.username;
+                response["user"] = result.username;
                 response["token"] = result.token;
                 spdlog::info("[MessageDispatcher] User {} auth login success, token issued", result.uid);
 
