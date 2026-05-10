@@ -94,6 +94,6 @@ int main(int argc, char *argv[])
 
     TcpMgr::Destroy();
     UserMgr::Destroy();
-    DbThreadPool::Destroy();
+    DbThreadPool::Instance().cleanup();
     return exit_code;
 }

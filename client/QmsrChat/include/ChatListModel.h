@@ -6,6 +6,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QVector>
+#include <optional>
 
 class ChatListModel : public QAbstractListModel
 {
@@ -41,7 +42,7 @@ public:
     void ClearMessages();
     void SetCurrentUid(int uid);
 
-    const ChatMessage &GetMessageAt(int index) const;
+    bool TryGetMessageAt(int index, ChatMessage &out) const;
     QVector<ChatMessage> GetAllMessages() const;
 
 signals:

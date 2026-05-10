@@ -207,6 +207,9 @@ void TcpWorker::slot_ready_read()
             if (_message_len == 0)
             {
                 qWarning() << "WARNING: Empty message received. Closing connection.";
+                _recv_buffer.Clear();
+                _b_head_parsed = false;
+                _message_len = 0;
                 _socket->disconnectFromHost();
                 return;
             }
@@ -374,5 +377,5 @@ void TcpWorker::stop_timers()
 
 bool TcpWorker::can_send() const
 {
-    return _state == ConnectionState::Connected && _socket->state() == QAbstractSocket::ConnectedState;
+    return _state == ConnectionState::Connected && _socket && _socket->state() == QAbstractSocket::ConnectedState;
 }

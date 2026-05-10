@@ -229,17 +229,17 @@ void ChatListModel::SetCurrentUid(int uid)
     _current_uid = uid;
 }
 
-const ChatMessage &ChatListModel::GetMessageAt(int index) const
+bool ChatListModel::TryGetMessageAt(int index, ChatMessage &out) const
 {
     QMutexLocker locker(&_mutex);
-    static ChatMessage emptyMsg;
 
     if (index < 0 || index >= _messages.size())
     {
-        return emptyMsg;
+        return false;
     }
 
-    return _messages[index];
+    out = _messages[index];
+    return true;
 }
 
 QVector<ChatMessage> ChatListModel::GetAllMessages() const

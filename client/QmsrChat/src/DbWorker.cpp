@@ -18,6 +18,11 @@ void DbWorker::slot_stop()
     qDebug() << "DbWorker stop flag set in thread" << QThread::currentThreadId();
 }
 
+void DbWorker::stopAsync()
+{
+    _stop_flag.store(true);
+}
+
 void DbWorker::slot_init(const QString &db_path)
 {
     QMutexLocker locker(&_mutex);
@@ -152,25 +157,10 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
     }
 }
 
-DbThreadPool *DbThreadPool::_instance = nullptr;
-
 DbThreadPool &DbThreadPool::Instance()
 {
-    if (_instance == nullptr)
-    {
-        _instance = new DbThreadPool();
-    }
-    return *_instance;
-}
-
-void DbThreadPool::Destroy()
-{
-    if (_instance)
-    {
-        _instance->cleanup();
-        delete _instance;
-        _instance = nullptr;
-    }
+    static DbThreadPool instance;
+    return instance;
 }
 
 DbThreadPool::DbThreadPool()
@@ -193,7 +183,7 @@ void DbThreadPool::cleanup()
     {
         if (_worker != nullptr)
         {
-            QMetaObject::invokeMethod(_worker, "slot_stop", Qt::BlockingQueuedConnection);
+            _worker->stopAsync();
         }
 
         _thread->quit();
