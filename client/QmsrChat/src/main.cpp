@@ -16,6 +16,7 @@
 #include <QFile>
 #include <QSettings>
 #include <QTextStream>
+#include <QTimer>
 
 int main(int argc, char *argv[])
 {
@@ -86,10 +87,15 @@ int main(int argc, char *argv[])
 
     qDebug() << "Initiating TCP connection to ChatServer...";
     TcpMgr::Init();
-    TcpMgr::Instance()->slot_tcp_connect(si);
 
     MainWindow w;
     w.show();
+
+    // 延迟到主事件循环启动后，工作线程的 slot_init 也已完成，再发起连接
+    QTimer::singleShot(0, [si]() {
+        TcpMgr::Instance()->slot_tcp_connect(si);
+    });
+
     int exit_code = a.exec();
 
     TcpMgr::Destroy();
