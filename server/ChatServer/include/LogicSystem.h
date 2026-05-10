@@ -13,7 +13,6 @@
 #include <boost/asio.hpp>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
 
 class CSession;
@@ -52,7 +51,6 @@ private:
     ThreadPool _thread_pool;
 
     std::unordered_map<uint16_t, BusinessHandler> _handlers;
-    mutable std::mutex _handlers_mutex;
 
     std::atomic<bool> _shutting_down{false};
 

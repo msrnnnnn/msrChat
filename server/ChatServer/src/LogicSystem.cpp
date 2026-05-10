@@ -55,13 +55,10 @@ void LogicSystem::ProcessTask(MessageTask task)
     spdlog::debug("[LogicSystem] Processing msg_id {} for session {}", task.msg_id, session->GetUuid());
 
     BusinessHandler handler;
+    auto it = _handlers.find(task.msg_id);
+    if (it != _handlers.end())
     {
-        std::lock_guard<std::mutex> lock(_handlers_mutex);
-        auto it = _handlers.find(task.msg_id);
-        if (it != _handlers.end())
-        {
-            handler = it->second;
-        }
+        handler = it->second;
     }
 
     if (handler)
@@ -90,14 +87,12 @@ void LogicSystem::ProcessTask(MessageTask task)
 
 void LogicSystem::RegisterHandler(uint16_t msg_id, BusinessHandler handler)
 {
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
     _handlers[msg_id] = std::move(handler);
     spdlog::info("[LogicSystem] Registered handler for msg_id {}", msg_id);
 }
 
 void LogicSystem::RemoveHandler(uint16_t msg_id)
 {
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
     _handlers.erase(msg_id);
     spdlog::info("[LogicSystem] Removed handler for msg_id {}", msg_id);
 }
@@ -133,6 +128,5 @@ size_t LogicSystem::GetQueueSize() const
 
 size_t LogicSystem::GetHandlerCount() const
 {
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
     return _handlers.size();
 }

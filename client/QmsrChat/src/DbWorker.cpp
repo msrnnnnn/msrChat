@@ -198,17 +198,11 @@ void DbThreadPool::cleanup()
 
         _thread->quit();
 
-        if (!_thread->wait(3000))
+        if (!_thread->wait(5000))
         {
-            qCritical() << "CRITICAL: DbThreadPool thread did not finish in 3000ms. "
-                           "Thread is still running with an active database transaction. "
-                           "Allowing thread to complete transaction naturally to prevent SQLite corruption.";
-        }
-
-        // 直接 delete，替代投递到死线程的 deleteLater
-        if (_worker != nullptr)
-        {
-            delete _worker;
+            qCritical() << "CRITICAL: DbThreadPool thread did not finish in 5000ms. "
+                           "Abandoning manual cleanup to prevent SQLite corruption. "
+                           "Worker thread will be released by OS on process exit.";
             _worker = nullptr;
         }
 
@@ -219,7 +213,7 @@ void DbThreadPool::cleanup()
     }
 
     DbMgr::Destroy();
-    qDebug() << "DbThreadPool cleanup completed";
+    qDebug() << "DbThreadPool cleanup completed (timeout path)";
 }
 
 bool DbThreadPool::Init(const QString &db_path)
