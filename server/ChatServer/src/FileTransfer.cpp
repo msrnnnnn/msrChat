@@ -6,7 +6,6 @@
 #include <nlohmann/json.hpp>
 #include <openssl/evp.h>
 #include <sys/stat.h>
-#include <thread>
 #include <unistd.h>
 
 void FileTransferTask::UpdateProgress(int64_t size)
@@ -38,9 +37,9 @@ FileTransfer &FileTransfer::Instance()
     return instance;
 }
 
-int64_t FileTransfer::CreateTask(int from_uid, int to_uid, const std::string &filename, int64_t total_size)
+int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
     int64_t task_id = _task_id_allocator++;
 
     auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
@@ -52,14 +51,14 @@ int64_t FileTransfer::CreateTask(int from_uid, int to_uid, const std::string &fi
 void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
                            const std::string &filename, int64_t total_size)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
     auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
     _tasks[task_id] = task;
 }
 
 std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::shared_lock<std::shared_mutex> lock(_tasks_mutex);
     auto it = _tasks.find(task_id);
     if (it != _tasks.end())
     {
@@ -70,7 +69,7 @@ std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
 
 void FileTransfer::RemoveTask(int64_t task_id)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
     _tasks.erase(task_id);
 }
 
@@ -142,7 +141,7 @@ std::string FileTransfer::CalculateMD5(const std::string &filepath)
 }
 
 FileSender::FileSender(
-    int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size, int fd,
+    boost::asio::io_context &ioc, int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size, int fd,
     SendCallback send_cb, ProgressCallback progress_cb, CompleteCallback complete_cb)
     : _task_id(task_id),
       _from_uid(from_uid),
@@ -152,7 +151,8 @@ FileSender::FileSender(
       _fd(fd),
       _send_callback(std::move(send_cb)),
       _progress_callback(std::move(progress_cb)),
-      _complete_callback(std::move(complete_cb))
+      _complete_callback(std::move(complete_cb)),
+      _timer(ioc)
 {
 }
 
@@ -239,17 +239,14 @@ void FileSender::SendChunkData(const char *data, size_t len)
     }
 
     std::weak_ptr<FileSender> weak_self = shared_from_this();
-    std::thread(
-        [weak_self, this]()
+    _timer.expires_after(std::chrono::milliseconds(10));
+    _timer.async_wait(
+        [weak_self, this](const boost::system::error_code &ec)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (ec || _stopped.load()) return;
             auto self = weak_self.lock();
-            if (self)
-            {
-                SendNextChunk();
-            }
-        })
-        .detach();
+            if (self) SendNextChunk();
+        });
 }
 
 void FileSender::OnChunkAck(bool success, const std::string &message)

@@ -80,7 +80,7 @@ Rectangle {
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 100
+            Layout.preferredHeight: 130
             color: "#FFFFFF"
             border.width: 1
             border.color: "#E0E0E0"
@@ -88,10 +88,10 @@ Rectangle {
             TextArea {
                 id: messageInput
                 anchors.left: parent.left
-                anchors.right: sendButton.left
+                anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                anchors.margins: 10
+                anchors.margins: 5
                 anchors.rightMargin: 8
                 placeholderText: qsTr("输入消息...")
                 wrapMode: TextArea.Wrap

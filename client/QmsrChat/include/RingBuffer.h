@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <memory>
 
 class RingBuffer
 {
@@ -14,27 +15,23 @@ public:
 
     explicit RingBuffer(std::size_t capacity = kDefaultCapacity)
         : _capacity(capacity),
-          _buffer(new char[capacity]),
+          _buffer(std::make_unique<char[]>(capacity)),
           _read_pos(0),
           _write_pos(0)
     {
     }
 
-    ~RingBuffer()
-    {
-        delete[] _buffer;
-    }
+    ~RingBuffer() = default;
 
     RingBuffer(const RingBuffer &) = delete;
     RingBuffer &operator=(const RingBuffer &) = delete;
 
     RingBuffer(RingBuffer &&other) noexcept
         : _capacity(other._capacity),
-          _buffer(other._buffer),
+          _buffer(std::move(other._buffer)),
           _read_pos(other._read_pos),
           _write_pos(other._write_pos)
     {
-        other._buffer = nullptr;
         other._capacity = 0;
         other._read_pos = 0;
         other._write_pos = 0;
@@ -75,13 +72,13 @@ public:
             std::size_t to_end = _capacity - write_pos;
             if (len <= to_end)
             {
-                std::memcpy(_buffer + write_pos, data, len);
+                std::memcpy(_buffer.get() + write_pos, data, len);
                 _write_pos = (write_pos + len) % _capacity;
             }
             else
             {
-                std::memcpy(_buffer + write_pos, data, to_end);
-                std::memcpy(_buffer, data + to_end, len - to_end);
+                std::memcpy(_buffer.get() + write_pos, data, to_end);
+                std::memcpy(_buffer.get(), data + to_end, len - to_end);
                 _write_pos = len - to_end;
             }
         }
@@ -116,8 +113,7 @@ public:
         std::size_t available = Available();
         Read(new_buffer, available);
 
-        delete[] _buffer;
-        _buffer = new_buffer;
+        _buffer.reset(new_buffer);
         _capacity = new_capacity;
         _read_pos = 0;
         _write_pos = available;
@@ -145,13 +141,13 @@ public:
 
         if (read_pos + len <= _capacity)
         {
-            std::memcpy(dest, _buffer + read_pos, len);
+            std::memcpy(dest, _buffer.get() + read_pos, len);
         }
         else
         {
             std::size_t to_end = _capacity - read_pos;
-            std::memcpy(dest, _buffer + read_pos, to_end);
-            std::memcpy(dest + to_end, _buffer, len - to_end);
+            std::memcpy(dest, _buffer.get() + read_pos, to_end);
+            std::memcpy(dest + to_end, _buffer.get(), len - to_end);
         }
 
         return true;
@@ -172,14 +168,14 @@ public:
 
         if (current_read + to_read <= _capacity)
         {
-            std::memcpy(dest, _buffer + current_read, to_read);
+            std::memcpy(dest, _buffer.get() + current_read, to_read);
             _read_pos = (current_read + to_read) % _capacity;
         }
         else
         {
             std::size_t to_end = _capacity - current_read;
-            std::memcpy(dest, _buffer + current_read, to_end);
-            std::memcpy(dest + to_end, _buffer, to_read - to_end);
+            std::memcpy(dest, _buffer.get() + current_read, to_end);
+            std::memcpy(dest + to_end, _buffer.get(), to_read - to_end);
             _read_pos = to_read - to_end;
         }
 
@@ -256,8 +252,7 @@ private:
         std::size_t available = Available();
         Read(new_buffer, available);
 
-        delete[] _buffer;
-        _buffer = new_buffer;
+        _buffer.reset(new_buffer);
         _capacity = new_capacity;
         _read_pos = 0;
         _write_pos = available;
@@ -274,18 +269,18 @@ private:
     {
         if (write_pos + len <= _capacity)
         {
-            std::memcpy(_buffer + write_pos, data, len);
+            std::memcpy(_buffer.get() + write_pos, data, len);
         }
         else
         {
             std::size_t to_end = _capacity - write_pos;
-            std::memcpy(_buffer + write_pos, data, to_end);
-            std::memcpy(_buffer, data + to_end, len - to_end);
+            std::memcpy(_buffer.get() + write_pos, data, to_end);
+            std::memcpy(_buffer.get(), data + to_end, len - to_end);
         }
     }
 
     std::size_t _capacity;
-    char *_buffer;
+    std::unique_ptr<char[]> _buffer;
     std::size_t _read_pos;
     std::size_t _write_pos;
 };

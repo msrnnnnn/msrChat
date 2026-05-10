@@ -7,8 +7,10 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <boost/asio.hpp>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 
 constexpr size_t LARGE_FILE_THRESHOLD = 1024 * 1024;
@@ -133,7 +135,7 @@ public:
         return pool;
     }
 
-    int64_t CreateTask(int from_uid, int to_uid, const std::string &filename, int64_t total_size);
+    int64_t CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
     // 由外部指定 task_id 创建路由记录（用于 P2P 转发）
     void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
     std::shared_ptr<FileTransferTask> GetTask(int64_t task_id);
@@ -152,7 +154,7 @@ private:
     ~FileTransfer() = default;
 
     std::map<int64_t, std::shared_ptr<FileTransferTask>> _tasks;
-    std::mutex _mutex;
+    std::shared_mutex _tasks_mutex;
     std::atomic<int64_t> _task_id_allocator{1};
 };
 
@@ -163,7 +165,7 @@ public:
     using CompleteCallback = std::function<void(int64_t task_id, bool success, const std::string &message)>;
     using SendCallback = std::function<bool(const std::string &msg, uint16_t msg_id)>;
 
-    FileSender(int64_t task_id, int from_uid, int to_uid, const std::string &filename,
+    FileSender(boost::asio::io_context &ioc, int64_t task_id, int from_uid, int to_uid, const std::string &filename,
                int64_t total_size, int fd, SendCallback send_cb,
                ProgressCallback progress_cb = nullptr, CompleteCallback complete_cb = nullptr);
 
@@ -194,6 +196,7 @@ private:
     CompleteCallback _complete_callback;
     std::mutex _mutex;
     std::condition_variable _cv;
+    boost::asio::steady_timer _timer;
 };
 
 #endif
