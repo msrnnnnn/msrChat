@@ -279,9 +279,12 @@ void ChatController::slotOnOfflineProgress(const OfflineAckStruct &ack)
     }
     _last_offline_received = ack.received;
 
-    OfflineAckReqStruct req;
-    req.received = ack.received;
-    TcpMgr::Instance()->slot_send_offline_ack_req(req);
+    if (ack.received < ack.total)
+    {
+        OfflineAckReqStruct req;
+        req.received = ack.received;
+        TcpMgr::Instance()->slot_send_offline_ack_req(req);
+    }
 }
 
 void ChatController::slotOnConnectionStateChanged(bool connected)
