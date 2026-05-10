@@ -67,8 +67,6 @@ private:
     DbThreadPool(const DbThreadPool &) = delete;
     DbThreadPool &operator=(const DbThreadPool &) = delete;
 
-    void cleanup();
-
     QThread *_thread;
     DbWorker *_worker;
 };

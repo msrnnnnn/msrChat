@@ -68,9 +68,14 @@ void TcpWorker::slot_stop()
 {
     _state = ConnectionState::Stopping;
     _pending_connect.reset();
-    stop_timers();
+
+    if (_heartbeat_timer) { _heartbeat_timer->stop(); _heartbeat_timer->disconnect(); }
+    if (_pong_check_timer) { _pong_check_timer->stop(); _pong_check_timer->disconnect(); }
+    if (_reconnect_timer) { _reconnect_timer->stop(); _reconnect_timer->disconnect(); }
+
     if (_socket)
     {
+        _socket->disconnect();
         _socket->abort();
     }
     reset_buffer();

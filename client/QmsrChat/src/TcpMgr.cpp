@@ -83,19 +83,23 @@ TcpMgr::~TcpMgr()
 {
     if (_worker)
     {
-        QMetaObject::invokeMethod(_worker, "slot_stop", Qt::BlockingQueuedConnection);
+        // 通知工作线程停止网络操作
+        QMetaObject::invokeMethod(_worker, "slot_stop", Qt::QueuedConnection);
+        // 将 delete 操作投递到工作线程的事件循环，确保在工作线程内析构 QTcpSocket 等对象
+        _worker->deleteLater();
     }
     if (_netThread)
     {
         _netThread->quit();
-        _netThread->wait();
+        if (!_netThread->wait(5000))
+        {
+            qWarning() << "TcpMgr: netThread did not finish in 5s";
+            _netThread->terminate();
+            _netThread->wait();
+        }
     }
-    // 在 worker 线程已安全退出后，直接在主线程 delete _worker
-    if (_worker)
-    {
-        delete _worker;
-        _worker = nullptr;
-    }
+    // 避免悬空指针
+    _worker = nullptr;
 }
 
 bool TcpMgr::IsConnected() const
