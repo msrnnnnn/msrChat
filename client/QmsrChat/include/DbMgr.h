@@ -21,6 +21,8 @@ struct ChatMessage
     QString content;
     qint64 timestamp = 0;
     int status = 0;
+    int bubbleWidth = 0;
+    int bubbleHeight = 0;
 };
 
 Q_DECLARE_METATYPE(ChatMessage)

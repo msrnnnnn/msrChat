@@ -6,6 +6,7 @@
 #ifndef PROTOCOLSTRUCTS_H
 #define PROTOCOLSTRUCTS_H
 
+#include <QMetaType>
 #include <QString>
 #include <QtGlobal>
 
@@ -108,5 +109,9 @@ struct ResetPwdRspStruct
 {
     int error;
 };
+
+Q_DECLARE_METATYPE(ChatTextMsgStruct)
+Q_DECLARE_METATYPE(ChatAckStruct)
+Q_DECLARE_METATYPE(OfflineAckStruct)
 
 #endif // PROTOCOLSTRUCTS_H

@@ -133,16 +133,19 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
             return true;
         }
 
+        auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [&session, username, password_hash, email, verifycode]()
+            [safe_session, username, password_hash, email, verifycode]()
             {
+                if (safe_session->IsClosed()) return;
+
                 int verifyResult = SQLiteMgr::Instance().CheckVerifyCode(email, verifycode);
                 if (verifyResult != 0)
                 {
                     nlohmann::json response;
                     response["error"] = verifyResult;
-                    session.Send(response.dump(), ID_REGISTER_USER);
-                    session.ContinueReading();
+                    safe_session->Send(response.dump(), ID_REGISTER_USER);
+                    safe_session->ContinueReading();
                     return;
                 }
 
@@ -155,8 +158,8 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
                     response["uid"] = result.uid;
                     response["username"] = result.username;
                 }
-                session.Send(response.dump(), ID_REGISTER_USER);
-                session.ContinueReading();
+                safe_session->Send(response.dump(), ID_REGISTER_USER);
+                safe_session->ContinueReading();
             });
     }
     catch (const std::exception &e)
@@ -193,17 +196,20 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
             return true;
         }
 
+        auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [&session, server, username, password_hash]()
+            [safe_session, server, username, password_hash]()
             {
+                if (safe_session->IsClosed()) return;
+
                 AuthResult result = SQLiteMgr::Instance().LoginUser(username, password_hash);
 
                 nlohmann::json response;
                 response["error"] = result.error;
                 if (result.error != 0)
                 {
-                    session.Send(response.dump(), ID_LOGIN_USER);
-                    session.ContinueReading();
+                    safe_session->Send(response.dump(), ID_LOGIN_USER);
+                    safe_session->ContinueReading();
                     return;
                 }
 
@@ -213,8 +219,8 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
                 response["token"] = result.token;
                 spdlog::info("[MessageDispatcher] User {} auth login success, token issued", result.uid);
 
-                session.Send(response.dump(), ID_LOGIN_USER);
-                session.ContinueReading();
+                safe_session->Send(response.dump(), ID_LOGIN_USER);
+                safe_session->ContinueReading();
             });
     }
     catch (const std::exception &e)
@@ -248,14 +254,17 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
             return true;
         }
 
+        auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [&session, email]()
+            [safe_session, email]()
             {
+                if (safe_session->IsClosed()) return;
+
                 bool success = SQLiteMgr::Instance().SendVerifyCode(email);
 
                 nlohmann::json response{{"error", success ? 0 : 1}};
-                session.Send(response.dump(), ID_GET_VARIFY_CODE);
-                session.ContinueReading();
+                safe_session->Send(response.dump(), ID_GET_VARIFY_CODE);
+                safe_session->ContinueReading();
             });
     }
     catch (const std::exception &e)
@@ -292,9 +301,12 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
             return true;
         }
 
+        auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [&session, username, email, code, new_password_hash]()
+            [safe_session, username, email, code, new_password_hash]()
             {
+                if (safe_session->IsClosed()) return;
+
                 int verify_result = SQLiteMgr::Instance().CheckVerifyCode(email, code);
                 bool success = false;
                 int error_code = verify_result;
@@ -306,8 +318,8 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
                 }
 
                 nlohmann::json response{{"error", error_code}};
-                session.Send(response.dump(), ID_RESET_PWD);
-                session.ContinueReading();
+                safe_session->Send(response.dump(), ID_RESET_PWD);
+                safe_session->ContinueReading();
             });
     }
     catch (const std::exception &e)

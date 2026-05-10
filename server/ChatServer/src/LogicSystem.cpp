@@ -32,6 +32,13 @@ void LogicSystem::PostTask(MessageTask task)
         return;
     }
 
+    if (_thread_pool.GetTaskCount() > MAX_QUEUE_SIZE)
+    {
+        spdlog::critical("[LogicSystem] Task queue overflow ({} > {}), dropping message!",
+                         _thread_pool.GetTaskCount(), MAX_QUEUE_SIZE);
+        return;
+    }
+
     auto self = this;
     auto shared_task = std::make_shared<MessageTask>(std::move(task));
     _thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); });
