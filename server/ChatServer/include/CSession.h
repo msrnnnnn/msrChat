@@ -349,7 +349,7 @@ public:
         return _offline_send_state.sending && _offline_send_state.sent_count < _offline_send_state.total_count;
     }
 
-    void ContinueOfflineSend()
+    void ContinueOfflineSend();
 
     std::string GetUuid() const
     {
