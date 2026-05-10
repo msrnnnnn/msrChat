@@ -73,6 +73,9 @@ TcpMgr::TcpMgr(QObject *parent)
     qRegisterMetaType<ResetPwdReqStruct>("ResetPwdReqStruct");
     qRegisterMetaType<ResetPwdRspStruct>("ResetPwdRspStruct");
     qRegisterMetaType<OfflineAckReqStruct>("OfflineAckReqStruct");
+    qRegisterMetaType<ChatTextMsgStruct>("ChatTextMsgStruct");
+    qRegisterMetaType<ChatAckStruct>("ChatAckStruct");
+    qRegisterMetaType<OfflineAckStruct>("OfflineAckStruct");
     init_thread();
 }
 

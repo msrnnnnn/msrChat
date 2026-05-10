@@ -306,6 +306,7 @@ void TcpWorker::slot_reconnect_timeout()
         return;
     }
 
+    reset_buffer();
     _state = ConnectionState::Connecting;
     if (_socket)
     {

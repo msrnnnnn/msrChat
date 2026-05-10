@@ -55,6 +55,7 @@ private:
     std::atomic<bool> _shutting_down{false};
 
     static constexpr size_t DEFAULT_THREAD_NUM = 4;
+    static constexpr size_t MAX_QUEUE_SIZE = 100000;
 };
 
 #endif // LOGIC_SYSTEM_H

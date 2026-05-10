@@ -3,6 +3,7 @@
 
 #include "DbMgr.h"
 #include <QAbstractListModel>
+#include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QVector>
@@ -41,6 +42,7 @@ public:
     void UpdateMessageStatus(const QString &client_msg_id, int status);
     void ClearMessages();
     void SetCurrentUid(int uid);
+    void RebuildIndex();
 
     bool TryGetMessageAt(int index, ChatMessage &out) const;
     QVector<ChatMessage> GetAllMessages() const;
@@ -53,6 +55,7 @@ signals:
 
 private:
     QVector<ChatMessage> _messages;
+    QHash<QString, int> _clientIdIndex;
     mutable QMutex _mutex;
     int _current_uid;
 
