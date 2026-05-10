@@ -3,6 +3,7 @@
  * @brief ChatController 实现
  */
 #include "ChatController.h"
+#include "FileRecvMgr.h"
 #include "FileSendMgr.h"
 #include <QDebug>
 #include <QFileInfo>
@@ -70,6 +71,14 @@ void ChatController::ConnectSignals()
         &FileSendMgr::Instance(), &FileSendMgr::sigSendComplete, this,
         [this](int64_t task_id, bool success, const QString &error)
         { emit sigFileSendComplete(task_id, success, error); }, Qt::QueuedConnection);
+    connect(
+        &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvProgress, this,
+        [this](int64_t task_id, int progress, int64_t received, int64_t total)
+        { emit sigFileRecvProgress(task_id, progress, received, total); }, Qt::QueuedConnection);
+    connect(
+        &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvComplete, this,
+        [this](int64_t task_id, const QString &filepath, bool success, const QString &error)
+        { emit sigFileRecvComplete(task_id, filepath, success, error); }, Qt::QueuedConnection);
 }
 
 void ChatController::DisconnectSignals()
@@ -83,6 +92,7 @@ void ChatController::DisconnectSignals()
         &DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
     disconnect(&DbThreadPool::Instance(), &DbThreadPool::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
     disconnect(&FileSendMgr::Instance(), nullptr, this, nullptr);
+    disconnect(&FileRecvMgr::Instance(), nullptr, this, nullptr);
 }
 
 int ChatController::GetCurrentUid() const
@@ -200,6 +210,9 @@ void ChatController::sendFile(const QString &filePath)
 
     // 2. 压入发送队列，等待对端 FileRsp 后自动分片发送
     FileSendMgr::Instance().StartSend(task_id, _target_uid, cleanPath);
+
+    // 3. 通知 QML 进度面板显示条目
+    emit sigFileSendStarted(task_id, fileInfo.fileName(), total_size);
 }
 
 void ChatController::loadHistory()

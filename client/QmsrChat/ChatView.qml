@@ -296,6 +296,31 @@ Rectangle {
                 }
             }
         }
+
+        function onSigFileRecvProgress(task_id, prog, received, total) {
+            // 接收进度暂不显示在发送进度面板，可由独立 UI 处理
+            console.log("[FileRecv] task=" + task_id + " progress=" + prog + "%")
+        }
+
+        function onSigFileRecvComplete(task_id, filepath, success, error) {
+            if (success) {
+                console.log("[FileRecv] Complete: " + filepath)
+            } else {
+                console.error("[FileRecv] Failed: " + error)
+            }
+        }
+    }
+
+    Connections {
+        target: chatModel
+
+        function onScrollToBottomRequested() {
+            messageListView.positionViewAtEnd()
+        }
+
+        function onScrollToTopRequested() {
+            messageListView.positionViewAtIndex(0, ListView.Beginning)
+        }
     }
 
     // 临时状态显示栏
