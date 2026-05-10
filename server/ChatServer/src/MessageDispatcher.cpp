@@ -670,11 +670,7 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
         int64_t received = json_data.value("received", 0);
         spdlog::debug("[MessageDispatcher] Offline ack received={}", received);
 
-        if (session._offline_send_state.sending &&
-            session._offline_send_state.sent_count < session._offline_send_state.total_count)
-        {
-            session.SendNextOfflinePage();
-        }
+        session.ContinueOfflineSend();
         session.ContinueReading();
     }
     catch (const std::exception &e)

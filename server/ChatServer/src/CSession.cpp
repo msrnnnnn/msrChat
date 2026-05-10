@@ -536,6 +536,14 @@ void CSession::SendNextOfflinePage()
     }
 }
 
+void CSession::ContinueOfflineSend()
+{
+    if (HasOfflineMessagesToSend())
+    {
+        SendNextOfflinePage();
+    }
+}
+
 void CSession::SendNextFileChunk()
 {
     std::lock_guard<std::mutex> lock(_file_mutex);
