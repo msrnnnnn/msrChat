@@ -67,6 +67,17 @@ FileRecvMgr &FileRecvMgr::Instance()
     return instance;
 }
 
+/**
+ * @brief 启动文件接收任务
+ * @param task_id 任务 ID
+ * @param from_uid 发送方用户 ID
+ * @param filename 文件名
+ * @param total_size 文件总大小
+ * @param md5 MD5 校验值（可选）
+ * @param error 错误信息输出
+ * @return 启动是否成功
+ * @details 在临时目录创建 .part 文件，等待数据写入
+ */
 bool FileRecvMgr::StartRecv(
     int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5,
     QString *error)
@@ -102,6 +113,16 @@ bool FileRecvMgr::StartRecv(
     return true;
 }
 
+/**
+ * @brief 写入文件分片数据
+ * @param task_id 任务 ID
+ * @param offset 数据偏移量
+ * @param data 分片数据
+ * @param committed 已提交偏移量输出
+ * @param error 错误信息输出
+ * @return 写入是否成功
+ * @details 必须按序写入，写入完成后验证 MD5（如果提供）
+ */
 bool FileRecvMgr::WriteChunk(
     int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed, QString *error)
 {
@@ -163,6 +184,11 @@ bool FileRecvMgr::WriteChunk(
     return true;
 }
 
+/**
+ * @brief 取消文件接收任务
+ * @param task_id 任务 ID
+ * @details 关闭文件、删除临时文件、释放内存
+ */
 void FileRecvMgr::CancelRecv(int64_t task_id)
 {
     QMutexLocker lock(&_mutex);
@@ -182,6 +208,13 @@ void FileRecvMgr::CancelRecv(int64_t task_id)
     _tasks.erase(it);
 }
 
+/**
+ * @brief 完成接收任务
+ * @param it 任务迭代器
+ * @param error 错误信息输出
+ * @return 是否成功
+ * @details 关闭文件、重命名临时文件为正式文件名、异步计算 MD5 校验
+ */
 bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QString *error)
 {
     FileRecvTask *task = it.value();
@@ -279,6 +312,14 @@ QString FileRecvMgr::CalcMd5(const QString &filepath) const
     return QString::fromLatin1(hash.result().toHex());
 }
 
+/**
+ * @brief MD5 校验结果回调
+ * @param task_id 任务 ID
+ * @param filepath 文件路径
+ * @param success 计算是否成功
+ * @param md5 计算出的 MD5 值
+ * @details 异步线程池计算的 MD5 与预期值比对，失败则删除文件
+ */
 void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool success, const QString &md5)
 {
     if (!success)

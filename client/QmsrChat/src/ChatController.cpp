@@ -9,6 +9,10 @@
 #include <QFileInfo>
 #include <QTimer>
 
+/**
+ * @brief 构造函数
+ * @details 启动超时清理定时器（每 10 秒检查一次），防止_pending_messages 无限膨胀
+ */
 ChatController::ChatController(QObject *parent)
     : QObject(parent),
       _target_uid(0),
@@ -44,6 +48,10 @@ void ChatController::setChatModel(ChatListModel *model)
     }
 }
 
+/**
+ * @brief 连接所有业务信号槽
+ * @details 包括网络消息、数据库操作、文件传输进度等信号
+ */
 void ChatController::ConnectSignals()
 {
     connect(
@@ -81,6 +89,10 @@ void ChatController::ConnectSignals()
         { emit sigFileRecvComplete(task_id, filepath, success, error); }, Qt::QueuedConnection);
 }
 
+/**
+ * @brief 断开所有业务信号槽
+ * @details 析构时调用，防止对象析构后仍有信号触发
+ */
 void ChatController::DisconnectSignals()
 {
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg);
@@ -110,6 +122,11 @@ bool ChatController::IsConnected() const
     return _is_connected;
 }
 
+/**
+ * @brief 设置目标聊天用户
+ * @param uid 目标用户 ID
+ * @details 切换聊天对象时清空当前消息列表并重新加载历史记录
+ */
 void ChatController::setTargetUid(int uid)
 {
     if (_target_uid == uid)
@@ -127,6 +144,11 @@ void ChatController::setTargetUid(int uid)
     loadHistory();
 }
 
+/**
+ * @brief 发送文本消息
+ * @param content 消息内容
+ * @details 限制 512 字符，生成客户端消息 ID 后通过 TcpMgr 发送并持久化到数据库
+ */
 void ChatController::sendMessage(const QString &content)
 {
     if (_target_uid <= 0)
@@ -173,6 +195,11 @@ void ChatController::sendMessage(const QString &content)
     TcpMgr::Instance()->slot_send_chat_text_req(req);
 }
 
+/**
+ * @brief 发送文件
+ * @param filePath 文件路径
+ * @details 兼容 file:/// URL 格式，生成任务 ID 后分片发送
+ */
 void ChatController::sendFile(const QString &filePath)
 {
     if (_target_uid <= 0)
@@ -215,6 +242,9 @@ void ChatController::sendFile(const QString &filePath)
     emit sigFileSendStarted(task_id, fileInfo.fileName(), total_size);
 }
 
+/**
+ * @brief 加载与目标用户的聊天历史记录
+ */
 void ChatController::loadHistory()
 {
     if (_current_uid <= 0 || _target_uid <= 0)
@@ -225,10 +255,18 @@ void ChatController::loadHistory()
     DbThreadPool::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
 }
 
+/**
+ * @brief 清空聊天历史记录（暂未实现）
+ */
 void ChatController::clearHistory()
 {
 }
 
+/**
+ * @brief 收到服务器聊天消息处理
+ * @param msg 聊天消息结构体
+ * @details 持久化到数据库并更新 UI（仅对当前聊天窗口有效）
+ */
 void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
 {
     // 直接构造实体，信任底层的幂等性与 Upsert 逻辑
@@ -253,6 +291,11 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
     }
 }
 
+/**
+ * @brief 消息送达/已存储回执处理
+ * @param ack 送达回执结构体
+ * @details 从 pending 列表移除并更新消息状态（0=发送中，1=已送达，2=已存储）
+ */
 void ChatController::slotOnChatAck(const ChatAckStruct &ack)
 {
     if (ack.client_msg_id.isEmpty() || !_pending_messages.contains(ack.client_msg_id))
@@ -284,6 +327,11 @@ void ChatController::slotOnChatAck(const ChatAckStruct &ack)
     }
 }
 
+/**
+ * @brief 离线消息同步进度处理
+ * @param ack 离线 ack 结构体
+ * @details 持续发送 ACK 直到接收完所有离线消息
+ */
 void ChatController::slotOnOfflineProgress(const OfflineAckStruct &ack)
 {
     if (ack.received <= _last_offline_received)
@@ -300,6 +348,10 @@ void ChatController::slotOnOfflineProgress(const OfflineAckStruct &ack)
     }
 }
 
+/**
+ * @brief 连接状态变化处理
+ * @param connected 是否已连接
+ */
 void ChatController::slotOnConnectionStateChanged(bool connected)
 {
     if (_is_connected == connected)
@@ -311,6 +363,10 @@ void ChatController::slotOnConnectionStateChanged(bool connected)
     emit sigConnectionStatusChanged();
 }
 
+/**
+ * @brief 重连后恢复聊天会话
+ * @details 重新发送 ChatLoginReq 以维持会话状态
+ */
 void ChatController::slotOnReconnected()
 {
     ChatLoginReqStruct req;
@@ -319,6 +375,10 @@ void ChatController::slotOnReconnected()
     TcpMgr::Instance()->slot_send_chat_login_req(req);
 }
 
+/**
+ * @brief 历史消息加载完成回调
+ * @param messages 消息列表
+ */
 void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
 {
     if (_chat_model != nullptr)
@@ -327,6 +387,10 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
     }
 }
 
+/**
+ * @brief 消息保存结果回调
+ * @param success 是否保存成功
+ */
 void ChatController::slotOnMessageSaved(bool success)
 {
     if (!success)
@@ -335,6 +399,10 @@ void ChatController::slotOnMessageSaved(bool success)
     }
 }
 
+/**
+ * @brief 定时清理超时消息（30 秒超时）
+ * @details 防止网络异常时 pending 消息无限累积
+ */
 void ChatController::slotCleanTimeoutMessages()
 {
     const qint64 threshold = QDateTime::currentSecsSinceEpoch() - MESSAGE_TIMEOUT_SEC;

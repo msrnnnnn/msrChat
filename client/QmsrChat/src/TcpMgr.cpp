@@ -55,6 +55,7 @@ void TcpMgr::Destroy()
 /**
  * @brief 构造函数
  * @param parent 父对象
+ * @note 注册元类型是为了跨线程信号槽传递自定义类型
  */
 TcpMgr::TcpMgr(QObject *parent)
     : QObject(parent),
@@ -252,6 +253,12 @@ void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
     }
 }
 
+/**
+ * @brief 解析登录/注册相关回包
+ * @param req_type 请求类型
+ * @param data JSON 数据
+ * @details 包括登录、验证码、注册、密码重置四种响应
+ */
 void TcpMgr::parse_login_packet(RequestType req_type, const QByteArray &data)
 {
     QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -297,6 +304,12 @@ void TcpMgr::parse_login_packet(RequestType req_type, const QByteArray &data)
     }
 }
 
+/**
+ * @brief 解析聊天相关回包
+ * @param req_type 请求类型
+ * @param data 序列化数据（JSON 或 Protobuf）
+ * @details 包括聊天登录、文本消息、ACK、离线 ACK
+ */
 void TcpMgr::parse_chat_packet(RequestType req_type, const QByteArray &data)
 {
     if (req_type == RequestType::MSG_CHAT_LOGIN)

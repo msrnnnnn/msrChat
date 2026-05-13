@@ -51,6 +51,10 @@ void MessageDispatcher::RegisterDefaultHandlers()
 namespace
 {
 
+/**
+ * @brief 聊天登录请求处理
+ * @details 验证 Token 后调用 OnLoginValidated，失败则发送错误响应
+ */
 bool HandleLoginRequest(CSession &session, const std::string &body_data)
 {
     auto json_data = nlohmann::json::parse(body_data, nullptr, false);
@@ -109,6 +113,10 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 用户注册请求处理
+ * @details 异步验证验证码并写入数据库，返回 uid 和用户名
+ */
 bool HandleRegisterRequest(CSession &session, const std::string &body_data)
 {
     try
@@ -172,6 +180,10 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 登录认证请求处理
+ * @details 异步验证用户名密码，登录成功则分发 Token
+ */
 bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
 {
     try
@@ -233,6 +245,10 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 获取验证码请求处理
+ * @details 异步发送验证码到指定邮箱
+ */
 bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
 {
     try
@@ -277,6 +293,10 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 重置密码请求处理
+ * @details 先验证验证码，有效则更新密码
+ */
 bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
 {
     try
@@ -332,6 +352,10 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 聊天文本消息处理
+ * @details 解析 Protobuf，验证后转发给目标用户，不在线则存离线消息
+ */
 bool HandleChatText(CSession &session, const std::string &body_data)
 {
     try
@@ -444,6 +468,10 @@ bool HandleChatText(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 文件传输请求处理
+ * @details 记录 P2P 路由映射并转发给接收方
+ */
 bool HandleFileReq(CSession &session, const std::string &body_data)
 {
     if (session.GetUserUid() == 0)
@@ -521,6 +549,10 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 文件传输响应处理
+ * @details 转发 FileRsp 给发送方（让其知晓接收方已准备好）
+ */
 bool HandleFileRsp(CSession &session, const std::string &body_data)
 {
     try
@@ -566,6 +598,9 @@ bool HandleFileChunk(CSession &session, const std::string &body_data)
     return HandleFileChunk(session, std::string_view(body_data));
 }
 
+/**
+ * @brief 文件分片处理（string_view 重载）
+ */
 bool HandleFileChunk(CSession &session, std::string_view body_view)
 {
     if (session.GetUserUid() == 0)
@@ -623,6 +658,10 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
     return true;
 }
 
+/**
+ * @brief 文件传输 ACK 处理
+ * @details 转发 ACK 给发送方，transfer complete 时清除任务
+ */
 bool HandleFileAck(CSession &session, const std::string &body_data)
 {
     if (session.GetUserUid() == 0)
@@ -674,6 +713,10 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 离线消息 ACK 处理
+ * @details 触发 ContinueOfflineSend 继续发送下一页离线消息
+ */
 bool HandleOfflineAck(CSession &session, const std::string &body_data)
 {
     try

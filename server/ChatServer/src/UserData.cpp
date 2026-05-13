@@ -1,12 +1,25 @@
+/**
+ * @file UserData.cpp
+ * @brief 用户数据内存缓存实现
+ * @details 从 JSON 文件加载用户数据，支持按用户名/UID 查找。
+ */
 #include "UserData.h"
 #include <fstream>
 
+/**
+ * @brief 获取单例实例
+ */
 UserData& UserData::Instance()
 {
     static UserData instance;
     return instance;
 }
 
+/**
+ * @brief 从 JSON 文件加载用户数据
+ * @param filepath 文件路径
+ * @return 成功返回 true
+ */
 bool UserData::Load(const std::string& filepath)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -40,6 +53,11 @@ bool UserData::Load(const std::string& filepath)
     }
 }
 
+/**
+ * @brief 保存用户数据到 JSON 文件
+ * @param filepath 文件路径
+ * @return 成功返回 true
+ */
 bool UserData::Save(const std::string& filepath)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -70,6 +88,13 @@ bool UserData::Save(const std::string& filepath)
     }
 }
 
+/**
+ * @brief 添加用户到缓存
+ * @param uid 用户 ID
+ * @param username 用户名
+ * @param password_hash 密码哈希
+ * @return 添加成功返回 true（用户名已存在返回 false）
+ */
 bool UserData::AddUser(int uid, const std::string& username, const std::string& password_hash)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -86,6 +111,11 @@ bool UserData::AddUser(int uid, const std::string& username, const std::string& 
     return true;
 }
 
+/**
+ * @brief 通过用户名获取密码哈希
+ * @param username 用户名
+ * @return 密码哈希，不存在则返回 std::nullopt
+ */
 std::optional<std::string> UserData::GetPasswordHash(const std::string& username)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -104,6 +134,11 @@ std::optional<std::string> UserData::GetPasswordHash(const std::string& username
     return password_it->second;
 }
 
+/**
+ * @brief 通过用户名获取 UID
+ * @param username 用户名
+ * @return UID，不存在则返回 std::nullopt
+ */
 std::optional<int> UserData::GetUid(const std::string& username)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -116,6 +151,11 @@ std::optional<int> UserData::GetUid(const std::string& username)
     return it->second;
 }
 
+/**
+ * @brief 通过 UID 获取用户名
+ * @param uid 用户 ID
+ * @return 用户名，不存在则返回 std::nullopt
+ */
 std::optional<std::string> UserData::GetUsername(int uid)
 {
     std::lock_guard<std::mutex> lock(_mutex);

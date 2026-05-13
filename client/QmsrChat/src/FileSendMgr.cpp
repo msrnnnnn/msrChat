@@ -13,6 +13,13 @@ FileSendMgr &FileSendMgr::Instance()
 FileSendMgr::FileSendMgr() {}
 FileSendMgr::~FileSendMgr() {}
 
+/**
+ * @brief 启动文件发送任务
+ * @param task_id 任务 ID（毫秒级时间戳）
+ * @param to_uid 目标用户 ID
+ * @param filepath 文件路径
+ * @details 以只读模式打开文件，初始化发送状态并注册任务
+ */
 void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath)
 {
     QMutexLocker locker(&_mutex);
@@ -40,6 +47,12 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
 }
 
+/**
+ * @brief 接收方就绪回调（断点续传支持）
+ * @param task_id 任务 ID
+ * @param offset 已接收偏移量
+ * @details 收到 FileRsp 后调用，根据 offset 定位文件指针并继续发送
+ */
 void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
 {
     QMutexLocker locker(&_mutex);
@@ -69,6 +82,11 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
     }
 }
 
+/**
+ * @brief 取消文件发送任务
+ * @param task_id 任务 ID
+ * @details 关闭文件句柄并从任务列表移除
+ */
 void FileSendMgr::CancelSend(int64_t task_id)
 {
     QMutexLocker locker(&_mutex);
@@ -80,6 +98,11 @@ void FileSendMgr::CancelSend(int64_t task_id)
     }
 }
 
+/**
+ * @brief 发送下一个文件分片
+ * @param task 文件发送任务
+ * @details 每次发送 64KB 分片，发送完成后发射 sigSendProgress
+ */
 void FileSendMgr::SendNextChunk(FileSendTask &task)
 {
     if (!task.active || !task.file->isOpen())

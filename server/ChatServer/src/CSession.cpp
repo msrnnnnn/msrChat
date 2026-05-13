@@ -96,6 +96,12 @@ bool DecodeBinaryPayload(uint16_t msg_id, const char *data, int total_len, std::
 }
 } // namespace
 
+/**
+ * @brief 构造函数
+ * @param ioc Boost ASIO io_context 引用
+ * @param server CServer 弱引用指针
+ * @details 初始化 UUID、接收节点池、读超时定时器
+ */
 CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server)
     : _socket(ioc),
       _read_deadline(ioc),
@@ -116,6 +122,10 @@ CSession::~CSession()
     spdlog::info("~CSession: {}", _uuid);
 }
 
+/**
+ * @brief 关闭会话
+ * @details 原子操作防止重复关闭，移除用户映射、关闭 Socket
+ */
 void CSession::Close()
 {
     bool expected = false;
@@ -138,6 +148,10 @@ void CSession::Close()
     _socket.close(ec);
 }
 
+/**
+ * @brief 启动会话
+ * @details 在 Strand 上重置读超时、调度首次异步读头
+ */
 void CSession::Start()
 {
     auto self = shared_from_this();
@@ -192,6 +206,10 @@ void CSession::ScheduleReadDeadlineCheck()
             }));
 }
 
+/**
+ * @brief 异步读取消息头（6 字节）
+ * @details 解析 msg_id 和 msg_len，根据长度调度读 Body 或二进制 Body
+ */
 void CSession::AsyncReadHead()
 {
     auto self = shared_from_this();
@@ -277,6 +295,11 @@ void CSession::AsyncReadHead()
             }));
 }
 
+/**
+ * @brief 异步读取消息体
+ * @param total_len 消息体长度
+ * @details 读取完成后投递到 LogicSystem 处理
+ */
 void CSession::AsyncReadBody(int total_len)
 {
     auto self = shared_from_this();
@@ -320,6 +343,12 @@ void CSession::AsyncReadBody(int total_len)
             }));
 }
 
+/**
+ * @brief 登录验证结果处理
+ * @param uid 用户 ID
+ * @param valid Token 是否有效
+ * @details 有效则注册会话到 CServer 并发送离线消息
+ */
 void CSession::OnLoginValidated(int uid, bool valid)
 {
     _login_in_progress.store(false);
@@ -373,6 +402,12 @@ void CSession::OnLoginValidated(int uid, bool valid)
     ContinueReading();
 }
 
+/**
+ * @brief 发送消息（线程安全）
+ * @param msg 消息内容
+ * @param msg_id 消息类型 ID
+ * @details 使用 Strand 保证发送顺序，队列满时自动抑制
+ */
 void CSession::Send(const std::string &msg, short msg_id)
 {
     auto send_node = SendNodePool().Acquire();
@@ -392,6 +427,12 @@ void CSession::Send(const std::string &msg, short msg_id)
         });
 }
 
+/**
+ * @brief 发送二进制消息（包含 JSON 元数据和二进制负载）
+ * @param json_data JSON 元数据
+ * @param binary_data 二进制负载数据
+ * @param msg_id 消息类型 ID
+ */
 void CSession::SendBinary(const std::string &json_data, const std::vector<char> &binary_data, short msg_id)
 {
     uint32_t json_len = json_data.size();
@@ -467,6 +508,12 @@ void CSession::AsyncWriteMsg()
             }));
 }
 
+/**
+ * @brief 启动文件发送
+ * @param task_id 任务 ID
+ * @param filepath 文件路径
+ * @details 以只读模式打开文件，记录文件描述符和大小
+ */
 void CSession::StartFileSend(int64_t task_id, const std::string &filepath)
 {
     std::lock_guard<std::mutex> lock(_file_mutex);
@@ -490,6 +537,10 @@ void CSession::StartFileSend(int64_t task_id, const std::string &filepath)
     spdlog::info("[CSession] Start file send: task={}, file={}, size={}", task_id, filepath, st.st_size);
 }
 
+/**
+ * @brief 分页发送离线消息
+ * @details 每次发送 OFFLINE_PAGE_SIZE 条，发完一页后等待客户端 ACK 再继续
+ */
 void CSession::SendNextOfflinePage()
 {
     if (_offline_send_state.uid <= 0 || !_offline_send_state.sending)
@@ -536,6 +587,10 @@ void CSession::SendNextOfflinePage()
     }
 }
 
+/**
+ * @brief 继续离线消息发送
+ * @details 收到离线 ACK 后检查是否还有未发完的消息
+ */
 void CSession::ContinueOfflineSend()
 {
     if (HasOfflineMessagesToSend())
@@ -544,6 +599,10 @@ void CSession::ContinueOfflineSend()
     }
 }
 
+/**
+ * @brief 发送下一个文件分片
+ * @details 每次发送 CHUNK_SIZE 大小的块，更新发送进度
+ */
 void CSession::SendNextFileChunk()
 {
     std::lock_guard<std::mutex> lock(_file_mutex);

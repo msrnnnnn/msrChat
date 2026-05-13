@@ -119,6 +119,10 @@ void RegisterDialog::on_confirm_verifycode_Button_clicked()
     TcpMgr::Instance()->slot_send_verify_code_req(req);
 }
 
+/**
+ * @brief 验证码响应处理
+ * @param rsp 验证码响应结构体
+ */
 void RegisterDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
 {
     if (!this->isVisible())
@@ -146,6 +150,10 @@ void RegisterDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
     startVerifyCountdown(10);
 }
 
+/**
+ * @brief 注册响应处理
+ * @param rsp 注册响应结构体
+ */
 void RegisterDialog::slot_register_rsp(const RegisterRspStruct &rsp)
 {
     if (!this->isVisible())
@@ -180,6 +188,9 @@ void RegisterDialog::slot_register_rsp(const RegisterRspStruct &rsp)
     ChangeTipPage();
 }
 
+/**
+ * @brief 切换到注册成功提示页并启动倒计时
+ */
 void RegisterDialog::ChangeTipPage()
 {
     _countdown_timer->stop();

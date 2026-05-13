@@ -18,6 +18,11 @@ LogicSystem::~LogicSystem()
     Shutdown();
 }
 
+/**
+ * @brief 投递消息任务到处理队列
+ * @param task 消息任务（含会话、消息 ID、数据）
+ * @details 队列满时丢弃任务防止内存溢出
+ */
 void LogicSystem::PostTask(MessageTask task)
 {
     if (_shutting_down.load())
@@ -44,6 +49,11 @@ void LogicSystem::PostTask(MessageTask task)
     _thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); });
 }
 
+/**
+ * @brief 处理消息任务
+ * @param task 消息任务
+ * @details 先查本地 handler，查不到则转发给 MessageDispatcher
+ */
 void LogicSystem::ProcessTask(MessageTask task)
 {
     auto session = task.LockSession();
@@ -92,18 +102,31 @@ void LogicSystem::ProcessTask(MessageTask task)
     }
 }
 
+/**
+ * @brief 注册业务处理器
+ * @param msg_id 消息类型 ID
+ * @param handler 业务处理函数
+ */
 void LogicSystem::RegisterHandler(uint16_t msg_id, BusinessHandler handler)
 {
     _handlers[msg_id] = std::move(handler);
     spdlog::info("[LogicSystem] Registered handler for msg_id {}", msg_id);
 }
 
+/**
+ * @brief 移除业务处理器
+ * @param msg_id 消息类型 ID
+ */
 void LogicSystem::RemoveHandler(uint16_t msg_id)
 {
     _handlers.erase(msg_id);
     spdlog::info("[LogicSystem] Removed handler for msg_id {}", msg_id);
 }
 
+/**
+ * @brief 设置 ASIO io_context 指针
+ * @param ioc io_context 指针
+ */
 void LogicSystem::SetIOContext(boost::asio::io_context *ioc)
 {
     _ioc = ioc;

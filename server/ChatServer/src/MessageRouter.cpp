@@ -5,6 +5,13 @@
 #include <chrono>
 #include <nlohmann/json.hpp>
 
+/**
+ * @brief 转发聊天消息给目标用户
+ * @param target_uid 目标用户 ID
+ * @param msg_data JSON 消息数据
+ * @return 是否发送成功
+ * @details 将 JSON 转换为 Protobuf ServerChatMsg 后发送
+ */
 bool MessageRouter::ForwardMessage(int target_uid, const std::string &msg_data)
 {
     auto session = SessionManager::Instance().GetSession(target_uid);
@@ -38,6 +45,12 @@ bool MessageRouter::ForwardMessage(int target_uid, const std::string &msg_data)
     return true;
 }
 
+/**
+ * @brief 广播消息给所有在线用户
+ * @param msg_data 消息数据
+ * @param exclude_uid 排除的用户 ID（可选）
+ * @return 是否全部发送成功
+ */
 bool MessageRouter::BroadcastMessage(const std::string &msg_data, int exclude_uid)
 {
     bool all_sent = true;

@@ -1,3 +1,8 @@
+/**
+ * @file SQLiteMgr.cpp
+ * @brief SQLite 数据库管理实现
+ * @details 包含连接池、用户认证、消息存储、验证码管理。
+ */
 #include "SQLiteMgr.h"
 #include <cstring>
 #include <ctime>
@@ -46,6 +51,12 @@ SQLiteConnectionPool::~SQLiteConnectionPool()
     Shutdown();
 }
 
+/**
+ * @brief 初始化数据库连接
+ * @param db 输出：sqlite3 指针引用
+ * @return 初始化成功返回 true
+ * @details 设置 WAL 模式和非同步级别
+ */
 bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
 {
     if (sqlite3_open(_db_path.c_str(), db) != SQLITE_OK)
@@ -79,6 +90,11 @@ bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
     return true;
 }
 
+/**
+ * @brief 从连接池获取一个连接
+ * @return 可用连接，不可用时返回 nullptr
+ * @details 阻塞直到有可用连接或池已关闭
+ */
 std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
 {
     std::unique_lock<std::mutex> lock(_mutex);
@@ -97,6 +113,10 @@ std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
     return conn;
 }
 
+/**
+ * @brief 归还连接到池
+ * @param conn 要归还的连接
+ */
 void SQLiteConnectionPool::Release(std::shared_ptr<SQLiteConnection> conn)
 {
     if (!conn)
@@ -108,6 +128,10 @@ void SQLiteConnectionPool::Release(std::shared_ptr<SQLiteConnection> conn)
     _cv.notify_one();
 }
 
+/**
+ * @brief 关闭连接池
+ * @details 设置关闭标志、唤醒所有等待线程、关闭所有连接
+ */
 void SQLiteConnectionPool::Shutdown()
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -125,6 +149,9 @@ void SQLiteConnectionPool::Shutdown()
     _initialized.store(false);
 }
 
+/**
+ * @brief 关闭所有连接
+ */
 void SQLiteConnectionPool::CloseAllConnections()
 {
     for (auto &conn : _all_connections)
@@ -153,6 +180,12 @@ SQLiteMgr &SQLiteMgr::Instance()
     return instance;
 }
 
+/**
+ * @brief 初始化管理器
+ * @param db_path 数据库文件路径
+ * @param pool_size 连接池大小
+ * @return 成功返回 true
+ */
 bool SQLiteMgr::Init(const std::string &db_path, int pool_size)
 {
     if (_initialized.load())
@@ -209,6 +242,9 @@ bool SQLiteMgr::Init(const std::string &db_path, int pool_size)
     return true;
 }
 
+/**
+ * @brief 关闭管理器，释放连接池
+ */
 void SQLiteMgr::Shutdown()
 {
     if (!_initialized.load())
@@ -225,6 +261,12 @@ void SQLiteMgr::Shutdown()
     _initialized.store(false);
 }
 
+/**
+ * @brief 创建数据库表
+ * @param db sqlite3 指针
+ * @return 成功返回 true
+ * @details 创建 users/messages/offline_messages/file_transfers/verify_codes 表
+ */
 bool SQLiteMgr::CreateTables(sqlite3 *db)
 {
     const char *sql = R"(
@@ -307,6 +349,11 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
     return true;
 }
 
+/**
+ * @brief 保存聊天消息
+ * @param msg 消息结构体
+ * @return 成功返回 true
+ */
 bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -331,6 +378,14 @@ bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
+/**
+ * @brief 获取两个用户之间的消息历史
+ * @param uid1 用户1 ID
+ * @param uid2 用户2 ID
+ * @param before_time 时间上限（毫秒时间戳）
+ * @param limit 最大返回条数
+ * @return 消息列表，按时间倒序
+ */
 std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t before_time, int limit)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -376,6 +431,14 @@ std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t befo
     return messages;
 }
 
+/**
+ * @brief 注册新用户
+ * @param username 用户名
+ * @param password_hash 密码哈希（客户端已处理）
+ * @param email 邮箱
+ * @return 认证结果，包含 uid/token 或错误码
+ * @details 采用 salt+$+salted_hash 格式存储密码
+ */
 AuthResult SQLiteMgr::RegisterUser(
     const std::string &username, const std::string &password_hash, const std::string &email)
 {
@@ -438,6 +501,12 @@ AuthResult SQLiteMgr::RegisterUser(
     return r;
 }
 
+/**
+ * @brief 用户登录验证
+ * @param username 用户名
+ * @param password_hash 密码哈希
+ * @return 认证结果，包含 uid/token 或错误码
+ */
 AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &password_hash)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -496,6 +565,12 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
     return r;
 }
 
+/**
+ * @brief 发送验证码到邮箱
+ * @param email 邮箱地址
+ * @return 发送成功返回 true
+ * @details 生成的 6 位验证码有效期 10 分钟
+ */
 bool SQLiteMgr::SendVerifyCode(const std::string &email)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -532,6 +607,12 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email)
     return sqlite3_step(ins_stmt) == SQLITE_DONE;
 }
 
+/**
+ * @brief 校验验证码
+ * @param email 邮箱地址
+ * @param code 验证码
+ * @return 0 成功，1003 过期/无效，1004 不存在
+ */
 int SQLiteMgr::CheckVerifyCode(const std::string &email, const std::string &code)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -564,6 +645,14 @@ int SQLiteMgr::CheckVerifyCode(const std::string &email, const std::string &code
     return 1004;
 }
 
+/**
+ * @brief 重置密码
+ * @param username 用户名
+ * @param email 邮箱
+ * @param code 验证码
+ * @param new_password_hash 新密码哈希
+ * @return 成功返回 true
+ */
 bool SQLiteMgr::ResetPassword(
     const std::string &username, const std::string &email, const std::string &code,
     const std::string &new_password_hash)
@@ -616,6 +705,14 @@ bool SQLiteMgr::ResetPassword(
     return success;
 }
 
+/**
+ * @brief 搜索消息
+ * @param uid1 用户1 ID
+ * @param uid2 用户2 ID
+ * @param keyword 关键词（LIKE 模糊匹配）
+ * @param limit 最大返回条数
+ * @return 匹配的消息列表
+ */
 std::vector<ChatMessage> SQLiteMgr::SearchMessages(int uid1, int uid2, const std::string &keyword, int limit)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -818,6 +915,11 @@ bool SQLiteMgr::UpdateUserAvatar(int uid, const std::string &avatar_path)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
+/**
+ * @brief 保存离线消息
+ * @param msg 消息结构体
+ * @return 成功返回 true
+ */
 bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -843,6 +945,11 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
+/**
+ * @brief 获取用户离线消息
+ * @param uid 用户 ID
+ * @return 消息列表，按时间升序
+ */
 std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -921,6 +1028,11 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit)
     return messages;
 }
 
+/**
+ * @brief 获取离线消息数量
+ * @param uid 用户 ID
+ * @return 消息条数
+ */
 int64_t SQLiteMgr::GetOfflineMessageCount(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -946,6 +1058,11 @@ int64_t SQLiteMgr::GetOfflineMessageCount(int uid)
     return 0;
 }
 
+/**
+ * @brief 清空用户离线消息
+ * @param uid 用户 ID
+ * @return 成功返回 true
+ */
 bool SQLiteMgr::ClearOfflineMessages(int uid)
 {
     SQLiteConnectionGuard guard(_pool);

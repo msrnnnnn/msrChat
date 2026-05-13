@@ -25,11 +25,18 @@ CServer::~CServer()
     _thread_pool.Shutdown();
 }
 
+/**
+ * @brief 启动服务器，监听端口并接受连接
+ */
 void CServer::Start()
 {
     DoAccept();
 }
 
+/**
+ * @brief 接受新连接
+ * @details 递归调用以持续接受连接，关闭重复 UUID 的旧会话
+ */
 void CServer::DoAccept()
 {
     if (_stopped) {
@@ -61,6 +68,12 @@ void CServer::DoAccept()
         });
 }
 
+/**
+ * @brief 添加用户会话
+ * @param uid 用户 ID
+ * @param session 会话智能指针
+ * @details 踢出同一用户的旧连接，注册新会话到 SessionManager
+ */
 void CServer::AddUserSession(int uid, std::shared_ptr<CSession> session)
 {
     auto old_session = SessionManager::Instance().GetSession(uid);
@@ -74,23 +87,45 @@ void CServer::AddUserSession(int uid, std::shared_ptr<CSession> session)
     spdlog::info("[CServer] User {} session added.", uid);
 }
 
+/**
+ * @brief 移除用户会话
+ * @param uid 用户 ID
+ */
 void CServer::RemoveUserSession(int uid)
 {
     SessionManager::Instance().RemoveSession(uid);
     spdlog::info("[CServer] User {} session removed.", uid);
 }
 
+/**
+ * @brief 清除指定 UUID 的会话
+ * @param uuid 会话 UUID
+ */
 void CServer::ClearSession(const std::string &uuid)
 {
     SessionManager::Instance().RemoveSessionByUuid(uuid);
     spdlog::info("[CServer] Session {} cleared.", uuid);
 }
 
+/**
+ * @brief 转发消息给指定用户
+ * @param target_uid 目标用户 ID
+ * @param msg_data JSON 消息数据
+ * @return 是否发送成功（用户不在线返回 false）
+ * @details 优先实时投递，离线用户存入 SQLite
+ */
 bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
 {
     return MessageRouter::Instance().ForwardMessage(target_uid, msg_data);
 }
 
+/**
+ * @brief 转发原始协议消息
+ * @param target_uid 目标用户 ID
+ * @param msg_id 消息类型 ID
+ * @param body_data 序列化消息体
+ * @return 是否发送成功
+ */
 bool CServer::ForwardRawMessage(int target_uid, uint16_t msg_id, const std::string &body_data)
 {
     auto session = SessionManager::Instance().GetSession(target_uid);
@@ -103,6 +138,13 @@ bool CServer::ForwardRawMessage(int target_uid, uint16_t msg_id, const std::stri
     return true;
 }
 
+/**
+ * @brief 存储离线消息
+ * @param target_uid 目标用户 ID
+ * @param msg_data 消息 JSON 数据
+ * @return 是否存储成功
+ * @details 异步写入 SQLite，消息状态置为 0
+ */
 bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 {
     std::promise<bool> result_promise;
@@ -135,6 +177,12 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
     return future.get();
 }
 
+/**
+ * @brief 发送离线消息给用户
+ * @param uid 用户 ID
+ * @param session 目标会话
+ * @details 分页拉取离线消息并发送，发送完成后清空离线记录
+ */
 void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
 {
     auto self = shared_from_this();

@@ -1,3 +1,8 @@
+/**
+ * @file FileTransfer.cpp
+ * @brief P2P 文件传输管理器实现
+ * @details 负责文件传输任务映射、分片发送与 MD5 校验。
+ */
 #include "FileTransfer.h"
 #include "const.h"
 #include <cstring>
@@ -8,6 +13,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/**
+ * @brief 更新传输进度
+ * @param size 本次传输大小
+ * @details 原子操作递增已传输字节数，达到总量时自动标记为完成
+ */
 void FileTransferTask::UpdateProgress(int64_t size)
 {
     int64_t old_size = _transferred_size.load();
@@ -21,11 +31,19 @@ void FileTransferTask::UpdateProgress(int64_t size)
     }
 }
 
+/**
+ * @brief 判断传输是否完成
+ * @return 完成返回 true
+ */
 bool FileTransferTask::IsCompleted() const
 {
     return _transferred_size.load() >= _total_size;
 }
 
+/**
+ * @brief 设置传输状态
+ * @param status 新状态
+ */
 void FileTransferTask::SetStatus(Status status)
 {
     _status.store(status);
@@ -37,6 +55,15 @@ FileTransfer &FileTransfer::Instance()
     return instance;
 }
 
+/**
+ * @brief 创建传输任务
+ * @param ioc Boost ASIO io_context
+ * @param from_uid 发送方用户 ID
+ * @param to_uid 接收方用户 ID
+ * @param filename 文件名
+ * @param total_size 文件总大小
+ * @return 任务 ID
+ */
 int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
 {
     std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
@@ -48,6 +75,14 @@ int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int
     return task_id;
 }
 
+/**
+ * @brief 添加传输任务（已有 task_id）
+ * @param task_id 任务 ID
+ * @param from_uid 发送方用户 ID
+ * @param to_uid 接收方用户 ID
+ * @param filename 文件名
+ * @param total_size 文件总大小
+ */
 void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
                            const std::string &filename, int64_t total_size)
 {
@@ -56,6 +91,11 @@ void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
     _tasks[task_id] = task;
 }
 
+/**
+ * @brief 获取传输任务
+ * @param task_id 任务 ID
+ * @return 任务智能指针，不存在返回 nullptr
+ */
 std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
 {
     std::shared_lock<std::shared_mutex> lock(_tasks_mutex);
@@ -67,12 +107,24 @@ std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
     return nullptr;
 }
 
+/**
+ * @brief 移除传输任务
+ * @param task_id 任务 ID
+ */
 void FileTransfer::RemoveTask(int64_t task_id)
 {
     std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
     _tasks.erase(task_id);
 }
 
+/**
+ * @brief 分片发送文件（同步模式）
+ * @param fd 文件描述符
+ * @param send_callback 发送回调，返回 true 表示发送成功
+ * @param offset 起始偏移
+ * @param size 发送总字节数
+ * @return 全部发送成功返回 true
+ */
 bool FileTransfer::SendFileChunked(
     int fd, std::function<bool(const char *, size_t)> send_callback, int64_t offset, int64_t size)
 {
@@ -105,6 +157,11 @@ bool FileTransfer::SendFileChunked(
     return total_sent == size;
 }
 
+/**
+ * @brief 计算文件 MD5
+ * @param filepath 文件路径
+ * @return MD5 十六进制字符串，空字符串表示失败
+ */
 std::string FileTransfer::CalculateMD5(const std::string &filepath)
 {
     std::ifstream file(filepath, std::ios::binary);
@@ -156,6 +213,9 @@ FileSender::FileSender(
 {
 }
 
+/**
+ * @brief 启动分片发送
+ */
 void FileSender::Start()
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -168,6 +228,9 @@ void FileSender::Start()
     SendNextChunk();
 }
 
+/**
+ * @brief 停止分片发送
+ */
 void FileSender::Stop()
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -176,6 +239,10 @@ void FileSender::Stop()
     _cv.notify_all();
 }
 
+/**
+ * @brief 发送下一个分片
+ * @details 读取文件指定位置的数据，通过回调发送后启动定时器递归发送下一片
+ */
 void FileSender::SendNextChunk()
 {
     if (_stopped.load())
@@ -208,6 +275,12 @@ void FileSender::SendNextChunk()
     SendChunkData(buffer, static_cast<size_t>(bytes_read));
 }
 
+/**
+ * @brief 发送分片数据
+ * @param data 数据指针
+ * @param len 数据长度
+ * @details 组装 JSON 头（task_id/offset/size）和二进制负载后发送
+ */
 void FileSender::SendChunkData(const char *data, size_t len)
 {
     nlohmann::json header;
@@ -249,6 +322,11 @@ void FileSender::SendChunkData(const char *data, size_t len)
         });
 }
 
+/**
+ * @brief 处理分片 ACK
+ * @param success 是否成功
+ * @param message 附加消息
+ */
 void FileSender::OnChunkAck(bool success, const std::string &message)
 {
     if (!success)
@@ -270,6 +348,12 @@ void FileSender::OnChunkAck(bool success, const std::string &message)
     }
 }
 
+/**
+ * @brief 计算分片数据 MD5
+ * @param data 数据指针
+ * @param len 数据长度
+ * @return MD5 十六进制字符串
+ */
 std::string FileTransfer::CalculateChunkMD5(const char *data, size_t len)
 {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();

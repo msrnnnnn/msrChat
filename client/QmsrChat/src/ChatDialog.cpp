@@ -8,6 +8,10 @@
 #include <QDebug>
 #include <QQuickItem>
 
+/**
+ * @brief 构造函数
+ * @details 初始化 ChatController、ChatListModel，并加载 QML 聊天界面
+ */
 ChatDialog::ChatDialog(QWidget *parent)
     : QWidget(parent),
       ui(new Ui::ChatDialog),
@@ -41,6 +45,10 @@ ChatDialog::~ChatDialog()
     delete ui;
 }
 
+/**
+ * @brief 加载 QML 聊天视图
+ * @details 将 ChatModel 和 ChatController 暴露给 QML，完成 UI 绑定
+ */
 void ChatDialog::SetupQmlView()
 {
     _qml_widget = new QQuickWidget(this);
