@@ -175,11 +175,50 @@ Rectangle {
                 }
 
                 onClicked: {
-                    if (chatController) {
-                        chatController.sendFile("")
-                    }
+                    fileDialog.open()
                 }
             }
+        }
+    }
+
+    FileDialog {
+        id: fileDialog
+        title: "选择文件"
+        onAccepted: {
+            if (chatController) {
+                chatController.sendFile(selectedFile.toString())
+            }
+        }
+    }
+
+    Rectangle {
+        id: errorBanner
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: inputArea.top
+        height: 0
+        color: "#FF5252"
+        visible: height > 0
+        clip: true
+        Behavior on height { NumberAnimation { duration: 300 } }
+
+        Text {
+            id: errorBannerText
+            anchors.centerIn: parent
+            color: "#FFFFFF"
+            font.pixelSize: 13
+        }
+
+        Timer {
+            id: errorBannerTimer
+            interval: 4000
+            onTriggered: errorBanner.height = 0
+        }
+
+        function show(msg) {
+            errorBannerText.text = msg
+            errorBanner.height = 32
+            errorBannerTimer.restart()
         }
     }
 
@@ -271,8 +310,8 @@ Rectangle {
         target: chatController
 
         function onSigError(errorMsg) {
-            console.error("[Chat业务异常]: " + errorMsg)
-            // TODO: 替换为实际的 Toast 或 MessageDialog 组件调用
+            console.error("[Chat]: " + errorMsg)
+            errorBanner.show(errorMsg)
         }
 
         function onSigFileSendStarted(task_id, filename, total_size) {
