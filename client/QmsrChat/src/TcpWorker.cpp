@@ -106,12 +106,12 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
 {
     if (!_socket)
     {
-        qWarning() << "Tcp send rejected: socket not initialized";
+        qWarning() << "Tcp send rejected: socket not initialized, reqId:" << static_cast<int>(reqId);
         return;
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected";
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state) << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -130,7 +130,7 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
         qWarning() << "Tcp send failed: expected" << block.size() << "bytes, wrote" << written;
         return;
     }
-    qDebug() << "Tcp Send: ID=" << id << " Len=" << len;
+    qDebug() << "Tcp Send: ID=" << id << "(" << static_cast<int>(reqId) << ") Len=" << len;
 }
 
 void TcpWorker::slot_connected()
@@ -193,10 +193,7 @@ void TcpWorker::slot_ready_read()
             }
 
             char header[6];
-            if (_recv_buffer.Read(header, 6) < 6)
-            {
-                break;
-            }
+            _recv_buffer.Read(header, 6);
 
             _message_id = qFromBigEndian<quint16>(reinterpret_cast<const uchar *>(header));
             _message_len = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(header + 2));
@@ -323,12 +320,7 @@ QByteArray TcpWorker::readBytes(qsizetype len)
     }
 
     result.resize(len);
-    std::size_t bytesRead = _recv_buffer.Read(result.data(), static_cast<std::size_t>(len));
-    if (bytesRead < static_cast<std::size_t>(len))
-    {
-        result.resize(static_cast<int>(bytesRead));
-    }
-
+    _recv_buffer.Read(result.data(), static_cast<std::size_t>(len));
     return result;
 }
 

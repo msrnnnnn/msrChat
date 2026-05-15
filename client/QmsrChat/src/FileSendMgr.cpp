@@ -22,6 +22,7 @@ FileSendMgr::~FileSendMgr() {}
  */
 void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath)
 {
+    qDebug() << "[FileSendMgr] StartSend called, task_id:" << task_id << "to_uid:" << to_uid << "filepath:" << filepath;
     QMutexLocker locker(&_mutex);
     if (_tasks.find(task_id) != _tasks.end())
     {
@@ -55,6 +56,7 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
  */
 void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
 {
+    qDebug() << "[FileSendMgr] OnRecvReady called, task_id:" << task_id << "offset:" << offset;
     QMutexLocker locker(&_mutex);
     auto it = _tasks.find(task_id);
     if (it == _tasks.end() || !it->second.active)

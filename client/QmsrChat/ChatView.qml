@@ -185,7 +185,9 @@ Rectangle {
         id: fileDialog
         title: "选择文件"
         onAccepted: {
+            console.log("[ChatView] FileDialog onAccepted, selectedFile:", selectedFile.toString())
             if (chatController) {
+                console.log("[ChatView] calling chatController.sendFile")
                 chatController.sendFile(selectedFile.toString())
             }
         }
@@ -278,28 +280,67 @@ Rectangle {
             interactive: false
 
             delegate: Rectangle {
-                width: parent.width
+                width: fileProgressList.width
                 height: 40
                 color: "transparent"
 
+                // 关闭按钮
+                Rectangle {
+                    id: closeBtn
+                    anchors.right: parent.right
+                    anchors.rightMargin: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 16
+                    height: 16
+                    color: "transparent"
+                    Text {
+                        text: "×"
+                        font.pixelSize: 14
+                        font.bold: true
+                        anchors.centerIn: parent
+                        color: "#999999"
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onEntered: closeBtn.color = "#E0E0E0"
+                        onExited: closeBtn.color = "transparent"
+                        onClicked: {
+                            for (var i = 0; i < fileProgressModel.count; i++) {
+                                if (fileProgressModel.get(i).task_id === model.task_id) {
+                                    fileProgressModel.remove(i)
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.right: closeBtn.left
+                    anchors.margins: 4
                     spacing: 2
                     Text {
                         text: filename
                         font.pixelSize: 12
                         color: "#333333"
+                        elide: Text.ElideMiddle
                     }
                     ProgressBar {
-                        width: parent.width
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         from: 0
                         to: 100
                         value: progress
+                        visible: progress >= 0
                     }
                     Text {
-                        text: progress + "%"
+                        text: progress >= 0 ? (progress + "%") : error
                         font.pixelSize: 10
-                        color: "#666666"
+                        color: progress < 0 ? "#FF5252" : "#666666"
+                        visible: progress >= 0 || error !== ""
                     }
                 }
             }
@@ -328,9 +369,19 @@ Rectangle {
         }
 
         function onSigFileSendComplete(task_id, success, error) {
+            console.log("[Chat] FileSendComplete, task_id:" + task_id + " success:" + success)
+            // 找到并更新为完成状态，不立即移除，让用户看清
             for (var i = 0; i < fileProgressModel.count; i++) {
                 if (fileProgressModel.get(i).task_id === task_id) {
-                    fileProgressModel.remove(i)
+                    if (success) {
+                        fileProgressModel.setProperty(i, "filename", "已发送: " + fileProgressModel.get(i).filename)
+                        fileProgressModel.setProperty(i, "progress", 100)
+                        fileProgressModel.setProperty(i, "error", "")
+                    } else {
+                        fileProgressModel.setProperty(i, "filename", "发送失败")
+                        fileProgressModel.setProperty(i, "progress", -1)
+                        fileProgressModel.setProperty(i, "error", error)
+                    }
                     break
                 }
             }
@@ -344,8 +395,10 @@ Rectangle {
         function onSigFileRecvComplete(task_id, filepath, success, error) {
             if (success) {
                 console.log("[FileRecv] Complete: " + filepath)
+                fileProgressModel.append({"task_id": task_id, "filename": "已保存: " + filepath, "progress": 100, "error": ""})
             } else {
                 console.error("[FileRecv] Failed: " + error)
+                fileProgressModel.append({"task_id": task_id, "filename": "接收失败", "progress": -1, "error": error})
             }
         }
     }

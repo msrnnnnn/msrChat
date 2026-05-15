@@ -210,6 +210,7 @@ void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
 
 void TcpMgr::slot_send_file_req(const FileReqStruct &req)
 {
+    qDebug() << "[TcpMgr] slot_send_file_req called, task_id:" << req.task_id << "from:" << req.from_uid << "to:" << req.to_uid << "filename:" << req.filename;
     qmsrchat::FileReq fileReq;
     fileReq.set_task_id(req.task_id);
     fileReq.set_from_uid(req.from_uid);

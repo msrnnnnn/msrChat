@@ -202,21 +202,34 @@ void ChatController::sendMessage(const QString &content)
  */
 void ChatController::sendFile(const QString &filePath)
 {
+    qDebug() << "[ChatController] sendFile called, path:" << filePath << "target_uid:" << _target_uid;
+
     if (_target_uid <= 0)
     {
+        qWarning() << "[ChatController] sendFile failed: target_uid is" << _target_uid;
         emit sigError(QStringLiteral("请先指定目标用户"));
         return;
     }
 
-    // 跨平台处理 URL 前缀 (兼容 QML 传入的 file:///)
+    // 跨平台处理 URL 前缀 (兼容 QML 传入的 file:/// 或 file:///)
     QString cleanPath = filePath;
     if (cleanPath.startsWith("file:///")) {
-        cleanPath = cleanPath.mid(8);
+        cleanPath = cleanPath.mid(8);  // 删除 "file:///"
+    } else if (cleanPath.startsWith("file://")) {
+        cleanPath = cleanPath.mid(7);  // 删除 "file://"
+    }
+    // 处理 Windows 盘符前的多余斜杠，如 /C:/ → C:/
+    if (cleanPath.startsWith("/") && cleanPath.length() >= 3 && cleanPath[2] == ':') {
+        cleanPath = cleanPath.mid(1);
     }
 
+    qDebug() << "[ChatController] cleanPath after processing:" << cleanPath;
+
     QFileInfo fileInfo(cleanPath);
+    qDebug() << "[ChatController] file exists:" << fileInfo.exists() << "isFile:" << fileInfo.isFile();
     if (!fileInfo.exists() || !fileInfo.isFile())
     {
+        qWarning() << "[ChatController] sendFile failed: file does not exist or path invalid:" << cleanPath;
         emit sigError(QStringLiteral("文件不存在或路径无效"));
         return;
     }
@@ -224,6 +237,8 @@ void ChatController::sendFile(const QString &filePath)
     // 生成临时任务 ID (毫秒级时间戳)
     int64_t task_id = QDateTime::currentMSecsSinceEpoch();
     int64_t total_size = fileInfo.size();
+
+    qDebug() << "[ChatController] Starting file send, task_id:" << task_id << "size:" << total_size;
 
     // 1. 发送文件传输握手请求
     TcpMgr::FileReqStruct req;

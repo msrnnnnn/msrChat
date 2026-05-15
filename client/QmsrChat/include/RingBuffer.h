@@ -59,29 +59,8 @@ public:
             }
         }
 
-        std::size_t write_pos = _write_pos;
-        std::size_t available = GetSpaceAvailable(write_pos);
-
-        if (available >= len)
-        {
-            CopyToBuffer(data, len, write_pos);
-            _write_pos = CalculateNextPos(write_pos, len);
-        }
-        else
-        {
-            std::size_t to_end = _capacity - write_pos;
-            if (len <= to_end)
-            {
-                std::memcpy(_buffer.get() + write_pos, data, len);
-                _write_pos = (write_pos + len) % _capacity;
-            }
-            else
-            {
-                std::memcpy(_buffer.get() + write_pos, data, to_end);
-                std::memcpy(_buffer.get(), data + to_end, len - to_end);
-                _write_pos = len - to_end;
-            }
-        }
+        CopyToBuffer(data, len, _write_pos);
+        _write_pos = CalculateNextPos(_write_pos, len);
 
         return true;
     }
@@ -164,12 +143,12 @@ public:
             return 0;
         }
 
-        std::size_t to_read = (std::min)(len, available);
+        std::size_t to_read = std::min(len, available);
 
         if (current_read + to_read <= _capacity)
         {
             std::memcpy(dest, _buffer.get() + current_read, to_read);
-            _read_pos = (current_read + to_read) % _capacity;
+            _read_pos = current_read + to_read;
         }
         else
         {
