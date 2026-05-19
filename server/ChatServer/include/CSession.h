@@ -346,7 +346,7 @@ public:
 
     bool HasOfflineMessagesToSend() const
     {
-        std::lock_guard<std::mutex> lock(_offline_mutex);
+        std::lock_guard<std::recursive_mutex> lock(_offline_mutex);
         return _offline_send_state.sending && _offline_send_state.sent_count < _offline_send_state.total_count;
     }
 
