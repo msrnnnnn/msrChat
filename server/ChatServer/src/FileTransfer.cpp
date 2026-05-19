@@ -66,11 +66,14 @@ FileTransfer &FileTransfer::Instance()
  */
 int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
 {
-    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
-    int64_t task_id = _task_id_allocator++;
-
-    auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
-    _tasks[task_id] = task;
+    int64_t task_id;
+    std::shared_ptr<FileTransferTask> task;
+    {
+        std::lock_guard<std::mutex> lock(_task_mutex);
+        task_id = _task_id_allocator.fetch_add(1);
+        task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
+        _tasks[task_id] = task;
+    }
 
     return task_id;
 }
@@ -86,7 +89,7 @@ int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int
 void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
                            const std::string &filename, int64_t total_size)
 {
-    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
+    std::lock_guard<std::mutex> lock(_task_mutex);
     auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
     _tasks[task_id] = task;
 }
@@ -98,7 +101,7 @@ void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
  */
 std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
 {
-    std::shared_lock<std::shared_mutex> lock(_tasks_mutex);
+    std::lock_guard<std::mutex> lock(_task_mutex);
     auto it = _tasks.find(task_id);
     if (it != _tasks.end())
     {
@@ -113,7 +116,7 @@ std::shared_ptr<FileTransferTask> FileTransfer::GetTask(int64_t task_id)
  */
 void FileTransfer::RemoveTask(int64_t task_id)
 {
-    std::lock_guard<std::shared_mutex> lock(_tasks_mutex);
+    std::lock_guard<std::mutex> lock(_task_mutex);
     _tasks.erase(task_id);
 }
 

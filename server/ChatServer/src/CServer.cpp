@@ -187,8 +187,10 @@ void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
 {
     auto self = shared_from_this();
 
-    _thread_pool.Enqueue(
-        [this, self, uid, session]()
+    // 所有 session 访问都通过 strand，确保线程安全
+    boost::asio::post(
+        session->GetStrand(),
+        [self, session, uid]()
         {
             int64_t total_count = SQLiteMgr::Instance().GetOfflineMessageCount(uid);
 
@@ -197,17 +199,12 @@ void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
                 return;
             }
 
-            boost::asio::post(
-                session->GetStrand(),
-                [self, session, uid, total_count]()
-                {
-                    session->_offline_send_state.uid = uid;
-                    session->_offline_send_state.total_count = total_count;
-                    session->_offline_send_state.sent_count = 0;
-                    session->_offline_send_state.sending = true;
+            session->_offline_send_state.uid = uid;
+            session->_offline_send_state.total_count = total_count;
+            session->_offline_send_state.sent_count = 0;
+            session->_offline_send_state.sending = true;
 
-                    session->SendNextOfflinePage();
-                });
+            session->SendNextOfflinePage();
         });
 }
 

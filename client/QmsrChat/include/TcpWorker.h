@@ -10,6 +10,7 @@
 #include "Global.h"
 #include <QByteArray>
 #include <QDateTime>
+#include <QMutex>
 #include <QObject>
 #include <QTcpSocket>
 #include <QTimer>
@@ -62,6 +63,7 @@ private:
     QTcpSocket *_socket;
     QString _host;
     uint16_t _port;
+    QMutex _pending_connect_mutex;
     std::optional<ServerInfo> _pending_connect;
 
     RingBuffer _recv_buffer;

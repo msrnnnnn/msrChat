@@ -291,6 +291,17 @@ QVector<ChatMessage> ChatListModel::GetAllMessages() const
     return _messages;
 }
 
+QVector<ChatMessage> ChatListModel::GetMessagesAtomic(int start, int count) const
+{
+    QMutexLocker locker(&_mutex);
+    QVector<ChatMessage> result;
+    int end = qMin(start + count, _messages.size());
+    for (int i = start; i < end; ++i) {
+        result.append(_messages[i]);
+    }
+    return result;
+}
+
 void ChatListModel::RebuildIndex()
 {
     _clientIdIndex.clear();

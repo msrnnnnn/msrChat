@@ -155,6 +155,7 @@ private:
 
     std::map<int64_t, std::shared_ptr<FileTransferTask>> _tasks;
     std::shared_mutex _tasks_mutex;
+    std::mutex _task_mutex;
     std::atomic<int64_t> _task_id_allocator{1};
 };
 

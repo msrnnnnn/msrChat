@@ -46,6 +46,7 @@ public:
 
     bool TryGetMessageAt(int index, ChatMessage &out) const;
     QVector<ChatMessage> GetAllMessages() const;
+    QVector<ChatMessage> GetMessagesAtomic(int start, int count) const;
 
 signals:
     void messageAdded(const ChatMessage &msg);

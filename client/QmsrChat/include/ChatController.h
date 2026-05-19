@@ -13,6 +13,7 @@
 #include "UserMgr.h"
 #include <QDateTime>
 #include <QHash>
+#include <QMutex>
 #include <QObject>
 #include <QString>
 #include <QUuid>
@@ -75,6 +76,7 @@ private:
     int _current_uid;
     bool _is_connected;
     ChatListModel *_chat_model = nullptr;
+    QMutex _pending_mutex;
     QHash<QString, PendingMessageInfo> _pending_messages;
     qint64 _last_offline_received = -1;
     QTimer *_cleanup_timer;

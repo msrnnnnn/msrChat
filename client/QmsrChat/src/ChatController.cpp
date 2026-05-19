@@ -179,6 +179,7 @@ void ChatController::sendMessage(const QString &content)
     msg.timestamp = QDateTime::currentMSecsSinceEpoch();
     msg.status = 0;
 
+    QMutexLocker locker(&_pending_mutex);
     _pending_messages.insert(client_msg_id, PendingMessageInfo{QDateTime::currentSecsSinceEpoch()});
     if (_chat_model != nullptr)
     {
@@ -420,6 +421,7 @@ void ChatController::slotOnMessageSaved(bool success)
  */
 void ChatController::slotCleanTimeoutMessages()
 {
+    QMutexLocker locker(&_pending_mutex);
     const qint64 threshold = QDateTime::currentSecsSinceEpoch() - MESSAGE_TIMEOUT_SEC;
     QStringList expired_ids;
 

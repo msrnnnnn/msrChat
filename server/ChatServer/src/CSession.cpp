@@ -543,6 +543,7 @@ void CSession::StartFileSend(int64_t task_id, const std::string &filepath)
  */
 void CSession::SendNextOfflinePage()
 {
+    std::lock_guard<std::mutex> lock(_offline_mutex);
     if (_offline_send_state.uid <= 0 || !_offline_send_state.sending)
     {
         return;
@@ -593,6 +594,7 @@ void CSession::SendNextOfflinePage()
  */
 void CSession::ContinueOfflineSend()
 {
+    std::lock_guard<std::mutex> lock(_offline_mutex);
     if (HasOfflineMessagesToSend())
     {
         SendNextOfflinePage();

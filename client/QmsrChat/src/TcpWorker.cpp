@@ -58,14 +58,19 @@ void TcpWorker::slot_init()
 
     if (_pending_connect.has_value())
     {
-        const ServerInfo si = *_pending_connect;
-        _pending_connect.reset();
+        ServerInfo si;
+        {
+            QMutexLocker locker(&_pending_connect_mutex);
+            si = *_pending_connect;
+            _pending_connect.reset();
+        }
         slot_tcp_connect(si);
     }
 }
 
 void TcpWorker::slot_stop()
 {
+    QMutexLocker locker(&_pending_connect_mutex);
     _state = ConnectionState::Stopping;
     _pending_connect.reset();
 
@@ -83,6 +88,7 @@ void TcpWorker::slot_stop()
 
 void TcpWorker::slot_tcp_connect(ServerInfo si)
 {
+    QMutexLocker locker(&_pending_connect_mutex);
     if (!_socket)
     {
         _pending_connect = si;

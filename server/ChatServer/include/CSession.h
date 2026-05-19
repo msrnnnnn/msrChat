@@ -346,6 +346,7 @@ public:
 
     bool HasOfflineMessagesToSend() const
     {
+        std::lock_guard<std::mutex> lock(_offline_mutex);
         return _offline_send_state.sending && _offline_send_state.sent_count < _offline_send_state.total_count;
     }
 
@@ -568,7 +569,7 @@ private:
     BinaryPacketState _bin_packet_state;
 
     std::mutex _file_mutex;
-    std::mutex _offline_mutex;
+    std::recursive_mutex _offline_mutex;
 
     std::weak_ptr<CServer> _server;
 };
