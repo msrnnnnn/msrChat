@@ -150,6 +150,11 @@ set(PROJECT_SOURCES
         src/Utils.cpp
 )
 
+# Windows 平台：添加可执行文件图标
+if(WIN32)
+    list(APPEND PROJECT_SOURCES resources/win32/app.rc)
+endif()
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
