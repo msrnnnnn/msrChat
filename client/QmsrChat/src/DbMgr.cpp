@@ -39,8 +39,7 @@ bool DbMgr::Init(const QString &db_path)
 
     _db_path = db_path;
 
-    _main_thread_connection_name =
-        QString("chat_db_main_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    _main_thread_connection_name = QString("chat_db_main_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
     _main_thread_db = QSqlDatabase::addDatabase("QSQLITE", _main_thread_connection_name);
     _main_thread_db.setDatabaseName(db_path);
 

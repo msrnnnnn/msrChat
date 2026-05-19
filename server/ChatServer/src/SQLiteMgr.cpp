@@ -580,8 +580,9 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email)
     }
     sqlite3 *db = guard.Get();
 
-    std::random_device rd;
-    int code = rd() % 900000 + 100000;
+    // TODO: 正式环境应接入邮件服务发送真实验证码
+    // 开发测试用：固定验证码 123456
+    const int code = 123456;
 
     ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
     if (del_stmt)
@@ -602,7 +603,7 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email)
     sqlite3_bind_int64(ins_stmt, 3, now);
     sqlite3_bind_int64(ins_stmt, 4, now + 600);
 
-    spdlog::info("[Auth] VerifyCode for {}: {}", email, code);
+    spdlog::info("[Auth] VerifyCode for {}: {} (DEV: hardcoded)", email, code);
 
     return sqlite3_step(ins_stmt) == SQLITE_DONE;
 }
