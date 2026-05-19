@@ -569,7 +569,7 @@ private:
     BinaryPacketState _bin_packet_state;
 
     std::mutex _file_mutex;
-    std::recursive_mutex _offline_mutex;
+    mutable std::recursive_mutex _offline_mutex;
 
     std::weak_ptr<CServer> _server;
 };
