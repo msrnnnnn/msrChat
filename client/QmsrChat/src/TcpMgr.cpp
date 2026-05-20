@@ -238,13 +238,13 @@ void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
         case RequestType::ID_GET_VARIFY_CODE:
         case RequestType::ID_REGISTER_USER:
         case RequestType::ID_RESET_PWD:
-            parse_login_packet(req_type, data);
+            _parser.parseLoginPacket(req_type, data);
             return;
         case RequestType::MSG_CHAT_LOGIN:
         case RequestType::MSG_CHAT_TEXT:
         case RequestType::MSG_CHAT_ACK:
         case RequestType::MSG_OFFLINE_ACK:
-            parse_chat_packet(req_type, data);
+            _parser.parseChatPacket(req_type, data);
             return;
         case RequestType::MSG_FILE_REQ:
         case RequestType::MSG_FILE_RSP:
@@ -254,138 +254,6 @@ void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
             return;
         default:
             return;
-    }
-}
-
-/**
- * @brief 解析登录/注册相关回包
- * @param req_type 请求类型
- * @param data JSON 数据
- * @details 包括登录、验证码、注册、密码重置四种响应
- */
-void TcpMgr::parse_login_packet(RequestType req_type, const QByteArray &data)
-{
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (doc.isNull() || !doc.isObject())
-    {
-        return;
-    }
-
-    QJsonObject jsonObj = doc.object();
-
-    if (req_type == RequestType::ID_LOGIN_USER)
-    {
-        LoginRspStruct rsp;
-        rsp.error = jsonObj["error"].toInt();
-        rsp.uid = jsonObj["uid"].toInt();
-        rsp.token = jsonObj["token"].toString();
-        rsp.user = jsonObj["user"].toString();
-
-        emit sig_login_rsp(rsp);
-    }
-    else if (req_type == RequestType::ID_GET_VARIFY_CODE)
-    {
-        VerifyCodeRspStruct rsp;
-        rsp.error = jsonObj["error"].toInt();
-        rsp.email = jsonObj["email"].toString();
-        rsp.code = jsonObj["code"].toInt();
-
-        emit sig_verify_code_rsp(rsp);
-    }
-    else if (req_type == RequestType::ID_REGISTER_USER)
-    {
-        RegisterRspStruct rsp;
-        rsp.error = jsonObj["error"].toInt();
-        rsp.email = jsonObj["email"].toString();
-
-        emit sig_register_rsp(rsp);
-    }
-    else if (req_type == RequestType::ID_RESET_PWD)
-    {
-        ResetPwdRspStruct rsp;
-        rsp.error = jsonObj["error"].toInt();
-
-        emit sig_reset_pwd_rsp(rsp);
-    }
-}
-
-/**
- * @brief 解析聊天相关回包
- * @param req_type 请求类型
- * @param data 序列化数据（JSON 或 Protobuf）
- * @details 包括聊天登录、文本消息、ACK、离线 ACK
- */
-void TcpMgr::parse_chat_packet(RequestType req_type, const QByteArray &data)
-{
-    if (req_type == RequestType::MSG_CHAT_LOGIN)
-    {
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isNull() || !doc.isObject())
-        {
-            return;
-        }
-
-        QJsonObject obj = doc.object();
-        ChatLoginRspStruct rsp;
-        rsp.error = obj.value("error").toInt(1);
-        rsp.message = obj.value("message").toString();
-
-        emit sig_chat_login_rsp(rsp);
-        return;
-    }
-
-    if (req_type == RequestType::MSG_CHAT_TEXT)
-    {
-        qmsrchat::ServerChatMsg chatMsg;
-        if (chatMsg.ParseFromArray(data.constData(), data.size()))
-        {
-            ChatTextMsgStruct msg;
-            msg.from_uid = chatMsg.from_uid();
-            msg.to_uid = chatMsg.to_uid();
-            msg.content = QString::fromStdString(chatMsg.content());
-            msg.client_msg_id = QString::fromStdString(chatMsg.client_msg_id());
-            msg.server_msg_id = chatMsg.server_msg_id();
-            msg.timestamp = chatMsg.timestamp();
-
-            emit sig_chat_text_msg(msg);
-        }
-        else
-        {
-            qWarning() << "Failed to parse ServerChatMsg from Protobuf";
-        }
-        return;
-    }
-    if (req_type == RequestType::MSG_CHAT_ACK)
-    {
-        qmsrchat::ChatAck chatAck;
-        if (!chatAck.ParseFromArray(data.constData(), data.size()))
-        {
-            qWarning() << "Failed to parse ChatAck from Protobuf";
-            return;
-        }
-
-        ChatAckStruct ack;
-        ack.error = chatAck.error();
-        ack.message = QString::fromStdString(chatAck.message());
-        ack.client_msg_id = QString::fromStdString(chatAck.client_msg_id());
-
-        emit sig_chat_ack(ack);
-        return;
-    }
-    if (req_type == RequestType::MSG_OFFLINE_ACK)
-    {
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isNull() || !doc.isObject())
-        {
-            return;
-        }
-
-        QJsonObject obj = doc.object();
-        OfflineAckStruct ack;
-        ack.received = obj.value("received").toInteger();
-        ack.total = obj.value("total").toInteger();
-
-        emit sig_offline_ack(ack);
     }
 }
 

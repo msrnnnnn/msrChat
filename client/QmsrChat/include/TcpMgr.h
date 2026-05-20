@@ -9,6 +9,7 @@
 
 #include "ProtocolStructs.h"
 #include "Global.h"
+#include "TcpProtocolParser.h"
 #include <QMutex>
 #include <QObject>
 #include <QThread>
@@ -18,6 +19,8 @@ class TcpWorker;
 class TcpMgr : public QObject
 {
     Q_OBJECT
+
+    friend class TcpProtocolParser;
 
 public:
     static TcpMgr *Instance();
@@ -42,7 +45,6 @@ public:
 
 signals:
     void sig_con_success(bool bsuccess);
-    void sig_login_failed(int err);
     void sig_reconnected();
 
     void sig_login_rsp(const LoginRspStruct &rsp);
@@ -64,8 +66,6 @@ private slots:
 private:
     explicit TcpMgr(QObject *parent = nullptr);
     void init_thread();
-    void parse_login_packet(RequestType req_type, const QByteArray &data);
-    void parse_chat_packet(RequestType req_type, const QByteArray &data);
     void handle_file_packet(RequestType req_type, const QByteArray &data);
 
     static QMutex _mutex;
@@ -74,6 +74,7 @@ private:
     QThread *_netThread;
     TcpWorker *_worker;
     std::atomic<bool> _is_connected{false};
+    TcpProtocolParser _parser{*this};
 };
 
 #endif

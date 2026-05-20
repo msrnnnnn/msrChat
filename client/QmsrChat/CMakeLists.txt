@@ -104,6 +104,7 @@ set(PROJECT_SOURCES
         include/Global.h
         include/UserMgr.h
         include/TcpMgr.h
+        include/TcpProtocolParser.h
         include/TcpWorker.h
         include/FileRecvMgr.h
         include/FileSendMgr.h
@@ -134,6 +135,7 @@ set(PROJECT_SOURCES
         src/Logger.cpp
         src/UserMgr.cpp
         src/TcpMgr.cpp
+        src/TcpProtocolParser.cpp
         src/TcpWorker.cpp
         src/FileRecvMgr.cpp
         src/FileSendMgr.cpp
