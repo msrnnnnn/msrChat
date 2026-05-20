@@ -66,6 +66,9 @@ void ChatController::ConnectSignals()
     connect(
         TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
     connect(
+        TcpMgr::Instance(), &TcpMgr::sig_chat_login_rsp, this, &ChatController::slotOnChatLoginRsp,
+        Qt::QueuedConnection);
+    connect(
         &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
         Qt::QueuedConnection);
     connect(
@@ -100,6 +103,7 @@ void ChatController::DisconnectSignals()
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &ChatController::slotOnConnectionStateChanged);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_login_rsp, this, &ChatController::slotOnChatLoginRsp);
     disconnect(
         &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
     disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
@@ -403,6 +407,18 @@ void ChatController::slotOnOfflineProgress(const OfflineAckStruct &ack)
         OfflineAckReqStruct req;
         req.received = ack.received;
         TcpMgr::Instance()->slot_send_offline_ack_req(req);
+    }
+}
+
+void ChatController::slotOnChatLoginRsp(const ChatLoginRspStruct &rsp)
+{
+    if (rsp.error != 0)
+    {
+        qWarning() << "ChatController: chat login re-auth failed, error:" << rsp.error;
+        _is_connected = false;
+        emit sigConnectionStatusChanged();
+        emit sigError(rsp.message.isEmpty() ? QStringLiteral("聊天会话恢复失败") : rsp.message);
+        return;
     }
 }
 

@@ -11,14 +11,9 @@
 #include "ThreadPool.h"
 #include <atomic>
 #include <boost/asio.hpp>
-#include <functional>
 #include <memory>
-#include <mutex>
-#include <unordered_map>
 
 class CSession;
-
-using BusinessHandler = std::function<void(std::shared_ptr<CSession>, const std::string &)>;
 
 class LogicSystem : public CSingleton<LogicSystem>
 {
@@ -27,16 +22,12 @@ class LogicSystem : public CSingleton<LogicSystem>
 public:
     void PostTask(MessageTask task);
 
-    void RegisterHandler(uint16_t msg_id, BusinessHandler handler);
-    void RemoveHandler(uint16_t msg_id);
-
     void SetIOContext(boost::asio::io_context *ioc);
 
     void Shutdown();
     bool IsShuttingDown() const;
 
     size_t GetQueueSize() const;
-    size_t GetHandlerCount() const;
 
 private:
     LogicSystem();
@@ -46,13 +37,9 @@ private:
     LogicSystem &operator=(const LogicSystem &) = delete;
 
     void ProcessTask(MessageTask task);
-    void ProcessJsonParse(MessageTask task);
 
     boost::asio::io_context *_ioc = nullptr;
     ThreadPool _thread_pool;
-
-    std::unordered_map<uint16_t, BusinessHandler> _handlers;
-    mutable std::mutex _handlers_mutex;
 
     std::atomic<bool> _shutting_down{false};
 

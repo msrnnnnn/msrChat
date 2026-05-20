@@ -64,31 +64,6 @@ void LogicSystem::ProcessTask(MessageTask task)
 
     spdlog::debug("[LogicSystem] Processing msg_id {} for session {}", task.msg_id, session->GetUuid());
 
-    BusinessHandler handler;
-    {
-        std::lock_guard<std::mutex> lock(_handlers_mutex);
-        auto it = _handlers.find(task.msg_id);
-        if (it != _handlers.end())
-        {
-            handler = it->second;
-        }
-    }
-
-    if (handler)
-    {
-        try
-        {
-            handler(session, task.body_data);
-            return;
-        }
-        catch (const std::exception &e)
-        {
-            spdlog::error("[LogicSystem] Handler exception for msg_id {}: {}", task.msg_id, e.what());
-        }
-    }
-
-    spdlog::debug("[LogicSystem] Delegating msg_id {} to MessageDispatcher", task.msg_id);
-
     bool handled = MessageDispatcher::Instance().Dispatch(*session, task.msg_id, task.body_data);
     if (!handled)
     {
@@ -96,29 +71,6 @@ void LogicSystem::ProcessTask(MessageTask task)
         session->Send(task.body_data, task.msg_id);
         session->ContinueReading();
     }
-}
-
-/**
- * @brief 注册业务处理器
- * @param msg_id 消息类型 ID
- * @param handler 业务处理函数
- */
-void LogicSystem::RegisterHandler(uint16_t msg_id, BusinessHandler handler)
-{
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
-    _handlers[msg_id] = std::move(handler);
-    spdlog::info("[LogicSystem] Registered handler for msg_id {}", msg_id);
-}
-
-/**
- * @brief 移除业务处理器
- * @param msg_id 消息类型 ID
- */
-void LogicSystem::RemoveHandler(uint16_t msg_id)
-{
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
-    _handlers.erase(msg_id);
-    spdlog::info("[LogicSystem] Removed handler for msg_id {}", msg_id);
 }
 
 /**
@@ -152,10 +104,4 @@ bool LogicSystem::IsShuttingDown() const
 size_t LogicSystem::GetQueueSize() const
 {
     return _thread_pool.GetTaskCount();
-}
-
-size_t LogicSystem::GetHandlerCount() const
-{
-    std::lock_guard<std::mutex> lock(_handlers_mutex);
-    return _handlers.size();
 }

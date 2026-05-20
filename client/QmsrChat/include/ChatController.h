@@ -69,6 +69,7 @@ public slots:
     void slotOnConnectionStateChanged(bool connected);
     void slotOnOfflineProgress(const OfflineAckStruct &ack);
     void slotOnReconnected();
+    void slotOnChatLoginRsp(const ChatLoginRspStruct &rsp);
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);
     void slotOnMessageSaved(bool success);
     void slotCleanTimeoutMessages();
