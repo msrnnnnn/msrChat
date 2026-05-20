@@ -82,21 +82,10 @@ private slots:
     void slot_chat_login_rsp(const ChatLoginRspStruct &rsp);
 
 signals:
-    /**
-     * @brief 切换到注册界面信号
-     */
     void switchRegister();
-
-    /**
-     * @brief 切换到重置密码界面信号
-     */
     void switchReset();
-
-    /**
-     * @brief 登录成功信号
-     * @details 通知主窗口登录成功，可以切换到聊天界面
-     */
     void sig_login_success();
+    void sig_token_invalid();
 
 private:
     int _uid = 0;

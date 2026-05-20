@@ -10,7 +10,6 @@
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMetaObject>
 #include <QMutexLocker>
 
 namespace {
@@ -87,8 +86,7 @@ TcpMgr::~TcpMgr()
 {
     if (_worker)
     {
-        // 通知工作线程停止网络操作
-        QMetaObject::invokeMethod(_worker, "slot_stop", Qt::QueuedConnection);
+        emit sig_stop_worker();
         // 将 delete 操作投递到工作线程的事件循环，确保在工作线程内析构 QTcpSocket 等对象
         _worker->deleteLater();
     }
@@ -130,6 +128,10 @@ void TcpMgr::init_thread()
 
     connect(_worker, &TcpWorker::sig_packet_received, this, &TcpMgr::slot_dispatch_packet, Qt::QueuedConnection);
 
+    connect(this, &TcpMgr::sig_stop_worker, _worker, &TcpWorker::slot_stop, Qt::QueuedConnection);
+    connect(this, &TcpMgr::sig_connect_worker, _worker, &TcpWorker::slot_tcp_connect, Qt::QueuedConnection);
+    connect(this, &TcpMgr::sig_send_data_worker, _worker, &TcpWorker::slot_send_data, Qt::QueuedConnection);
+
     _netThread->start();
 }
 
@@ -143,7 +145,7 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
     {
         return;
     }
-    QMetaObject::invokeMethod(_worker, "slot_tcp_connect", Qt::QueuedConnection, Q_ARG(ServerInfo, si));
+    emit sig_connect_worker(si);
 }
 
 /**
@@ -157,8 +159,7 @@ void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
     {
         return;
     }
-    QMetaObject::invokeMethod(
-        _worker, "slot_send_data", Qt::QueuedConnection, Q_ARG(RequestType, reqId), Q_ARG(QByteArray, data));
+    emit sig_send_data_worker(reqId, data);
 }
 
 void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
@@ -285,6 +286,7 @@ void TcpMgr::parse_login_packet(RequestType req_type, const QByteArray &data)
         VerifyCodeRspStruct rsp;
         rsp.error = jsonObj["error"].toInt();
         rsp.email = jsonObj["email"].toString();
+        rsp.code = jsonObj["code"].toInt();
 
         emit sig_verify_code_rsp(rsp);
     }

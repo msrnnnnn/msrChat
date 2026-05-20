@@ -489,7 +489,9 @@ void CSession::SendNextOfflinePage()
         return;
     }
 
-    auto messages = SQLiteMgr::Instance().GetOfflineMessages(_offline_send_state.uid, OFFLINE_PAGE_SIZE);
+    auto messages = SQLiteMgr::Instance().GetOfflineMessages(
+        _offline_send_state.uid, OFFLINE_PAGE_SIZE,
+        _offline_send_state.last_sent_id);
 
     if (messages.empty())
     {
@@ -515,6 +517,7 @@ void CSession::SendNextOfflinePage()
     }
 
     _offline_send_state.sent_count += messages.size();
+    _offline_send_state.last_sent_id = messages.back().id;
 
     nlohmann::json ack;
     ack["received"] = _offline_send_state.sent_count;

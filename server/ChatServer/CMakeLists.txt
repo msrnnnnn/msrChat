@@ -76,6 +76,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # =============================================================
 # Protobuf 自动化生成
@@ -132,8 +133,8 @@ target_link_libraries(ChatServer
     spdlog::spdlog
     SQLite::SQLite3
     protobuf::libprotobuf
-    ssl
-    crypto
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 # =============================================================

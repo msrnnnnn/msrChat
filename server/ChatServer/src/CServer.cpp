@@ -147,34 +147,22 @@ bool CServer::ForwardRawMessage(int target_uid, uint16_t msg_id, const std::stri
  */
 bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 {
-    std::promise<bool> result_promise;
-    auto future = result_promise.get_future();
-
-    auto self = shared_from_this();
-    _thread_pool.Enqueue(
-        [this, self, target_uid, msg_data, &result_promise]()
-        {
-            bool success = false;
-            try
-            {
-                auto json_data = nlohmann::json::parse(msg_data);
-                ChatMessage msg;
-                msg.from_uid = json_data.value("from_uid", 0);
-                msg.to_uid = target_uid;
-                msg.content = json_data.value("content", "");
-                msg.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-                msg.status = 0;
-                SQLiteMgr::Instance().SaveOfflineMessage(msg);
-                success = true;
-            }
-            catch (const std::exception &e)
-            {
-                spdlog::error("[CServer] StoreOfflineMessage failed: {}", e.what());
-            }
-            result_promise.set_value(success);
-        });
-
-    return future.get();
+    try
+    {
+        auto json_data = nlohmann::json::parse(msg_data);
+        ChatMessage msg;
+        msg.from_uid = json_data.value("from_uid", 0);
+        msg.to_uid = target_uid;
+        msg.content = json_data.value("content", "");
+        msg.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        msg.status = 0;
+        return SQLiteMgr::Instance().SaveOfflineMessage(msg);
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[CServer] StoreOfflineMessage failed: {}", e.what());
+        return false;
+    }
 }
 
 /**

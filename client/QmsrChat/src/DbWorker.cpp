@@ -202,7 +202,7 @@ void DbThreadManager::cleanup()
         if (_worker != nullptr)
         {
             _worker->stopAsync();
-            QMetaObject::invokeMethod(_worker, "slot_db_destroy", Qt::BlockingQueuedConnection);
+            emit sig_destroy_db();
         }
 
         _thread->quit();
@@ -243,9 +243,17 @@ bool DbThreadManager::Init(const QString &db_path)
     connect(_worker, &DbWorker::sig_messages_deleted, this, &DbThreadManager::sig_messages_deleted, Qt::QueuedConnection);
     connect(_worker, &DbWorker::sig_error, this, &DbThreadManager::sig_error, Qt::QueuedConnection);
 
+    connect(this, &DbThreadManager::sig_init_db, _worker, &DbWorker::slot_init, Qt::BlockingQueuedConnection);
+    connect(this, &DbThreadManager::sig_destroy_db, _worker, &DbWorker::slot_db_destroy, Qt::BlockingQueuedConnection);
+    connect(this, &DbThreadManager::sig_save_msg, _worker, &DbWorker::slot_save_message, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_update_msg_status, _worker, &DbWorker::slot_update_message_status, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_get_msgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_search_msgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_delete_msgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
+
     _thread->start();
 
-    QMetaObject::invokeMethod(_worker, "slot_init", Qt::BlockingQueuedConnection, Q_ARG(QString, db_path));
+    emit sig_init_db(db_path);
 
     if (!_worker->isDbInitialized())
     {
@@ -271,7 +279,7 @@ void DbThreadManager::SaveMessage(const ChatMessage &msg)
         return;
     }
 
-    QMetaObject::invokeMethod(_worker, "slot_save_message", Qt::QueuedConnection, Q_ARG(ChatMessage, msg));
+    emit sig_save_msg(msg);
 }
 
 void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int status)
@@ -282,8 +290,7 @@ void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int stat
         return;
     }
 
-    QMetaObject::invokeMethod(
-        _worker, "slot_update_message_status", Qt::QueuedConnection, Q_ARG(QString, client_msg_id), Q_ARG(int, status));
+    emit sig_update_msg_status(client_msg_id, status);
 }
 
 void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
@@ -294,9 +301,7 @@ void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int li
         return;
     }
 
-    QMetaObject::invokeMethod(
-        _worker, "slot_get_messages", Qt::QueuedConnection, Q_ARG(int, uid1), Q_ARG(int, uid2),
-        Q_ARG(qint64, before_time), Q_ARG(int, limit));
+    emit sig_get_msgs(uid1, uid2, before_time, limit);
 }
 
 void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
@@ -307,9 +312,7 @@ void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword,
         return;
     }
 
-    QMetaObject::invokeMethod(
-        _worker, "slot_search_messages", Qt::QueuedConnection, Q_ARG(int, uid1), Q_ARG(int, uid2),
-        Q_ARG(QString, keyword), Q_ARG(int, limit));
+    emit sig_search_msgs(uid1, uid2, keyword, limit);
 }
 
 void DbThreadManager::DeleteMessages(int uid1, int uid2)
@@ -320,6 +323,5 @@ void DbThreadManager::DeleteMessages(int uid1, int uid2)
         return;
     }
 
-    QMetaObject::invokeMethod(
-        _worker, "slot_delete_messages", Qt::QueuedConnection, Q_ARG(int, uid1), Q_ARG(int, uid2));
+    emit sig_delete_msgs(uid1, uid2);
 }

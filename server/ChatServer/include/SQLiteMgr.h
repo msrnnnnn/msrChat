@@ -222,13 +222,13 @@ public:
 
     bool SaveOfflineMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetOfflineMessages(int uid);
-    std::vector<ChatMessage> GetOfflineMessages(int uid, int limit);
+    std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);
     int64_t GetOfflineMessageCount(int uid);
     bool ClearOfflineMessages(int uid);
 
     AuthResult RegisterUser(const std::string &username, const std::string &password_hash, const std::string &email);
     AuthResult LoginUser(const std::string &username, const std::string &password_hash);
-    bool SendVerifyCode(const std::string &email);
+    bool SendVerifyCode(const std::string &email, int &out_code);
     int CheckVerifyCode(const std::string &email, const std::string &code);
     bool ResetPassword(
         const std::string &username, const std::string &email, const std::string &code,

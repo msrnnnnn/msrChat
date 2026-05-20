@@ -66,6 +66,24 @@ public:
         shard.data.erase(key);
     }
 
+    template <typename Pred>
+    bool RemoveIfMatch(const Key &key, Pred &&pred)
+    {
+        auto &shard = _shards[GetShardIndex(key)];
+        std::lock_guard<std::mutex> lock(shard.mutex);
+        auto it = shard.data.find(key);
+        if (it == shard.data.end())
+        {
+            return false;
+        }
+        if (!std::forward<Pred>(pred)(it->second))
+        {
+            return false;
+        }
+        shard.data.erase(it);
+        return true;
+    }
+
     std::size_t ShardCount() const
     {
         return _shards.size();

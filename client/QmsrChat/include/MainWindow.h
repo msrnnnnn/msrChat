@@ -62,6 +62,11 @@ public slots:
      */
     void slotLoginSuccess();
 
+    /**
+     * @brief 处理 Token 失效，回退到登录界面
+     */
+    void slotTokenInvalid();
+
 private:
     /**
      * @brief 关闭事件

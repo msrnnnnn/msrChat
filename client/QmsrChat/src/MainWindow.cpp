@@ -83,6 +83,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 绑定登录成功信号
     connect(_login_dialog, &LoginDialog::sig_login_success, this, &MainWindow::slotLoginSuccess);
+    connect(_login_dialog, &LoginDialog::sig_token_invalid, this, &MainWindow::slotTokenInvalid);
 }
 
 /**
@@ -155,6 +156,18 @@ void MainWindow::slotLoginSuccess()
     raise();
     activateWindow();
     _chat_dialog->show();
+}
+
+void MainWindow::slotTokenInvalid()
+{
+    qDebug() << "MainWindow::slotTokenInvalid: token expired, switching to login";
+
+    if (_chat_dialog != nullptr)
+    {
+        _chat_dialog->hide();
+    }
+
+    slotSwitchLogin();
 }
 
 /**

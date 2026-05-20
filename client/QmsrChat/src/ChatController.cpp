@@ -276,6 +276,16 @@ void ChatController::loadHistory()
  */
 void ChatController::clearHistory()
 {
+    if (_current_uid <= 0 || _target_uid <= 0)
+    {
+        return;
+    }
+    DbThreadManager::Instance().DeleteMessages(_current_uid, _target_uid);
+    if (_chat_model != nullptr)
+    {
+        _chat_model->ClearMessages();
+    }
+    emit sigHistoryCleared();
 }
 
 /**

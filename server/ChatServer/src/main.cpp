@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
             SQLiteMgr::Instance().Shutdown();
 
             spdlog::info("Graceful shutdown completed");
+            io_context.stop();
         };
 
         auto handle_sighup = [](const boost::system::error_code &ec, int signal_number)

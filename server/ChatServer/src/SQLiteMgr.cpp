@@ -571,7 +571,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
  * @return 发送成功返回 true
  * @details 生成的 6 位验证码有效期 10 分钟
  */
-bool SQLiteMgr::SendVerifyCode(const std::string &email)
+bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
@@ -580,9 +580,14 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email)
     }
     sqlite3 *db = guard.Get();
 
-    // TODO: 正式环境应接入邮件服务发送真实验证码
-    // 开发测试用：固定验证码 123456
-    const int code = 123456;
+    const int code = []() {
+        static std::mt19937 rng(std::random_device{}());
+        static std::uniform_int_distribution<int> dist(100000, 999999);
+        return dist(rng);
+    }();
+
+    spdlog::info("[SQLiteMgr] Generated verify code for {}: {}", email, code);
+    out_code = code;
 
     ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
     if (del_stmt)
@@ -989,7 +994,7 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
     return messages;
 }
 
-std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit)
+std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64_t after_id)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
@@ -1002,8 +1007,8 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit)
     ScopedStmt stmt(db, R"(
         SELECT id, from_uid, to_uid, content, timestamp, status
         FROM offline_messages
-        WHERE to_uid = ?
-        ORDER BY timestamp ASC
+        WHERE to_uid = ? AND id > ?
+        ORDER BY id ASC
         LIMIT ?
     )");
     if (!stmt)
@@ -1012,7 +1017,8 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit)
     }
 
     sqlite3_bind_int(stmt, 1, uid);
-    sqlite3_bind_int(stmt, 2, limit);
+    sqlite3_bind_int64(stmt, 2, after_id);
+    sqlite3_bind_int(stmt, 3, limit);
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {

@@ -56,6 +56,7 @@ signals:
     void sigFileSendComplete(int64_t task_id, bool success, QString error);
     void sigFileRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void sigFileRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
+    void sigHistoryCleared();
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);

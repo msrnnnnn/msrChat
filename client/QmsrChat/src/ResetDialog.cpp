@@ -135,7 +135,7 @@ void ResetDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
         return;
     }
 
-    showTip(tr("验证码已发送到邮箱，注意查收"), true);
+    showTip(tr("验证码: %1").arg(rsp.code), true);
     ui->varify_btn->startCountdown(10);
 }
 

@@ -64,6 +64,10 @@ signals:
     void sig_register_rsp(const RegisterRspStruct &rsp);
     void sig_reset_pwd_rsp(const ResetPwdRspStruct &rsp);
 
+    void sig_stop_worker();
+    void sig_connect_worker(ServerInfo si);
+    void sig_send_data_worker(RequestType reqId, const QByteArray &data);
+
 private slots:
     void slot_dispatch_packet(quint16 msg_id, const QByteArray &data);
 

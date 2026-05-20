@@ -81,6 +81,7 @@ struct VerifyCodeRspStruct
 {
     int error;
     QString email;
+    int code = 0;
 };
 
 struct RegisterReqStruct

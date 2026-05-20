@@ -276,9 +276,10 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
             {
                 if (safe_session->IsClosed()) return;
 
-                bool success = SQLiteMgr::Instance().SendVerifyCode(email);
+                int code = 0;
+                bool success = SQLiteMgr::Instance().SendVerifyCode(email, code);
 
-                nlohmann::json response{{"error", success ? 0 : 1}};
+                nlohmann::json response{{"error", success ? 0 : 1}, {"code", code}};
                 safe_session->Send(response.dump(), ID_GET_VARIFY_CODE);
                 safe_session->ContinueReading();
             });

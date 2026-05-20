@@ -33,9 +33,13 @@ public:
     {
         for (std::size_t i = 0; i < _uid_sessions.ShardCount(); ++i)
         {
-            auto lock = _uid_sessions.GetLock(i);
-            auto &shard = _uid_sessions.GetShard(i);
-            for (const auto &[uid, session] : shard)
+            std::vector<std::pair<int, std::shared_ptr<CSession>>> sessions;
+            {
+                auto lock = _uid_sessions.GetLock(i);
+                auto &shard = _uid_sessions.GetShard(i);
+                sessions.assign(shard.begin(), shard.end());
+            }
+            for (const auto &[uid, session] : sessions)
             {
                 std::forward<Func>(func)(uid, session);
             }

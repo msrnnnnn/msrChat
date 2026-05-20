@@ -145,8 +145,8 @@ void RegisterDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
         return;
     }
 
-    showTip(tr("验证码已发送到邮箱，注意查收"), true);
-    qDebug() << "Verification code sent to:" << rsp.email;
+    showTip(tr("验证码: %1 (已发送到邮箱，注意查收)").arg(rsp.code), true);
+    qDebug() << "Verification code sent to:" << rsp.email << "code:" << rsp.code;
     startVerifyCountdown(10);
 }
 
