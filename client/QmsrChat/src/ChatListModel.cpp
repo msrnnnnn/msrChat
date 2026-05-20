@@ -245,6 +245,7 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     }
 
     endInsertRows();
+    emit scrollToBottomRequested();
 }
 
 void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
