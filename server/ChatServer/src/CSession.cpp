@@ -38,8 +38,6 @@ CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server
     _recv_head_node = RecvNodePool().Acquire();
     _recv_head_node->Reset(HEAD_TOTAL_LEN, 0);
     _recv_msg_node = RecvNodePool().Acquire();
-    _recv_bin_head_node = RecvNodePool().Acquire();
-    _recv_bin_head_node->Reset(HEAD_BIN_TOTAL_LEN, 0);
 }
 
 CSession::~CSession()
