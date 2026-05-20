@@ -332,6 +332,12 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             created_at INTEGER NOT NULL,
             expires_at INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS tokens (
+            uid INTEGER PRIMARY KEY,
+            token TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
     )";
 
     char *err_msg = nullptr;
@@ -1120,4 +1126,60 @@ bool SQLiteMgr::ClearOfflineMessages(int uid)
     sqlite3_bind_int(stmt, 1, uid);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+bool SQLiteMgr::SaveToken(int uid, const std::string &token)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+    ScopedStmt stmt(db, "INSERT OR REPLACE INTO tokens (uid, token, created_at) VALUES (?, ?, ?)");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+    sqlite3_bind_text(stmt, 2, token.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, time(nullptr));
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+bool SQLiteMgr::RemoveTokenFromDB(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+    ScopedStmt stmt(db, "DELETE FROM tokens WHERE uid = ?");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+std::optional<std::string> SQLiteMgr::GetTokenFromDB(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return std::nullopt;
+    sqlite3 *db = guard.Get();
+    ScopedStmt stmt(db, "SELECT token FROM tokens WHERE uid = ?");
+    if (!stmt) return std::nullopt;
+    sqlite3_bind_int(stmt, 1, uid);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        return std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+    }
+    return std::nullopt;
+}
+
+std::vector<std::pair<int, std::string>> SQLiteMgr::GetAllTokens()
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return {};
+    sqlite3 *db = guard.Get();
+    std::vector<std::pair<int, std::string>> tokens;
+    ScopedStmt stmt(db, "SELECT uid, token FROM tokens");
+    if (!stmt) return tokens;
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        int uid = sqlite3_column_int(stmt, 0);
+        std::string token(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
+        tokens.emplace_back(uid, token);
+    }
+    return tokens;
 }

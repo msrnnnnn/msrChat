@@ -106,6 +106,8 @@ int main(int argc, char *argv[])
             return 1;
         }
 
+        TokenManager::Instance().LoadTokensFromDB();
+
         TokenManager::Instance().SetToken(1001, "dev_token");
         spdlog::info("[Main] Dev mode token registered for uid 1001");
 

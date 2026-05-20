@@ -239,6 +239,11 @@ public:
         const std::string &username, const std::string &email, const std::string &code,
         const std::string &new_password_hash);
 
+    bool SaveToken(int uid, const std::string &token);
+    bool RemoveTokenFromDB(int uid);
+    std::optional<std::string> GetTokenFromDB(int uid);
+    std::vector<std::pair<int, std::string>> GetAllTokens();
+
     SQLiteMgr(const SQLiteMgr &) = delete;
     SQLiteMgr &operator=(const SQLiteMgr &) = delete;
 
