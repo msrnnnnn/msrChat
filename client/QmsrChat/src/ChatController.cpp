@@ -342,10 +342,9 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
     // 1. DB 层持久化
     DbThreadManager::Instance().SaveMessage(chat_msg);
 
-    // 2. UI 层渲染更新
+    // 2. UI 层渲染更新 — 只要涉及当前用户就入库展示，不按 _target_uid 过滤
     if (_chat_model != nullptr &&
-       ((chat_msg.from_uid == _target_uid && chat_msg.to_uid == _current_uid) ||
-        (chat_msg.from_uid == _current_uid && chat_msg.to_uid == _target_uid)))
+        (chat_msg.from_uid == _current_uid || chat_msg.to_uid == _current_uid))
     {
         _chat_model->UpsertMessage(chat_msg);
     }
