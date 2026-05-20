@@ -166,6 +166,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
                     response["uid"] = result.uid;
                     response["user"] = result.username;
                     response["token"] = result.token;
+                    response["email"] = email;
                 }
                 safe_session->Send(response.dump(), ID_REGISTER_USER);
                 safe_session->ContinueReading();
@@ -280,7 +281,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
                 int code = 0;
                 bool success = SQLiteMgr::Instance().SendVerifyCode(email, code);
 
-                nlohmann::json response{{"error", success ? 0 : 1}, {"code", code}};
+                nlohmann::json response{{"error", success ? 0 : 1}, {"email", email}, {"code", code}};
                 safe_session->Send(response.dump(), ID_GET_VARIFY_CODE);
                 safe_session->ContinueReading();
             });
@@ -558,7 +559,21 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
         auto server = session.GetServer();
         if (server)
         {
-            server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
+            bool delivered = server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
+            if (!delivered)
+            {
+                qmsrchat::FileAck response;
+                response.set_task_id(task_id);
+                response.set_error(1);
+                response.set_message("target user offline");
+
+                std::string serialized;
+                if (response.SerializeToString(&serialized))
+                {
+                    session.Send(serialized, MSG_FILE_ACK);
+                }
+                FileTransfer::Instance().RemoveTask(task_id);
+            }
         }
 
         session.ContinueReading();

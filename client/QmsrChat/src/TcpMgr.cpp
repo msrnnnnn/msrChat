@@ -76,6 +76,8 @@ TcpMgr::TcpMgr(QObject *parent)
     qRegisterMetaType<ChatTextMsgStruct>("ChatTextMsgStruct");
     qRegisterMetaType<ChatAckStruct>("ChatAckStruct");
     qRegisterMetaType<OfflineAckStruct>("OfflineAckStruct");
+    qRegisterMetaType<LoginRspStruct>("LoginRspStruct");
+    qRegisterMetaType<ChatLoginRspStruct>("ChatLoginRspStruct");
     init_thread();
 }
 

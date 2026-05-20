@@ -114,6 +114,8 @@ struct ResetPwdRspStruct
 Q_DECLARE_METATYPE(ChatTextMsgStruct)
 Q_DECLARE_METATYPE(ChatAckStruct)
 Q_DECLARE_METATYPE(OfflineAckStruct)
+Q_DECLARE_METATYPE(LoginRspStruct)
+Q_DECLARE_METATYPE(ChatLoginRspStruct)
 
 struct FileReqStruct
 {
