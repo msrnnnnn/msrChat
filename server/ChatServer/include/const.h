@@ -21,11 +21,6 @@ constexpr uint16_t MSG_FILE_REQ = 2001;          ///< 文件传输请求
 constexpr uint16_t MSG_FILE_RSP = 2002;          ///< 文件传输响应(断点续传)
 constexpr uint16_t MSG_FILE_CHUNK = 2003;        ///< 文件数据分片(Protobuf 消息体)
 constexpr uint16_t MSG_FILE_ACK = 2004;          ///< 数据块接收确认(Protobuf 消息体)
-constexpr uint16_t MSG_ZEROCOPY_START = 2010;    ///< 零拷贝传输启动请求
-constexpr uint16_t MSG_ZEROCOPY_READY = 2011;    ///< 零拷贝传输就绪(服务端已准备好接收文件描述符)
-constexpr uint16_t MSG_ZEROCOPY_DATA = 2012;     ///< 零拷贝数据传输(仅发送文件描述符)
-constexpr uint16_t MSG_ZEROCOPY_COMPLETE = 2013; ///< 零拷贝传输完成
-constexpr uint16_t MSG_ZEROCOPY_ERROR = 2014;    ///< 零拷贝传输错误
 constexpr int MAX_CHAT_CONTENT_LEN = 512;        ///< 单条消息最大长度
 constexpr int OFFLINE_PAGE_SIZE = 50;            ///< 离线消息每页数量
 
@@ -64,10 +59,11 @@ constexpr int ERR_PASSWD_UPDATE = 1009;
 constexpr int ERR_DB = 1011;
 constexpr int ERR_NETWORK = 2;
 
-/// 判断是否为二进制包（带额外10字节头）
+/// 判断是否为二进制包（带额外10字节头），当前无二进制包类型
 inline bool IsBinaryPacket(uint16_t msg_id)
 {
-    return msg_id == MSG_ZEROCOPY_DATA;
+    (void)msg_id;
+    return false;
 }
 
 #endif // CONST_H

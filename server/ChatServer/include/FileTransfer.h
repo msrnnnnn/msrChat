@@ -158,45 +158,4 @@ private:
     std::atomic<int64_t> _task_id_allocator{1};
 };
 
-class FileSender : public std::enable_shared_from_this<FileSender>
-{
-public:
-    using ProgressCallback = std::function<void(int64_t task_id, int progress, int64_t transferred, int64_t total)>;
-    using CompleteCallback = std::function<void(int64_t task_id, bool success, const std::string &message)>;
-    using SendCallback = std::function<bool(const std::string &msg, uint16_t msg_id)>;
-
-    FileSender(boost::asio::io_context &ioc, int64_t task_id, int from_uid, int to_uid, const std::string &filename,
-               int64_t total_size, int fd, SendCallback send_cb,
-               ProgressCallback progress_cb = nullptr, CompleteCallback complete_cb = nullptr);
-
-    void Start();
-    void Stop();
-    int64_t GetTaskId() const
-    {
-        return _task_id;
-    }
-
-private:
-    void SendNextChunk();
-    void SendChunkData(const char *data, size_t len);
-    void OnChunkAck(bool success, const std::string &message);
-
-    int64_t _task_id;
-    int _from_uid;
-    int _to_uid;
-    std::string _filename;
-    int64_t _total_size;
-    int64_t _sent_size = 0;
-    int _fd;
-    bool _running = false;
-    std::atomic<bool> _stopped{false};
-
-    SendCallback _send_callback;
-    ProgressCallback _progress_callback;
-    CompleteCallback _complete_callback;
-    std::mutex _mutex;
-    std::condition_variable _cv;
-    boost::asio::steady_timer _timer;
-};
-
 #endif
