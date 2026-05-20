@@ -62,7 +62,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
 
     if (json_data.is_discarded())
     {
-        response["error"] = 1;
+        response["error"] = ERR_JSON_PARSE;
         response["message"] = "invalid login payload";
         session.Send(response.dump(), MSG_CHAT_LOGIN);
         session.ContinueReading();
@@ -74,7 +74,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
 
     if (uid <= 0 || token.empty())
     {
-        response["error"] = 1;
+        response["error"] = ERR_NETWORK;
         response["message"] = "invalid login";
         response["uid"] = uid;
         session.Send(response.dump(), MSG_CHAT_LOGIN);
@@ -84,7 +84,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
 
     if (session.GetUserUid() != 0)
     {
-        response["error"] = 1;
+        response["error"] = ERR_NETWORK;
         response["message"] = "already login";
         response["uid"] = session.GetUserUid();
         session.Send(response.dump(), MSG_CHAT_LOGIN);
@@ -95,7 +95,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
     bool expected = false;
     if (!session.TrySetLoginInProgress(expected))
     {
-        response["error"] = 1;
+        response["error"] = ERR_NETWORK;
         response["message"] = "login in progress";
         response["uid"] = uid;
         session.Send(response.dump(), MSG_CHAT_LOGIN);
@@ -129,7 +129,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
 
         if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
-            nlohmann::json response{{"error", 1}};
+            nlohmann::json response{{"error", ERR_JSON_PARSE}};
             session.Send(response.dump(), ID_REGISTER_USER);
             session.ContinueReading();
             return true;
@@ -174,7 +174,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleRegisterRequest error: {}", e.what());
-        nlohmann::json response{{"error", 1}};
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
         session.Send(response.dump(), ID_REGISTER_USER);
         session.ContinueReading();
     }
@@ -196,7 +196,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
         if (username.empty() || password_hash.empty())
         {
             nlohmann::json response;
-            response["error"] = 1;
+            response["error"] = ERR_JSON_PARSE;
             response["message"] = "invalid parameters";
             session.Send(response.dump(), ID_LOGIN_USER);
             session.ContinueReading();
@@ -239,7 +239,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleLoginAuthRequest error: {}", e.what());
-        nlohmann::json response{{"error", 1}};
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
         session.Send(response.dump(), ID_LOGIN_USER);
         session.ContinueReading();
     }
@@ -259,7 +259,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
 
         if (email.empty())
         {
-            nlohmann::json response{{"error", 1}};
+            nlohmann::json response{{"error", ERR_JSON_PARSE}};
             session.Send(response.dump(), ID_GET_VARIFY_CODE);
             session.ContinueReading();
             return true;
@@ -288,7 +288,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleGetVerifyCodeRequest error: {}", e.what());
-        nlohmann::json response{{"error", 1}};
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
         session.Send(response.dump(), ID_GET_VARIFY_CODE);
         session.ContinueReading();
     }
@@ -311,7 +311,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
 
         if (username.empty() || email.empty() || code.empty() || new_password_hash.empty())
         {
-            nlohmann::json response{{"error", 1}};
+            nlohmann::json response{{"error", ERR_JSON_PARSE}};
             session.Send(response.dump(), ID_RESET_PWD);
             session.ContinueReading();
             return true;
@@ -335,8 +335,8 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
 
                 if (verify_result == 0)
                 {
-                    bool success = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
-                    if (success)
+                    int reset_result = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
+                    if (reset_result == 0)
                     {
                         error_code = 0;
                         auto user = SQLiteMgr::Instance().GetUserByUsername(username);
@@ -354,7 +354,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
                     }
                     else
                     {
-                        error_code = 1009;
+                        error_code = reset_result;
                     }
                 }
 
@@ -370,7 +370,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleResetPwdRequest error: {}", e.what());
-        nlohmann::json response{{"error", 1}};
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
         session.Send(response.dump(), ID_RESET_PWD);
         session.ContinueReading();
     }

@@ -47,6 +47,7 @@ Q_DECLARE_METATYPE(ServerInfo)
 
 const int MAX_MESSAGE_LEN = 1024 * 1024;
 
+// ⚠️ 与 server/ChatServer/include/const.h 中的 HEAD_BIN_* 常量保持同步
 const int HEAD_BIN_ID_LEN = 2;
 const int HEAD_BIN_TOTAL_LEN_FIELD = 4;
 const int HEAD_BIN_JSON_LEN_FIELD = 4;

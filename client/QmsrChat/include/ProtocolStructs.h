@@ -115,4 +115,14 @@ Q_DECLARE_METATYPE(ChatTextMsgStruct)
 Q_DECLARE_METATYPE(ChatAckStruct)
 Q_DECLARE_METATYPE(OfflineAckStruct)
 
+struct FileReqStruct
+{
+    int64_t task_id;
+    int from_uid;
+    int to_uid;
+    QString filename;
+    int64_t total_size;
+    QString md5;
+};
+
 #endif // PROTOCOLSTRUCTS_H

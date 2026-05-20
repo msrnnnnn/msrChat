@@ -231,7 +231,7 @@ public:
     AuthResult LoginUser(const std::string &username, const std::string &password_hash);
     bool SendVerifyCode(const std::string &email, int &out_code);
     int CheckVerifyCode(const std::string &email, const std::string &code);
-    bool ResetPassword(
+    int ResetPassword(
         const std::string &username, const std::string &email, const std::string &code,
         const std::string &new_password_hash);
 

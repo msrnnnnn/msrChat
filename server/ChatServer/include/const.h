@@ -36,6 +36,7 @@ const int HEAD_TOTAL_LEN = 6;       ///< 头部总长度（仅包含ID和总长�
 const int MAX_LENGTH = 1024 * 1024; ///< 单包最大长度
 
 // 二进制数据包协议头部（包含JSON长度字段）
+// ⚠️ 与 client/QmsrChat/include/Global.h 中的 HEAD_BIN_* 常量保持同步
 const int HEAD_BIN_ID_LEN = 2;                    ///< 二进制包消息 ID 字节长度
 const int HEAD_BIN_TOTAL_LEN_FIELD = 4;           ///< 二进制包总长度字段字节数
 const int HEAD_BIN_JSON_LEN_FIELD = 4;            ///< JSON数据长度字段字节数
@@ -48,6 +49,20 @@ constexpr auto kReadCheckInterval = std::chrono::seconds(5);
 
 // 文件传输
 constexpr size_t CHUNK_SIZE = 4 * 1024;
+
+// 错误码（与客户端 Global.h:69-83 的 ERRORCODES 枚举对应）
+constexpr int ERR_SUCCESS = 0;
+constexpr int ERR_JSON_PARSE = 1001;
+constexpr int ERR_RPC_FAILED = 1002;
+constexpr int ERR_VERIFY_EXPIRED = 1003;
+constexpr int ERR_VERIFY_WRONG = 1004;
+constexpr int ERR_USER_EXIST = 1005;
+constexpr int ERR_PASSWD_ERR = 1006;
+constexpr int ERR_USER_NOT_EXIST = 1007;
+constexpr int ERR_EMAIL_NOT_MATCH = 1008;
+constexpr int ERR_PASSWD_UPDATE = 1009;
+constexpr int ERR_DB = 1011;
+constexpr int ERR_NETWORK = 2;
 
 /// 判断是否为二进制包（带额外10字节头）
 inline bool IsBinaryPacket(uint16_t msg_id)

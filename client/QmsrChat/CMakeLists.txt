@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.16)
-set(CMAKE_TOOLCHAIN_FILE "D:/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
 project(QmsrChat VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)

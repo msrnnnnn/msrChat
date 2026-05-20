@@ -456,7 +456,7 @@ AuthResult SQLiteMgr::RegisterUser(
     if (!guard)
     {
         AuthResult r;
-        r.error = 1;
+        r.error = ERR_DB;
         return r;
     }
     sqlite3 *db = guard.Get();
@@ -478,7 +478,7 @@ AuthResult SQLiteMgr::RegisterUser(
     if (!stmt)
     {
         AuthResult r;
-        r.error = 1;
+        r.error = ERR_DB;
         return r;
     }
 
@@ -490,7 +490,7 @@ AuthResult SQLiteMgr::RegisterUser(
     if (sqlite3_step(stmt) != SQLITE_DONE)
     {
         AuthResult r;
-        r.error = 1;
+        r.error = ERR_DB;
         return r;
     }
 
@@ -516,7 +516,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
     if (!guard)
     {
         AuthResult r;
-        r.error = 1;
+        r.error = ERR_DB;
         return r;
     }
     sqlite3 *db = guard.Get();
@@ -655,56 +655,56 @@ int SQLiteMgr::CheckVerifyCode(const std::string &email, const std::string &code
  * @param new_password_hash 新密码哈希
  * @return 成功返回 true
  */
-bool SQLiteMgr::ResetPassword(
+int SQLiteMgr::ResetPassword(
     const std::string &username, const std::string &email, const std::string &code,
     const std::string &new_password_hash)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
     {
-        return false;
+        return 1;
     }
     sqlite3 *db = guard.Get();
 
     auto user = GetUserByUsername_unlocked(db, username);
     if (!user.has_value())
     {
-        return false;
+        return 1007;
     }
 
     if (user->email != email)
     {
-        return false;
+        return 1008;
     }
 
     int verify_result = CheckVerifyCode_unlocked(db, email, code);
     if (verify_result != 0)
     {
-        return false;
+        return verify_result;
     }
 
     ScopedStmt stmt(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
     if (!stmt)
     {
-        return false;
+        return 1009;
     }
 
     sqlite3_bind_text(stmt, 1, new_password_hash.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 2, user->uid);
 
-    bool success = sqlite3_step(stmt) == SQLITE_DONE;
-
-    if (success)
+    if (sqlite3_step(stmt) != SQLITE_DONE)
     {
-        ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
-        if (del_stmt)
-        {
-            sqlite3_bind_text(del_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_step(del_stmt);
-        }
+        return 1009;
     }
 
-    return success;
+    ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
+    if (del_stmt)
+    {
+        sqlite3_bind_text(del_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(del_stmt);
+    }
+
+    return 0;
 }
 
 /**
