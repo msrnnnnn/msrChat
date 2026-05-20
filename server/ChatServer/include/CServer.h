@@ -7,7 +7,6 @@
 #define CSERVER_H
 
 #include "SessionManager.h"
-#include "TokenManager.h"
 #include "ThreadPool.h"
 #include <boost/asio.hpp>
 #include <memory>
@@ -25,18 +24,9 @@ public:
 
     void Start();
 
-    void AddUserSession(int uid, std::shared_ptr<CSession> session);
-    void RemoveUserSession(int uid);
-    void ClearSession(const std::string &uuid);
-
-    bool ForwardMessage(int target_uid, const std::string &msg_data);
     bool ForwardRawMessage(int target_uid, uint16_t msg_id, const std::string &body_data);
     bool StoreOfflineMessage(int target_uid, const std::string &msg_data);
     void SendOfflineMessages(int uid, std::shared_ptr<CSession> session);
-
-    void SetToken(int uid, const std::string &token);
-    bool CheckToken(int uid, const std::string &token);
-    void RemoveToken(int uid);
 
     ThreadPool &GetThreadPool()
     {

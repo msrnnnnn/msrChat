@@ -5,7 +5,6 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "CSession.h"
-#include "MessageRouter.h"
 #include "SQLiteMgr.h"
 #include "const.h"
 #include <nlohmann/json.hpp>
@@ -66,57 +65,6 @@ void CServer::DoAccept()
             }
             DoAccept();
         });
-}
-
-/**
- * @brief 添加用户会话
- * @param uid 用户 ID
- * @param session 会话智能指针
- * @details 踢出同一用户的旧连接，注册新会话到 SessionManager
- */
-void CServer::AddUserSession(int uid, std::shared_ptr<CSession> session)
-{
-    auto old_session = SessionManager::Instance().GetSession(uid);
-    if (old_session != nullptr)
-    {
-        spdlog::info("[CServer] User {} has existing session, closing old connection.", uid);
-        old_session->Close();
-    }
-    SessionManager::Instance().RemoveSessionByUuid(session->GetUuid());
-    SessionManager::Instance().AddSession(uid, std::move(session));
-    spdlog::info("[CServer] User {} session added.", uid);
-}
-
-/**
- * @brief 移除用户会话
- * @param uid 用户 ID
- */
-void CServer::RemoveUserSession(int uid)
-{
-    SessionManager::Instance().RemoveSession(uid);
-    spdlog::info("[CServer] User {} session removed.", uid);
-}
-
-/**
- * @brief 清除指定 UUID 的会话
- * @param uuid 会话 UUID
- */
-void CServer::ClearSession(const std::string &uuid)
-{
-    SessionManager::Instance().RemoveSessionByUuid(uuid);
-    spdlog::info("[CServer] Session {} cleared.", uuid);
-}
-
-/**
- * @brief 转发消息给指定用户
- * @param target_uid 目标用户 ID
- * @param msg_data JSON 消息数据
- * @return 是否发送成功（用户不在线返回 false）
- * @details 优先实时投递，离线用户存入 SQLite
- */
-bool CServer::ForwardMessage(int target_uid, const std::string &msg_data)
-{
-    return MessageRouter::Instance().ForwardMessage(target_uid, msg_data);
 }
 
 /**
@@ -196,26 +144,6 @@ void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
 
             session->SendNextOfflinePage();
         });
-}
-
-void CServer::SetToken(int uid, const std::string &token)
-{
-    TokenManager::Instance().SetToken(uid, token);
-}
-
-bool CServer::CheckToken(int uid, const std::string &token)
-{
-    bool matched = TokenManager::Instance().CheckToken(uid, token);
-    if (!matched)
-    {
-        spdlog::warn("[CServer] Token check failed for uid {}", uid);
-    }
-    return matched;
-}
-
-void CServer::RemoveToken(int uid)
-{
-    TokenManager::Instance().RemoveToken(uid);
 }
 
 void CServer::Stop()

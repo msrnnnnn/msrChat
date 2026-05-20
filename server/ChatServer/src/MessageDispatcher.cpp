@@ -3,7 +3,9 @@
 #include "CSession.h"
 #include "FileTransfer.h"
 #include "Message.pb.h"
+#include "MessageRouter.h"
 #include "SQLiteMgr.h"
+#include "TokenManager.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
 #include <string_view>
@@ -103,12 +105,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
         return true;
     }
 
-    auto server = session.GetServer();
-    bool token_valid = false;
-    if (server)
-    {
-        token_valid = server->CheckToken(uid, token);
-    }
+    bool token_valid = TokenManager::Instance().CheckToken(uid, token);
     session.OnLoginValidated(uid, token_valid);
     return true;
 }
@@ -212,7 +209,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
 
         auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [safe_session, server, username, password_hash]()
+            [safe_session, username, password_hash]()
             {
                 if (safe_session->IsClosed()) return;
 
@@ -227,7 +224,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
                     return;
                 }
 
-                server->SetToken(result.uid, result.token);
+                TokenManager::Instance().SetToken(result.uid, result.token);
                 response["uid"] = result.uid;
                 response["user"] = result.username;
                 response["token"] = result.token;
@@ -348,8 +345,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
                             if (login_result.error == 0)
                             {
                                 new_token = login_result.token;
-                                auto srv = safe_session->GetServer();
-                                if (srv) srv->SetToken(uid, new_token);
+                                TokenManager::Instance().SetToken(uid, new_token);
                             }
                         }
                     }
@@ -452,7 +448,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         bool stored = false;
         if (server)
         {
-            delivered = server->ForwardMessage(to_uid, forward_data);
+            delivered = MessageRouter::Instance().ForwardMessage(to_uid, forward_data);
             if (!delivered)
             {
                 stored = server->StoreOfflineMessage(to_uid, forward_data);

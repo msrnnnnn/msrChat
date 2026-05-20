@@ -6,6 +6,7 @@
 #include "CSession.h"
 #include "CServer.h"
 #include "LogicSystem.h"
+#include "SessionManager.h"
 #include "Message.pb.h"
 #include "MessageDispatcher.h"
 #include "MessageTask.h"
@@ -58,11 +59,7 @@ void CSession::Close()
     }
     if (_user_uid != 0)
     {
-        auto server = _server.lock();
-        if (server)
-        {
-            server->RemoveUserSession(_user_uid);
-        }
+        SessionManager::Instance().RemoveSession(_user_uid);
         _user_uid = 0;
     }
     boost::system::error_code ec;
@@ -243,7 +240,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     auto server = _server.lock();
     if (server)
     {
-        server->AddUserSession(uid, shared_from_this());
+        SessionManager::Instance().AddSession(uid, shared_from_this());
         _user_uid = uid;
 
         response["error"] = 0;
@@ -490,19 +487,11 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
     }
     if (_user_uid != 0)
     {
-        auto server = _server.lock();
-        if (server)
-        {
-            server->RemoveUserSession(_user_uid);
-        }
+        SessionManager::Instance().RemoveSession(_user_uid);
         _user_uid = 0;
     }
     Close();
-    auto server = _server.lock();
-    if (server)
-    {
-        server->ClearSession(_uuid);
-    }
+    SessionManager::Instance().RemoveSessionByUuid(_uuid);
 }
 
 void CSession::TerminateSession(const std::string &error_msg)
@@ -512,9 +501,5 @@ void CSession::TerminateSession(const std::string &error_msg)
         spdlog::error("[CSession] {}: {}", _uuid, error_msg);
     }
     Close();
-    auto server = _server.lock();
-    if (server)
-    {
-        server->ClearSession(_uuid);
-    }
+    SessionManager::Instance().RemoveSessionByUuid(_uuid);
 }
