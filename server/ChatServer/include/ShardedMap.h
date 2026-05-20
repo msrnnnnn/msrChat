@@ -98,14 +98,41 @@ public:
         }
     }
 
-    std::unique_lock<std::mutex> GetLock(std::size_t idx) const
+    template <typename Func>
+    void ForEach(Func &&func)
     {
-        return std::unique_lock<std::mutex>(_shards[idx].mutex);
+        for (std::size_t i = 0; i < _shards.size(); ++i)
+        {
+            std::lock_guard<std::mutex> lock(_shards[i].mutex);
+            for (const auto &[key, value] : _shards[i].data)
+            {
+                func(key, value);
+            }
+        }
     }
 
-    const std::unordered_map<Key, Value> &GetShard(std::size_t idx) const
+    template <typename Func>
+    void ForEach(Func &&func) const
     {
-        return _shards[idx].data;
+        for (std::size_t i = 0; i < _shards.size(); ++i)
+        {
+            std::lock_guard<std::mutex> lock(_shards[i].mutex);
+            for (const auto &[key, value] : _shards[i].data)
+            {
+                func(key, value);
+            }
+        }
+    }
+
+    std::size_t Size() const
+    {
+        std::size_t total = 0;
+        for (std::size_t i = 0; i < _shards.size(); ++i)
+        {
+            std::lock_guard<std::mutex> lock(_shards[i].mutex);
+            total += _shards[i].data.size();
+        }
+        return total;
     }
 };
 

@@ -245,6 +245,7 @@ void CSession::AsyncReadHead()
                         _bin_packet_state.receiving = true;
                         _recv_msg_node->Reset(msg_len, msg_id);
                         AsyncReadBinBody(msg_len);
+                        return;
                     }
                     else
                     {
@@ -252,6 +253,8 @@ void CSession::AsyncReadHead()
                         return;
                     }
                 }
+
+                _bin_packet_state = BinaryPacketState{};
 
                 if (msg_len > MAX_LENGTH)
                 {
@@ -371,6 +374,10 @@ void CSession::Send(const std::string &msg, short msg_id)
         _strand,
         [this, self, send_node]()
         {
+            if (_b_closed.load())
+            {
+                return;
+            }
             _send_queue.push_back(send_node);
             if (_is_writing)
             {

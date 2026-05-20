@@ -90,11 +90,11 @@ void ThreadPool::WorkerThread()
             
             task = std::move(_tasks.front());
             _tasks.pop();
+            --_task_count;
         }
         
         if (task) {
             task();
-            --_task_count;
         }
     }
 }

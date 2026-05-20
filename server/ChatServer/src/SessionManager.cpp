@@ -89,13 +89,7 @@ std::shared_ptr<CSession> SessionManager::GetSessionByUuid(const std::string &uu
  */
 std::size_t SessionManager::SessionCount() const
 {
-    std::size_t total = 0;
-    for (std::size_t i = 0; i < _uid_sessions.ShardCount(); ++i)
-    {
-        auto lock = _uid_sessions.GetLock(i);
-        total += _uid_sessions.GetShard(i).size();
-    }
-    return total;
+    return _uid_sessions.Size();
 }
 
 /**

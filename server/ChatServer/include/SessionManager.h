@@ -31,19 +31,9 @@ public:
     template <typename Func>
     void ForEachSession(Func &&func)
     {
-        for (std::size_t i = 0; i < _uid_sessions.ShardCount(); ++i)
-        {
-            std::vector<std::pair<int, std::shared_ptr<CSession>>> sessions;
-            {
-                auto lock = _uid_sessions.GetLock(i);
-                auto &shard = _uid_sessions.GetShard(i);
-                sessions.assign(shard.begin(), shard.end());
-            }
-            for (const auto &[uid, session] : sessions)
-            {
-                std::forward<Func>(func)(uid, session);
-            }
-        }
+        _uid_sessions.ForEach([&func](int uid, const std::shared_ptr<CSession> &session) {
+            func(uid, session);
+        });
     }
 
     std::size_t SessionCount() const;

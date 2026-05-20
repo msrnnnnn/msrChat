@@ -728,10 +728,11 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
             server->ForwardRawMessage(from_uid, MSG_FILE_ACK, body_data);
         }
 
-        if (fileAck.message() == "transfer complete")
+        if (fileAck.received() >= task->GetTotalSize())
         {
             FileTransfer::Instance().RemoveTask(task_id);
-            spdlog::info("[MessageDispatcher] File transfer completed, task_id={} removed", task_id);
+            spdlog::info("[MessageDispatcher] File transfer completed (received={}, total={}), task_id={} removed",
+                         fileAck.received(), task->GetTotalSize(), task_id);
         }
 
         session.ContinueReading();
