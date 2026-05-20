@@ -87,6 +87,7 @@ private:
     QHash<QString, PendingMessageInfo> _pending_messages;
     qint64 _last_offline_received = -1;
     bool _has_more_history = true;
+    bool _is_loading_more = false;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
     static constexpr int HISTORY_PAGE_SIZE = 50;

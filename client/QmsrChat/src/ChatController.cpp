@@ -268,6 +268,7 @@ void ChatController::sendFile(const QString &filePath)
 void ChatController::loadHistory()
 {
     _has_more_history = true;
+    _is_loading_more = false;
     if (_current_uid <= 0 || _target_uid <= 0)
     {
         return;
@@ -285,6 +286,8 @@ void ChatController::loadMoreHistory()
     {
         return;
     }
+
+    _is_loading_more = true;
 
     qint64 before_time = LLONG_MAX;
     if (_chat_model != nullptr && _chat_model->rowCount() > 0)
@@ -456,7 +459,14 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
 {
     if (_chat_model != nullptr)
     {
-        _chat_model->PrependMessages(messages);
+        if (_is_loading_more)
+        {
+            _chat_model->PrependMessages(messages);
+        }
+        else
+        {
+            _chat_model->SetMessages(messages);
+        }
     }
     _has_more_history = (messages.size() >= HISTORY_PAGE_SIZE);
     emit sigHasMoreHistoryChanged();
