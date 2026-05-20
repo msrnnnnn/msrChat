@@ -125,7 +125,7 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state) << "reqId:" << static_cast<int>(reqId);
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load()) << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -149,7 +149,7 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
 
 void TcpWorker::slot_connected()
 {
-    const int current_state = _state.load();
+    const auto current_state = _state.load();
     const bool was_reconnecting = current_state == ConnectionState::Reconnecting;
 
     if (_reconnect_timer->isActive())

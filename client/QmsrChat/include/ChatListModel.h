@@ -1,7 +1,7 @@
 #ifndef CHATLISTMODEL_H
 #define CHATLISTMODEL_H
 
-#include "DbMgr.h"
+#include "DbService.h"
 #include <QAbstractListModel>
 #include <QHash>
 #include <QMutex>

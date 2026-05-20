@@ -1,5 +1,5 @@
-#ifndef DBMGR_H
-#define DBMGR_H
+#ifndef DBSERVICE_H
+#define DBSERVICE_H
 
 #include <QMetaType>
 #include <QMutex>
@@ -28,10 +28,10 @@ struct ChatMessage
 Q_DECLARE_METATYPE(ChatMessage)
 Q_DECLARE_METATYPE(QVector<ChatMessage>)
 
-class DbMgr
+class DbService
 {
 public:
-    static DbMgr &Instance();
+    static DbService &Instance();
 
     bool Init(const QString &db_path);
     static void Destroy();
@@ -42,12 +42,12 @@ public:
     QVector<ChatMessage> SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     bool DeleteMessages(int uid1, int uid2);
 
-    DbMgr(const DbMgr &) = delete;
-    DbMgr &operator=(const DbMgr &) = delete;
+    DbService(const DbService &) = delete;
+    DbService &operator=(const DbService &) = delete;
 
 private:
-    DbMgr();
-    ~DbMgr();
+    DbService();
+    ~DbService();
 
     bool CreateTables(QSqlDatabase &db);
     bool EnsureColumn(QSqlDatabase &db, const QString &table, const QString &column, const QString &definition);

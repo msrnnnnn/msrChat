@@ -1,23 +1,23 @@
-#include "DbMgr.h"
+#include "DbService.h"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QSqlRecord>
 
 QThreadStorage<QSqlDatabase> g_thread_db_cache;
 
-DbMgr::DbMgr()
+DbService::DbService()
     : _initialized(false)
 {
 }
 
-DbMgr::~DbMgr()
+DbService::~DbService()
 {
     Destroy();
 }
 
-DbMgr &DbMgr::Instance()
+DbService &DbService::Instance()
 {
-    static DbMgr instance;
+    static DbService instance;
     return instance;
 }
 
@@ -27,13 +27,13 @@ DbMgr &DbMgr::Instance()
  * @return 是否初始化成功
  * @details 主线程创建连接和表，工作线程按需创建连接
  */
-bool DbMgr::Init(const QString &db_path)
+bool DbService::Init(const QString &db_path)
 {
     QMutexLocker lock(&_init_mutex);
 
     if (_initialized)
     {
-        qDebug() << "DbMgr already initialized";
+        qDebug() << "DbService already initialized";
         return true;
     }
 
@@ -58,7 +58,7 @@ bool DbMgr::Init(const QString &db_path)
     g_thread_db_cache.setLocalData(_main_thread_db);
 
     _initialized = true;
-    qDebug() << "DbMgr initialized successfully";
+    qDebug() << "DbService initialized successfully";
     qDebug() << "  - Main thread connection:" << _main_thread_connection_name;
 
     return true;
@@ -68,7 +68,7 @@ bool DbMgr::Init(const QString &db_path)
  * @brief 销毁数据库管理器
  * @details 关闭所有线程连接，移除主线程数据库连接
  */
-void DbMgr::Destroy()
+void DbService::Destroy()
 {
     QMutexLocker lock(&Instance()._init_mutex);
 
@@ -86,7 +86,7 @@ void DbMgr::Destroy()
     QSqlDatabase::removeDatabase(Instance()._main_thread_connection_name);
 
     Instance()._initialized = false;
-    qDebug() << "DbMgr destroyed and all connections closed";
+    qDebug() << "DbService destroyed and all connections closed";
 }
 
 /**
@@ -94,7 +94,7 @@ void DbMgr::Destroy()
  * @return 数据库连接引用
  * @details 主线程返回主连接，工作线程使用 QThreadStorage 缓存独立连接
  */
-QSqlDatabase &DbMgr::GetOrCreateThreadConnection()
+QSqlDatabase &DbService::GetOrCreateThreadConnection()
 {
     if (QThread::currentThread() == QCoreApplication::instance()->thread())
     {
@@ -123,8 +123,11 @@ QSqlDatabase &DbMgr::GetOrCreateThreadConnection()
     return g_thread_db_cache.localData();
 }
 
-void DbMgr::CloseAllThreadConnections()
+void DbService::CloseAllThreadConnections()
 {
+    // QThreadStorage 会在每个线程退出时自动析构 QSqlDatabase 并关闭连接，
+    // 因此此处不需要手动遍历关闭。当前只有工作线程会通过 GetOrCreateThreadConnection()
+    // 创建独立连接，这些连接随线程退出由 QThreadStorage 自动回收。
 }
 
 /**
@@ -133,7 +136,7 @@ void DbMgr::CloseAllThreadConnections()
  * @return 是否创建成功
  * @details 包括 messages 表及多个索引
  */
-bool DbMgr::CreateTables(QSqlDatabase &db)
+bool DbService::CreateTables(QSqlDatabase &db)
 {
     QSqlQuery query(db);
 
@@ -202,7 +205,7 @@ bool DbMgr::CreateTables(QSqlDatabase &db)
  * @param definition 列定义（如 "TEXT DEFAULT ''"）
  * @return 列是否存在或创建成功
  */
-bool DbMgr::EnsureColumn(QSqlDatabase &db, const QString &table, const QString &column, const QString &definition)
+bool DbService::EnsureColumn(QSqlDatabase &db, const QString &table, const QString &column, const QString &definition)
 {
     const QSqlRecord record = db.record(table);
     if (record.indexOf(column) >= 0)
@@ -227,7 +230,7 @@ bool DbMgr::EnsureColumn(QSqlDatabase &db, const QString &table, const QString &
  * @return 消息 ID（未找到返回 0）
  * @details 优先用 client_msg_id，其次 server_msg_id，最后用 (from_uid, to_uid, timestamp, content) 组合
  */
-qint64 DbMgr::FindMessageId(QSqlDatabase &db, const ChatMessage &msg)
+qint64 DbService::FindMessageId(QSqlDatabase &db, const ChatMessage &msg)
 {
     QSqlQuery query(db);
 
@@ -271,7 +274,7 @@ qint64 DbMgr::FindMessageId(QSqlDatabase &db, const ChatMessage &msg)
  * @return 是否保存成功
  * @details 根据 client_msg_id 或 server_msg_id 判断是否已存在，实现幂等 upsert
  */
-bool DbMgr::SaveMessage(const ChatMessage &msg)
+bool DbService::SaveMessage(const ChatMessage &msg)
 {
     QSqlDatabase &db = GetOrCreateThreadConnection();
     if (!db.isOpen())
@@ -322,7 +325,7 @@ bool DbMgr::SaveMessage(const ChatMessage &msg)
  * @param status 新状态（0=发送中，1=已送达，2=已存储，-1=失败）
  * @return 是否更新成功
  */
-bool DbMgr::UpdateMessageStatus(const QString &client_msg_id, int status)
+bool DbService::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     if (client_msg_id.isEmpty())
     {
@@ -358,7 +361,7 @@ bool DbMgr::UpdateMessageStatus(const QString &client_msg_id, int status)
  * @param limit 每页消息数（默认 50）
  * @return 消息列表（按时间升序）
  */
-QVector<ChatMessage> DbMgr::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
+QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
 {
     QVector<ChatMessage> messages;
 
@@ -423,7 +426,7 @@ QVector<ChatMessage> DbMgr::GetMessages(int uid1, int uid2, qint64 before_time, 
  * @param limit 返回条数限制
  * @return 匹配的消息列表
  */
-QVector<ChatMessage> DbMgr::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
+QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
 {
     QVector<ChatMessage> messages;
 
@@ -482,7 +485,7 @@ QVector<ChatMessage> DbMgr::SearchMessages(int uid1, int uid2, const QString &ke
  * @param uid2 用户 B
  * @return 是否删除成功
  */
-bool DbMgr::DeleteMessages(int uid1, int uid2)
+bool DbService::DeleteMessages(int uid1, int uid2)
 {
     QSqlDatabase &db = GetOrCreateThreadConnection();
     if (!db.isOpen())

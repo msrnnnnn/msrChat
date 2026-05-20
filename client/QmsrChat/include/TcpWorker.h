@@ -76,7 +76,7 @@ private:
     QTimer *_reconnect_timer;
     int _reconnect_interval;
     qint64 _last_pong_time;
-    std::atomic<int> _state;
+    std::atomic<ConnectionState> _state;
 
     static const quint32 MAX_MESSAGE_LEN = 1024 * 1024;
 };

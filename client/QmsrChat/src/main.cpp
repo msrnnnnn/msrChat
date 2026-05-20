@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     QString app_path = QCoreApplication::applicationDirPath();
     QString db_path = QDir::toNativeSeparators(app_path + QDir::separator() + "chat_messages.db");
 
-    if (!DbTaskQueue::Instance().Init(db_path))
+    if (!DbThreadManager::Instance().Init(db_path))
     {
         qWarning() << "Failed to initialize database at:" << db_path;
     }
@@ -100,6 +100,6 @@ int main(int argc, char *argv[])
 
     TcpMgr::Destroy();
     UserMgr::Destroy();
-    DbTaskQueue::Instance().cleanup();
+    DbThreadManager::Instance().cleanup();
     return exit_code;
 }

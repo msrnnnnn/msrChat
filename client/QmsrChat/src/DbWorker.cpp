@@ -23,14 +23,32 @@ void DbWorker::stopAsync()
     _stop_flag.store(true);
 }
 
+void DbWorker::slot_db_destroy()
+{
+    QMutexLocker locker(&_mutex);
+
+    if (_dbInitialized)
+    {
+        DbService::Destroy();
+        _dbInitialized = false;
+        qDebug() << "DbWorker database destroyed in thread" << QThread::currentThreadId();
+    }
+}
+
 void DbWorker::slot_init(const QString &db_path)
 {
     QMutexLocker locker(&_mutex);
 
-    Q_UNUSED(db_path);
-    _dbInitialized = true;
+    _dbInitialized = DbService::Instance().Init(db_path);
 
-    qDebug() << "DbWorker initialized in thread" << QThread::currentThreadId();
+    if (_dbInitialized)
+    {
+        qDebug() << "DbWorker initialized in thread" << QThread::currentThreadId();
+    }
+    else
+    {
+        qCritical() << "DbWorker failed to initialize database in thread" << QThread::currentThreadId();
+    }
 }
 
 void DbWorker::slot_save_message(const ChatMessage &msg)
@@ -51,7 +69,7 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
         return;
     }
 
-    bool success = DbMgr::Instance().SaveMessage(msg);
+    bool success = DbService::Instance().SaveMessage(msg);
     emit sig_messages_saved(success);
 
     if (!success)
@@ -77,7 +95,7 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
         return;
     }
 
-    const bool success = DbMgr::Instance().UpdateMessageStatus(client_msg_id, status);
+    const bool success = DbService::Instance().UpdateMessageStatus(client_msg_id, status);
     emit sig_messages_saved(success);
 
     if (!success)
@@ -104,7 +122,7 @@ void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int lim
         return;
     }
 
-    QVector<ChatMessage> messages = DbMgr::Instance().GetMessages(uid1, uid2, before_time, limit);
+    QVector<ChatMessage> messages = DbService::Instance().GetMessages(uid1, uid2, before_time, limit);
     emit sig_messages_loaded(messages);
 }
 
@@ -126,7 +144,7 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
         return;
     }
 
-    QVector<ChatMessage> messages = DbMgr::Instance().SearchMessages(uid1, uid2, keyword, limit);
+    QVector<ChatMessage> messages = DbService::Instance().SearchMessages(uid1, uid2, keyword, limit);
     emit sig_messages_loaded(messages);
 }
 
@@ -148,7 +166,7 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
         return;
     }
 
-    bool success = DbMgr::Instance().DeleteMessages(uid1, uid2);
+    bool success = DbService::Instance().DeleteMessages(uid1, uid2);
     emit sig_messages_deleted(success);
 
     if (!success)
@@ -157,13 +175,13 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
     }
 }
 
-DbTaskQueue &DbTaskQueue::Instance()
+DbThreadManager &DbThreadManager::Instance()
 {
-    static DbTaskQueue instance;
+    static DbThreadManager instance;
     return instance;
 }
 
-DbTaskQueue::DbTaskQueue()
+DbThreadManager::DbThreadManager()
     : QObject(nullptr),
       _thread(nullptr),
       _worker(nullptr)
@@ -172,25 +190,26 @@ DbTaskQueue::DbTaskQueue()
     qRegisterMetaType<QVector<ChatMessage>>("QVector<ChatMessage>");
 }
 
-DbTaskQueue::~DbTaskQueue()
+DbThreadManager::~DbThreadManager()
 {
     cleanup();
 }
 
-void DbTaskQueue::cleanup()
+void DbThreadManager::cleanup()
 {
     if (_thread != nullptr)
     {
         if (_worker != nullptr)
         {
             _worker->stopAsync();
+            QMetaObject::invokeMethod(_worker, "slot_db_destroy", Qt::BlockingQueuedConnection);
         }
 
         _thread->quit();
 
         if (!_thread->wait(5000))
         {
-            qCritical() << "CRITICAL: DbTaskQueue thread did not finish in 5000ms. "
+            qCritical() << "CRITICAL: DbThreadManager thread did not finish in 5000ms. "
                            "Abandoning manual cleanup to prevent SQLite corruption. "
                            "Worker thread will be released by OS on process exit.";
             _worker = nullptr;
@@ -199,25 +218,18 @@ void DbTaskQueue::cleanup()
         delete _thread;
         _thread = nullptr;
 
-        qDebug() << "DbTaskQueue thread stopped safely";
+        qDebug() << "DbThreadManager thread stopped safely";
     }
 
-    DbMgr::Destroy();
-    qDebug() << "DbTaskQueue cleanup completed (timeout path)";
+    qDebug() << "DbThreadManager cleanup completed";
 }
 
-bool DbTaskQueue::Init(const QString &db_path)
+bool DbThreadManager::Init(const QString &db_path)
 {
     if (_thread != nullptr)
     {
-        qWarning() << "DbTaskQueue already initialized";
+        qWarning() << "DbThreadManager already initialized";
         return true;
-    }
-
-    if (!DbMgr::Instance().Init(db_path))
-    {
-        qWarning() << "Failed to initialize DbMgr";
-        return false;
     }
 
     _thread = new QThread(this);
@@ -226,40 +238,47 @@ bool DbTaskQueue::Init(const QString &db_path)
 
     // 删除 finished->deleteLater：会导致 deleteLater 投递到死线程的事件队列
 
-    connect(_worker, &DbWorker::sig_messages_loaded, this, &DbTaskQueue::sig_messages_loaded, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_messages_saved, this, &DbTaskQueue::sig_messages_saved, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_messages_deleted, this, &DbTaskQueue::sig_messages_deleted, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_error, this, &DbTaskQueue::sig_error, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sig_messages_loaded, this, &DbThreadManager::sig_messages_loaded, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sig_messages_saved, this, &DbThreadManager::sig_messages_saved, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sig_messages_deleted, this, &DbThreadManager::sig_messages_deleted, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sig_error, this, &DbThreadManager::sig_error, Qt::QueuedConnection);
 
     _thread->start();
 
-    QMetaObject::invokeMethod(_worker, "slot_init", Qt::QueuedConnection, Q_ARG(QString, db_path));
+    QMetaObject::invokeMethod(_worker, "slot_init", Qt::BlockingQueuedConnection, Q_ARG(QString, db_path));
 
-    qDebug() << "DbTaskQueue initialized successfully";
+    if (!_worker->isDbInitialized())
+    {
+        qCritical() << "Failed to initialize DbService on worker thread";
+        cleanup();
+        return false;
+    }
+
+    qDebug() << "DbThreadManager initialized successfully";
     return true;
 }
 
-void DbTaskQueue::Shutdown()
+void DbThreadManager::Shutdown()
 {
     cleanup();
 }
 
-void DbTaskQueue::SaveMessage(const ChatMessage &msg)
+void DbThreadManager::SaveMessage(const ChatMessage &msg)
 {
     if (_worker == nullptr)
     {
-        qWarning() << "DbTaskQueue not initialized";
+        qWarning() << "DbThreadManager not initialized";
         return;
     }
 
     QMetaObject::invokeMethod(_worker, "slot_save_message", Qt::QueuedConnection, Q_ARG(ChatMessage, msg));
 }
 
-void DbTaskQueue::UpdateMessageStatus(const QString &client_msg_id, int status)
+void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     if (_worker == nullptr)
     {
-        qWarning() << "DbTaskQueue not initialized";
+        qWarning() << "DbThreadManager not initialized";
         return;
     }
 
@@ -267,11 +286,11 @@ void DbTaskQueue::UpdateMessageStatus(const QString &client_msg_id, int status)
         _worker, "slot_update_message_status", Qt::QueuedConnection, Q_ARG(QString, client_msg_id), Q_ARG(int, status));
 }
 
-void DbTaskQueue::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
+void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
 {
     if (_worker == nullptr)
     {
-        qWarning() << "DbTaskQueue not initialized";
+        qWarning() << "DbThreadManager not initialized";
         return;
     }
 
@@ -280,11 +299,11 @@ void DbTaskQueue::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
         Q_ARG(qint64, before_time), Q_ARG(int, limit));
 }
 
-void DbTaskQueue::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
+void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
 {
     if (_worker == nullptr)
     {
-        qWarning() << "DbTaskQueue not initialized";
+        qWarning() << "DbThreadManager not initialized";
         return;
     }
 
@@ -293,11 +312,11 @@ void DbTaskQueue::SearchMessages(int uid1, int uid2, const QString &keyword, int
         Q_ARG(QString, keyword), Q_ARG(int, limit));
 }
 
-void DbTaskQueue::DeleteMessages(int uid1, int uid2)
+void DbThreadManager::DeleteMessages(int uid1, int uid2)
 {
     if (_worker == nullptr)
     {
-        qWarning() << "DbTaskQueue not initialized";
+        qWarning() << "DbThreadManager not initialized";
         return;
     }
 

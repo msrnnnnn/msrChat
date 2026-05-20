@@ -1,7 +1,7 @@
 #ifndef DBWORKER_H
 #define DBWORKER_H
 
-#include "DbMgr.h"
+#include "DbService.h"
 #include <QMutex>
 #include <QObject>
 #include <QThread>
@@ -16,6 +16,8 @@ public:
     explicit DbWorker(QObject *parent = nullptr);
     ~DbWorker();
 
+    bool isDbInitialized() const { return _dbInitialized; }
+
 public slots:
     void slot_init(const QString &db_path);
     void slot_save_message(const ChatMessage &msg);
@@ -24,6 +26,7 @@ public slots:
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
     void slot_stop();
+    void slot_db_destroy();
     void stopAsync();
 
 signals:
@@ -38,12 +41,12 @@ private:
     std::atomic<bool> _stop_flag;
 };
 
-class DbTaskQueue : public QObject
+class DbThreadManager : public QObject
 {
     Q_OBJECT
 
 public:
-    static DbTaskQueue &Instance();
+    static DbThreadManager &Instance();
 
     bool Init(const QString &db_path);
     void Shutdown();
@@ -62,10 +65,10 @@ signals:
     void sig_error(const QString &error);
 
 private:
-    DbTaskQueue();
-    ~DbTaskQueue();
-    DbTaskQueue(const DbTaskQueue &) = delete;
-    DbTaskQueue &operator=(const DbTaskQueue &) = delete;
+    DbThreadManager();
+    ~DbThreadManager();
+    DbThreadManager(const DbThreadManager &) = delete;
+    DbThreadManager &operator=(const DbThreadManager &) = delete;
 
     QThread *_thread;
     DbWorker *_worker;

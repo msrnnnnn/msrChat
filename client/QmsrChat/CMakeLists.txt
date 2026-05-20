@@ -120,7 +120,7 @@ set(PROJECT_SOURCES
         include/TimerBtn.h
         include/ClickedLabel.h
         include/ChatListModel.h
-        include/DbMgr.h
+        include/DbService.h
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
@@ -144,7 +144,7 @@ set(PROJECT_SOURCES
         src/TimerBtn.cpp
         src/ClickedLabel.cpp
         src/ChatListModel.cpp
-        src/DbMgr.cpp
+        src/DbService.cpp
         src/DbWorker.cpp
         src/ChatController.cpp
         src/Utils.cpp
