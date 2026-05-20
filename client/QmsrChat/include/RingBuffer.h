@@ -39,6 +39,7 @@ public:
 
     RingBuffer &operator=(RingBuffer &&) = delete;
 
+    /// 返回 true=写入成功, false=缓冲区满
     bool Write(const char *data, std::size_t len)
     {
         if (len == 0)
@@ -132,6 +133,7 @@ public:
         return true;
     }
 
+    /// 返回实际读取的字节数（0 表示缓冲区为空）
     std::size_t Read(char *dest, std::size_t len)
     {
         std::size_t current_read = _read_pos;

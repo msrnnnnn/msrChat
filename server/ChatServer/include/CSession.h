@@ -266,6 +266,7 @@ public:
             _buffer.resize(static_cast<std::size_t>(_total_len) + HEAD_TOTAL_LEN);
         }
         _data = _buffer.data();
+        // TODO: replace boost::asio::detail::socket_ops with htons/ntohs (Boost internal API, unstable)
         uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
         memcpy(_data, &net_msg_id, 2);
         uint32_t net_len =
