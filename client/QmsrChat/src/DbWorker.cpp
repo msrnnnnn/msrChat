@@ -25,7 +25,6 @@ void DbWorker::stopAsync()
 
 void DbWorker::slot_db_destroy()
 {
-    QMutexLocker locker(&_mutex);
 
     if (_dbInitialized)
     {
@@ -37,7 +36,6 @@ void DbWorker::slot_db_destroy()
 
 void DbWorker::slot_init(const QString &db_path)
 {
-    QMutexLocker locker(&_mutex);
 
     _dbInitialized = DbService::Instance().Init(db_path);
 
@@ -53,7 +51,6 @@ void DbWorker::slot_init(const QString &db_path)
 
 void DbWorker::slot_save_message(const ChatMessage &msg)
 {
-    QMutexLocker locker(&_mutex);
 
     if (_stop_flag.load())
     {
@@ -80,7 +77,6 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
 
 void DbWorker::slot_update_message_status(const QString &client_msg_id, int status)
 {
-    QMutexLocker locker(&_mutex);
 
     if (_stop_flag.load())
     {
@@ -106,7 +102,6 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
 
 void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int limit)
 {
-    QMutexLocker locker(&_mutex);
 
     if (_stop_flag.load())
     {
@@ -128,7 +123,6 @@ void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int lim
 
 void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, int limit)
 {
-    QMutexLocker locker(&_mutex);
 
     if (_stop_flag.load())
     {
@@ -150,7 +144,6 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
 
 void DbWorker::slot_delete_messages(int uid1, int uid2)
 {
-    QMutexLocker locker(&_mutex);
 
     if (_stop_flag.load())
     {

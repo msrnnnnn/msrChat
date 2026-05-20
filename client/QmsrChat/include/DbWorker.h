@@ -2,7 +2,6 @@
 #define DBWORKER_H
 
 #include "DbService.h"
-#include <QMutex>
 #include <QObject>
 #include <QThread>
 #include <QVector>
@@ -36,7 +35,6 @@ signals:
     void sig_error(const QString &error);
 
 private:
-    QMutex _mutex;
     bool _dbInitialized;
     std::atomic<bool> _stop_flag;
 };
