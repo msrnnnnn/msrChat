@@ -28,7 +28,6 @@ LoginDialog::LoginDialog(QWidget *parent)
     ui->error_label->setProperty("state", "normal");
     Utils::repolish(ui->error_label);
 
-    connect(ui->login_Button, &QPushButton::clicked, this, &LoginDialog::on_login_Button_clicked);
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
     connect(TcpMgr::Instance(), &TcpMgr::sig_login_rsp, this, &LoginDialog::slot_login_rsp);
 

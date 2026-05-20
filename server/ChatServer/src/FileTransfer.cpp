@@ -64,7 +64,7 @@ FileTransfer &FileTransfer::Instance()
  * @param total_size 文件总大小
  * @return 任务 ID
  */
-int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
+int64_t FileTransfer::CreateTask(boost::asio::io_context & /*ioc*/, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
 {
     int64_t task_id;
     std::shared_ptr<FileTransferTask> task;

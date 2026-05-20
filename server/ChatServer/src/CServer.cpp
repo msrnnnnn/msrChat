@@ -238,7 +238,7 @@ void CServer::Stop()
         spdlog::info("[CServer] Acceptor closed successfully");
     }
 
-    SessionManager::Instance().ForEachSession([](int uid, std::shared_ptr<CSession> session) {
+    SessionManager::Instance().ForEachSession([](int /*uid*/, std::shared_ptr<CSession> session) {
         session->Close();
     });
     SessionManager::Instance().ClearAll();
