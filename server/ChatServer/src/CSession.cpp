@@ -240,6 +240,13 @@ void CSession::OnLoginValidated(int uid, bool valid)
     auto server = _server.lock();
     if (server)
     {
+        auto old_session = SessionManager::Instance().GetSession(uid);
+        if (old_session && old_session.get() != this)
+        {
+            spdlog::info("[CSession] User {} has existing session, closing old connection.", uid);
+            old_session->Close();
+        }
+        SessionManager::Instance().RemoveSessionByUuid(GetUuid());
         SessionManager::Instance().AddSession(uid, shared_from_this());
         _user_uid = uid;
 
