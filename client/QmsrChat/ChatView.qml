@@ -78,6 +78,35 @@ Rectangle {
         }
 
         Rectangle {
+            id: errorBanner
+            Layout.fillWidth: true
+            Layout.preferredHeight: 0
+            color: "#FF5252"
+            visible: height > 0
+            clip: true
+            Behavior on Layout.preferredHeight { NumberAnimation { duration: 300 } }
+
+            Text {
+                id: errorBannerText
+                anchors.centerIn: parent
+                color: "#FFFFFF"
+                font.pixelSize: 13
+            }
+
+            Timer {
+                id: errorBannerTimer
+                interval: 4000
+                onTriggered: errorBanner.Layout.preferredHeight = 0
+            }
+
+            function show(msg) {
+                errorBannerText.text = msg
+                errorBanner.Layout.preferredHeight = 32
+                errorBannerTimer.restart()
+            }
+        }
+
+        Rectangle {
             id: inputArea
             Layout.fillWidth: true
             Layout.preferredHeight: 130
@@ -178,49 +207,6 @@ Rectangle {
                     fileDialog.open()
                 }
             }
-        }
-    }
-
-    FileDialog {
-        id: fileDialog
-        title: "选择文件"
-        onAccepted: {
-            console.log("[ChatView] FileDialog onAccepted, selectedFile:", selectedFile.toString())
-            if (chatController) {
-                console.log("[ChatView] calling chatController.sendFile")
-                chatController.sendFile(selectedFile.toString())
-            }
-        }
-    }
-
-    Rectangle {
-        id: errorBanner
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: inputArea.top
-        height: 0
-        color: "#FF5252"
-        visible: height > 0
-        clip: true
-        Behavior on height { NumberAnimation { duration: 300 } }
-
-        Text {
-            id: errorBannerText
-            anchors.centerIn: parent
-            color: "#FFFFFF"
-            font.pixelSize: 13
-        }
-
-        Timer {
-            id: errorBannerTimer
-            interval: 4000
-            onTriggered: errorBanner.height = 0
-        }
-
-        function show(msg) {
-            errorBannerText.text = msg
-            errorBanner.height = 32
-            errorBannerTimer.restart()
         }
     }
 

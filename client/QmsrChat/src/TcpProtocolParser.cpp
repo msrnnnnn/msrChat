@@ -83,11 +83,14 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
             msg.server_msg_id = chatMsg.server_msg_id();
             msg.timestamp = chatMsg.timestamp();
 
+            qDebug() << "[TcpProtocolParser] MSG_CHAT_TEXT from:" << msg.from_uid
+                     << "to:" << msg.to_uid << "content:" << msg.content
+                     << "server_msg_id:" << msg.server_msg_id;
             emit _tcpMgr.sig_chat_text_msg(msg);
         }
         else
         {
-            qWarning() << "Failed to parse ServerChatMsg from Protobuf";
+            qWarning() << "[TcpProtocolParser] Failed to parse ServerChatMsg from Protobuf, data size:" << data.size();
         }
         return;
     }
