@@ -21,8 +21,6 @@ public:
     bool BroadcastMessage(const std::string &msg_data, int exclude_uid = 0);
 
     bool SendToSession(std::shared_ptr<CSession> session, const std::string &msg_data, short msg_id);
-    bool SendBinaryToSession(std::shared_ptr<CSession> session, const std::string &json_data,
-                             const std::vector<char> &binary_data, short msg_id);
 
 private:
     MessageRouter() = default;

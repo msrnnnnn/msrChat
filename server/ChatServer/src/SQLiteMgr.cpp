@@ -629,7 +629,7 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
     sqlite3_bind_int64(ins_stmt, 3, now);
     sqlite3_bind_int64(ins_stmt, 4, now + 600);
 
-    spdlog::info("[Auth] VerifyCode for {}: {} (DEV: hardcoded)", email, code);
+    spdlog::info("[Auth] VerifyCode for {}: {}", email, code);
 
     return sqlite3_step(ins_stmt) == SQLITE_DONE;
 }

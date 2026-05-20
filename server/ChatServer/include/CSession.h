@@ -150,16 +150,6 @@ struct OfflineSendState
     bool sending = false;
 };
 
-struct BinaryPacketState
-{
-    uint16_t msg_id = 0;
-    uint32_t total_len = 0;
-    uint32_t json_len = 0;
-    std::vector<char> json_data;
-    std::vector<char> binary_data;
-    bool receiving = false;
-};
-
 class RecvNode
 {
 public:
@@ -278,40 +268,6 @@ public:
         }
     }
 
-    void ResetBinary(uint16_t msg_id, const std::string &json_data, const std::vector<char> &binary_data)
-    {
-        _msg_id = msg_id;
-        uint32_t json_len = json_data.size();
-        uint32_t binary_len = binary_data.size();
-        _total_len = HEAD_BIN_TOTAL_LEN + json_len + binary_len;
-
-        if (_buffer.size() < static_cast<std::size_t>(_total_len))
-        {
-            _buffer.resize(static_cast<std::size_t>(_total_len));
-        }
-        _data = _buffer.data();
-
-        uint16_t net_msg_id = boost::asio::detail::socket_ops::host_to_network_short(msg_id);
-        memcpy(_data, &net_msg_id, 2);
-
-        uint32_t body_len = json_len + binary_len;
-        uint32_t net_body_len = boost::asio::detail::socket_ops::host_to_network_long(body_len);
-        memcpy(_data + 2, &net_body_len, 4);
-
-        uint32_t net_json_len = boost::asio::detail::socket_ops::host_to_network_long(json_len);
-        memcpy(_data + 6, &net_json_len, 4);
-
-        if (json_len > 0)
-        {
-            memcpy(_data + HEAD_BIN_TOTAL_LEN, json_data.data(), json_len);
-        }
-
-        if (binary_len > 0)
-        {
-            memcpy(_data + HEAD_BIN_TOTAL_LEN + json_len, binary_data.data(), binary_len);
-        }
-    }
-
 private:
     ObjectPool<SendNode> *_pool = nullptr;
 };
@@ -340,7 +296,6 @@ public:
     void Start();
 
     void Send(const std::string &msg, short msg_id);
-    void SendBinary(const std::string &json_data, const std::vector<char> &binary_data, short msg_id);
 
     void StartFileSend(int64_t task_id, const std::string &filepath);
     void SendNextFileChunk();
@@ -555,7 +510,6 @@ private:
 
     void AsyncReadHead();
     void AsyncReadBody(int total_len);
-    void AsyncReadBinBody(int total_len);
 
     void AsyncWriteMsg();
 
@@ -569,7 +523,6 @@ private:
 
     std::shared_ptr<RecvNode> _recv_head_node;
     std::shared_ptr<RecvNode> _recv_msg_node;
-    std::shared_ptr<RecvNode> _recv_bin_head_node;
 
     std::deque<std::shared_ptr<SendNode>> _send_queue;
     std::atomic<bool> _is_writing{false};
@@ -580,7 +533,6 @@ private:
     FileTransferState _file_recv_state;
     FileSendState _file_send_state;
     OfflineSendState _offline_send_state;
-    BinaryPacketState _bin_packet_state;
 
     std::mutex _file_mutex;
     mutable std::recursive_mutex _offline_mutex;

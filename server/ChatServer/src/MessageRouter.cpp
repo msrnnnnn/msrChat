@@ -112,22 +112,3 @@ bool MessageRouter::SendToSession(std::shared_ptr<CSession> session, const std::
         return false;
     }
 }
-
-bool MessageRouter::SendBinaryToSession(std::shared_ptr<CSession> session, const std::string &json_data,
-                                        const std::vector<char> &binary_data, short msg_id)
-{
-    if (!session)
-    {
-        return false;
-    }
-
-    try
-    {
-        session->SendBinary(json_data, binary_data, msg_id);
-        return true;
-    }
-    catch (...)
-    {
-        return false;
-    }
-}
