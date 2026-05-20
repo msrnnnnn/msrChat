@@ -4,12 +4,15 @@
  * @details 包含连接池、用户认证、消息存储、验证码管理。
  */
 #include "SQLiteMgr.h"
+#include "const.h"
 #include <cstring>
 #include <ctime>
 #include <iomanip>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <random>
+#include <spdlog/spdlog.h>
+#include <sstream>
 #include <spdlog/spdlog.h>
 #include <sstream>
 

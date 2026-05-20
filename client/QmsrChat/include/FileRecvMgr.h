@@ -64,7 +64,7 @@ private:
 
     QHash<int64_t, FileRecvTask *> _tasks;
     QHash<int64_t, QString> _pendingMd5;
-    QMutex _mutex;
+    mutable QMutex _mutex;
 };
 
 #endif // FILERECVMGR_H

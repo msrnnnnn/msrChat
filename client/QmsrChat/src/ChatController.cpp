@@ -246,7 +246,7 @@ void ChatController::sendFile(const QString &filePath)
     qDebug() << "[ChatController] Starting file send, task_id:" << task_id << "size:" << total_size;
 
     // 1. 发送文件传输握手请求
-    TcpMgr::FileReqStruct req;
+    FileReqStruct req;
     req.task_id = task_id;
     req.from_uid = _current_uid;
     req.to_uid = _target_uid;
