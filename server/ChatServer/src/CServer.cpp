@@ -192,6 +192,7 @@ void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
             session->_offline_send_state.total_count = total_count;
             session->_offline_send_state.sent_count = 0;
             session->_offline_send_state.sending = true;
+            session->_offline_send_state.last_sent_id = 0;
 
             session->SendNextOfflinePage();
         });
