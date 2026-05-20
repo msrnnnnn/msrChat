@@ -25,7 +25,7 @@ TcpWorker::TcpWorker(QObject *parent)
       _port(0),
       _pending_connect(std::nullopt),
       _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)),
-      _b_head_parsed(false),
+      _head_parsed(false),
       _message_id(0),
       _message_len(0),
       _heartbeat_timer(nullptr),
@@ -203,7 +203,7 @@ void TcpWorker::slot_ready_read()
 
     while (true)
     {
-        if (!_b_head_parsed)
+        if (!_head_parsed)
         {
             if (_recv_buffer.Available() < 6)
             {
@@ -228,16 +228,16 @@ void TcpWorker::slot_ready_read()
             {
                 qWarning() << "WARNING: Empty message received. Closing connection.";
                 _recv_buffer.Clear();
-                _b_head_parsed = false;
+                _head_parsed = false;
                 _message_len = 0;
                 _socket->disconnectFromHost();
                 return;
             }
 
-            _b_head_parsed = true;
+            _head_parsed = true;
         }
 
-        if (_b_head_parsed)
+        if (_head_parsed)
         {
             if (_recv_buffer.Available() < static_cast<std::size_t>(_message_len))
             {
@@ -258,7 +258,7 @@ void TcpWorker::slot_ready_read()
                 emit sig_packet_received(_message_id, messageBody);
             }
 
-            _b_head_parsed = false;
+            _head_parsed = false;
         }
     }
 }
@@ -386,7 +386,7 @@ void TcpWorker::schedule_reconnect()
 void TcpWorker::reset_buffer()
 {
     _recv_buffer.Clear();
-    _b_head_parsed = false;
+    _head_parsed = false;
     _message_id = 0;
     _message_len = 0;
 }

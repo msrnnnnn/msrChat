@@ -345,10 +345,29 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
     }
 
     const char *migration_sql = "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''";
-    sqlite3_exec(db, migration_sql, nullptr, nullptr, nullptr);
+    char *mig_err = nullptr;
+    int mig_rc = sqlite3_exec(db, migration_sql, nullptr, nullptr, &mig_err);
+    if (mig_rc != SQLITE_OK && mig_err)
+    {
+        std::string err_str(mig_err);
+        sqlite3_free(mig_err);
+        if (err_str.find("duplicate column") == std::string::npos)
+        {
+            spdlog::warn("[SQLiteMgr] Migration ALTER TABLE users failed: {}", err_str);
+        }
+    }
 
     const char *offline_migration_sql = "ALTER TABLE offline_messages ADD COLUMN client_msg_id TEXT DEFAULT ''";
-    sqlite3_exec(db, offline_migration_sql, nullptr, nullptr, nullptr);
+    mig_rc = sqlite3_exec(db, offline_migration_sql, nullptr, nullptr, &mig_err);
+    if (mig_rc != SQLITE_OK && mig_err)
+    {
+        std::string err_str(mig_err);
+        sqlite3_free(mig_err);
+        if (err_str.find("duplicate column") == std::string::npos)
+        {
+            spdlog::warn("[SQLiteMgr] Migration ALTER TABLE offline_messages failed: {}", err_str);
+        }
+    }
 
     if (sqlite3_exec(db, sql, nullptr, nullptr, &err_msg) != SQLITE_OK)
     {
@@ -592,7 +611,10 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
     if (del_stmt)
     {
         sqlite3_bind_text(del_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_step(del_stmt);
+        if (sqlite3_step(del_stmt) != SQLITE_DONE)
+        {
+            spdlog::warn("[SQLiteMgr] Failed to delete old verify codes for {}", email);
+        }
     }
 
     ScopedStmt ins_stmt(db, "INSERT INTO verify_codes (email, code, created_at, expires_at) VALUES (?, ?, ?, ?)");

@@ -155,7 +155,11 @@ public:
     {
         if (_db)
         {
-            sqlite3_prepare_v2(_db, sql, -1, &_stmt, nullptr);
+            int rc = sqlite3_prepare_v2(_db, sql, -1, &_stmt, nullptr);
+            if (rc != SQLITE_OK)
+            {
+                fprintf(stderr, "[ScopedStmt] prepare failed: %s\n", sqlite3_errmsg(_db));
+            }
         }
     }
 

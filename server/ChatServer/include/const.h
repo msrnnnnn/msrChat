@@ -8,7 +8,7 @@
 #include <chrono>
 #include <cstdint>
 
-constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息
+constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息 (0x3E8)
 constexpr uint16_t ID_GET_VARIFY_CODE = 1001;    ///< 获取验证码
 constexpr uint16_t ID_REGISTER_USER = 1002;      ///< 用户注册
 constexpr uint16_t ID_RESET_PWD = 1003;          ///< 重置密码

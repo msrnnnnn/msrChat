@@ -47,7 +47,6 @@ elseif(UNIX AND NOT APPLE)
             -g3
             -O0
             -fsanitize=address
-            -fno-omit-frame-pointer
         )
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
     else()
@@ -170,15 +169,19 @@ else()
     endif()
 endif()
 
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Core)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Quick)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Qml)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::Sql)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickWidgets)
-target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickControls2 Qt${QT_VERSION_MAJOR}::QuickLayouts)
-target_link_libraries(QmsrChat PRIVATE protobuf::libprotobuf)
-target_link_libraries(QmsrChat PRIVATE spdlog::spdlog)
+target_link_libraries(QmsrChat PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Quick
+    Qt${QT_VERSION_MAJOR}::Qml
+    Qt${QT_VERSION_MAJOR}::Sql
+    Qt${QT_VERSION_MAJOR}::QuickWidgets
+    Qt${QT_VERSION_MAJOR}::QuickControls2
+    Qt${QT_VERSION_MAJOR}::QuickLayouts
+    protobuf::libprotobuf
+    spdlog::spdlog
+)
 
 target_include_directories(QmsrChat PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include

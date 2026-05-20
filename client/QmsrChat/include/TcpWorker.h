@@ -68,7 +68,7 @@ private:
     std::optional<ServerInfo> _pending_connect;
 
     RingBuffer _recv_buffer;
-    bool _b_head_parsed;
+    bool _head_parsed;
     quint16 _message_id;
     quint32 _message_len;
 
