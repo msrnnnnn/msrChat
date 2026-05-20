@@ -103,8 +103,11 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
         return;
     }
 
-    _host = si.Host;
-    _port = static_cast<uint16_t>(si.Port.toUInt());
+    {
+        QMutexLocker locker(&_host_port_mutex);
+        _host = si.Host;
+        _port = static_cast<uint16_t>(si.Port.toUInt());
+    }
     _pending_connect = si;
     _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = 0;
@@ -311,7 +314,15 @@ void TcpWorker::slot_reconnect_timeout()
     {
         return;
     }
-    if (_host.isEmpty() || _port == 0)
+
+    QString host;
+    uint16_t port;
+    {
+        QMutexLocker locker(&_host_port_mutex);
+        host = _host;
+        port = _port;
+    }
+    if (host.isEmpty() || port == 0)
     {
         qWarning() << "Reconnect skipped: missing target host or port";
         _state.store(ConnectionState::Idle);
@@ -322,7 +333,7 @@ void TcpWorker::slot_reconnect_timeout()
     _state.store(ConnectionState::Connecting);
     if (_socket)
     {
-        _socket->connectToHost(_host, _port);
+        _socket->connectToHost(host, port);
     }
 }
 
@@ -345,7 +356,15 @@ void TcpWorker::schedule_reconnect()
     {
         return;
     }
-    if (_host.isEmpty() || _port == 0)
+
+    QString host;
+    uint16_t port;
+    {
+        QMutexLocker locker(&_host_port_mutex);
+        host = _host;
+        port = _port;
+    }
+    if (host.isEmpty() || port == 0)
     {
         _state.store(ConnectionState::Idle);
         return;

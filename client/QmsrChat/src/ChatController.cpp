@@ -272,7 +272,7 @@ void ChatController::loadHistory()
 }
 
 /**
- * @brief 清空聊天历史记录（暂未实现）
+ * @brief 清空聊天历史记录
  */
 void ChatController::clearHistory()
 {
@@ -286,6 +286,16 @@ void ChatController::clearHistory()
         _chat_model->ClearMessages();
     }
     emit sigHistoryCleared();
+}
+
+void ChatController::searchMessages(const QString &keyword)
+{
+    if (_current_uid <= 0 || _target_uid <= 0 || keyword.trimmed().isEmpty())
+    {
+        return;
+    }
+
+    DbThreadManager::Instance().SearchMessages(_current_uid, _target_uid, keyword.trimmed(), 50);
 }
 
 /**

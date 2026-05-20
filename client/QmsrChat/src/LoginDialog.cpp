@@ -160,14 +160,6 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
     if (bsuccess)
     {
         qDebug() << "TCP connection established (reconnection or startup)";
-        if (_uid > 0 && !_token.isEmpty() && !_chat_login_ready)
-        {
-            showTip(tr("重连成功，正在恢复聊天会话..."), true);
-            ChatLoginReqStruct req;
-            req.uid = _uid;
-            req.token = _token;
-            TcpMgr::Instance()->slot_send_chat_login_req(req);
-        }
         return;
     }
 

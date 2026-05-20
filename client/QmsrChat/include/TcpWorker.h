@@ -64,6 +64,7 @@ private:
     QString _host;
     uint16_t _port;
     QMutex _pending_connect_mutex;
+    mutable QMutex _host_port_mutex;
     std::optional<ServerInfo> _pending_connect;
 
     RingBuffer _recv_buffer;

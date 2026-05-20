@@ -39,6 +39,7 @@ public:
     Q_INVOKABLE void setTargetUid(int uid);
     Q_INVOKABLE void loadHistory();
     Q_INVOKABLE void clearHistory();
+    Q_INVOKABLE void searchMessages(const QString &keyword);
     Q_INVOKABLE void initialize();
 
     int GetCurrentUid() const;

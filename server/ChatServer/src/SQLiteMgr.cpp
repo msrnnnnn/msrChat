@@ -984,8 +984,9 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
-        msg.client_msg_id = std::string(reinterpret_cast<const char *>(
-            sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6) : ""));
+        const char *client_msg_id_text =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+        msg.client_msg_id = client_msg_id_text ? std::string(client_msg_id_text) : "";
         messages.push_back(msg);
     }
 
@@ -1027,8 +1028,9 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
-        msg.client_msg_id = std::string(reinterpret_cast<const char *>(
-            sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6) : ""));
+        const char *client_msg_id_text =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+        msg.client_msg_id = client_msg_id_text ? std::string(client_msg_id_text) : "";
         messages.push_back(msg);
     }
 
