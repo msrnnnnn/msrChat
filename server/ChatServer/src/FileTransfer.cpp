@@ -66,7 +66,6 @@ FileTransfer &FileTransfer::Instance()
  */
 int64_t FileTransfer::CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
 {
-    (void)ioc;  // 未使用参数
     int64_t task_id;
     std::shared_ptr<FileTransferTask> task;
     {

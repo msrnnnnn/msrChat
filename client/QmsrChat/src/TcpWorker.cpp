@@ -10,20 +10,28 @@
 #include <QtEndian>
 #include <cstring>
 
+// 心跳与重连配置常量
+constexpr int HEARTBEAT_INTERVAL_MS = 15000;
+constexpr int PONG_CHECK_INTERVAL_MS = 5000;
+constexpr int PONG_TIMEOUT_MS = 45000;
+constexpr int MAX_RECONNECT_INTERVAL_MS = 60000;
+constexpr int INITIAL_RECONNECT_INTERVAL_MS = 3000;
+constexpr size_t RECV_BUFFER_SIZE = 2 * 1024 * 1024;
+
 TcpWorker::TcpWorker(QObject *parent)
     : QObject(parent),
       _socket(nullptr),
       _host(""),
       _port(0),
       _pending_connect(std::nullopt),
-      _recv_buffer(RingBuffer(2 * 1024 * 1024)),
+      _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)),
       _b_head_parsed(false),
       _message_id(0),
       _message_len(0),
       _heartbeat_timer(nullptr),
       _pong_check_timer(nullptr),
       _reconnect_timer(nullptr),
-      _reconnect_interval(3000),
+      _reconnect_interval(INITIAL_RECONNECT_INTERVAL_MS),
       _last_pong_time(0),
       _state(ConnectionState::Idle)
 {
@@ -71,7 +79,7 @@ void TcpWorker::slot_init()
 void TcpWorker::slot_stop()
 {
     QMutexLocker locker(&_pending_connect_mutex);
-    _state = ConnectionState::Stopping;
+    _state.store(ConnectionState::Stopping);
     _pending_connect.reset();
 
     if (_heartbeat_timer) { _heartbeat_timer->stop(); _heartbeat_timer->disconnect(); }
@@ -98,13 +106,13 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
     _host = si.Host;
     _port = static_cast<uint16_t>(si.Port.toUInt());
     _pending_connect = si;
-    _reconnect_interval = 3000;
+    _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = 0;
     stop_timers();
     reset_buffer();
 
     _socket->abort();
-    _state = ConnectionState::Connecting;
+    _state.store(ConnectionState::Connecting);
     _socket->connectToHost(_host, _port);
 }
 
@@ -117,7 +125,7 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load()) << "reqId:" << static_cast<int>(reqId);
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state) << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -141,18 +149,19 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
 
 void TcpWorker::slot_connected()
 {
-    const bool was_reconnecting = _state == ConnectionState::Reconnecting;
+    const int current_state = _state.load();
+    const bool was_reconnecting = current_state == ConnectionState::Reconnecting;
 
     if (_reconnect_timer->isActive())
     {
         _reconnect_timer->stop();
     }
-    _reconnect_interval = 3000;
+    _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = QDateTime::currentMSecsSinceEpoch();
-    _state = ConnectionState::Connected;
+    _state.store(ConnectionState::Connected);
 
-    _heartbeat_timer->start(15000);
-    _pong_check_timer->start(5000);
+    _heartbeat_timer->start(HEARTBEAT_INTERVAL_MS);
+    _pong_check_timer->start(PONG_CHECK_INTERVAL_MS);
 
     if (was_reconnecting)
     {
@@ -255,7 +264,7 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 {
     Q_UNUSED(error)
 
-    if (_state == ConnectionState::Stopping)
+    if (_state.load() == ConnectionState::Stopping)
     {
         return;
     }
@@ -267,7 +276,7 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 
 void TcpWorker::slot_disconnected()
 {
-    if (_state == ConnectionState::Stopping)
+    if (_state.load() == ConnectionState::Stopping)
     {
         return;
     }
@@ -287,7 +296,7 @@ void TcpWorker::slot_pong_check()
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     qint64 elapsed = now - _last_pong_time;
 
-    if (_last_pong_time > 0 && elapsed > 45000)
+    if (_last_pong_time > 0 && elapsed > PONG_TIMEOUT_MS)
     {
         if (_socket)
         {
@@ -305,23 +314,18 @@ void TcpWorker::slot_reconnect_timeout()
     if (_host.isEmpty() || _port == 0)
     {
         qWarning() << "Reconnect skipped: missing target host or port";
-        _state = ConnectionState::Idle;
+        _state.store(ConnectionState::Idle);
         return;
     }
 
     reset_buffer();
-    _state = ConnectionState::Connecting;
+    _state.store(ConnectionState::Connecting);
     if (_socket)
     {
         _socket->connectToHost(_host, _port);
     }
 }
 
-/**
- * @brief 从环形缓冲区读取指定字节数
- * @param len 需要读取的字节数
- * @return 读取到的数据，失败返回空 QByteArray
- */
 QByteArray TcpWorker::readBytes(qsizetype len)
 {
     QByteArray result;
@@ -335,19 +339,15 @@ QByteArray TcpWorker::readBytes(qsizetype len)
     return result;
 }
 
-/**
- * @brief 调度重连操作，带指数退避策略
- * @details 最大重连间隔 60 秒，初始间隔 3 秒，每次翻倍
- */
 void TcpWorker::schedule_reconnect()
 {
-    if (!_socket || _state == ConnectionState::Stopping)
+    if (!_socket || _state.load() == ConnectionState::Stopping)
     {
         return;
     }
     if (_host.isEmpty() || _port == 0)
     {
-        _state = ConnectionState::Idle;
+        _state.store(ConnectionState::Idle);
         return;
     }
     if (_reconnect_timer->isActive())
@@ -359,9 +359,9 @@ void TcpWorker::schedule_reconnect()
         _socket->abort();
     }
 
-    _state = ConnectionState::Reconnecting;
+    _state.store(ConnectionState::Reconnecting);
     _reconnect_timer->start(_reconnect_interval);
-    _reconnect_interval = (std::min)(_reconnect_interval * 2, 60000);
+    _reconnect_interval = (std::min)(_reconnect_interval * 2, MAX_RECONNECT_INTERVAL_MS);
 }
 
 void TcpWorker::reset_buffer()
@@ -390,5 +390,5 @@ void TcpWorker::stop_timers()
 
 bool TcpWorker::can_send() const
 {
-    return _state == ConnectionState::Connected && _socket && _socket->state() == QAbstractSocket::ConnectedState;
+    return _state.load() == ConnectionState::Connected && _socket && _socket->state() == QAbstractSocket::ConnectedState;
 }

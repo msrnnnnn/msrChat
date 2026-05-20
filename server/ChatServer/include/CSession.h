@@ -538,8 +538,18 @@ private:
 
     void ResetReadDeadline();
     void ScheduleReadDeadlineCheck();
-    void CleanupSession(const std::string &error_msg);
-    void TerminateSession(const std::string &error_msg);
+
+    /**
+     * @brief 完整会话清理（已登录状态出错时调用）
+     * @param error_msg 错误信息，用于日志记录
+     */
+    void CleanupSession(const std::string &error_msg = "");
+
+    /**
+     * @brief 部分会话清理（未登录状态或通用错误时调用）
+     * @param error_msg 错误信息，用于日志记录
+     */
+    void TerminateSession(const std::string &error_msg = "");
 
     void AsyncReadHead();
     void AsyncReadBody(int total_len);

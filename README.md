@@ -63,7 +63,7 @@ graph TD
 | **TcpWorker** | TCP 通信核心，独立线程运行，含 RingBuffer 和心跳 |
 | **FileSendMgr** | 文件发送管理，分块发送（64KB/chunk） |
 | **FileRecvMgr** | 文件接收管理，临时文件 + rename 机制 |
-| **DbThreadManager** | SQLite 数据库操作线程池 |
+| **DbThreadPool** | SQLite 数据库操作线程池 |
 | **RingBuffer** | 环形缓冲区，支持自动扩容（64KB ~ 4MB） |
 
 ## 目录结构

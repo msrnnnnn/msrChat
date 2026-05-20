@@ -250,7 +250,6 @@ void CServer::Stop()
     }
 
     SessionManager::Instance().ForEachSession([](int uid, std::shared_ptr<CSession> session) {
-        (void)uid;  // 未使用参数
         session->Close();
     });
     SessionManager::Instance().ClearAll();
