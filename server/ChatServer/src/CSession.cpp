@@ -219,7 +219,7 @@ void CSession::AsyncReadHead()
 
                 if (ec)
                 {
-                    CleanupSession(ec.message());
+                    CleanupSession(ec);
                     return;
                 }
                 ResetReadDeadline();
@@ -284,7 +284,7 @@ void CSession::AsyncReadBody(int total_len)
             {
                 if (ec)
                 {
-                    CleanupSession(ec.message());
+                    CleanupSession(ec);
                     return;
                 }
                 ResetReadDeadline();
@@ -441,7 +441,7 @@ void CSession::AsyncWriteMsg()
             {
                 if (ec)
                 {
-                    CleanupSession(ec.message());
+                    CleanupSession(ec);
                     return;
                 }
 
@@ -621,7 +621,7 @@ void CSession::AsyncReadBinBody(int total_len)
             {
                 if (ec)
                 {
-                    CleanupSession(ec.message());
+                    CleanupSession(ec);
                     return;
                 }
 
@@ -644,11 +644,18 @@ void CSession::AsyncReadBinBody(int total_len)
             }));
 }
 
-void CSession::CleanupSession(const std::string &error_msg)
+void CSession::CleanupSession(const boost::system::error_code &ec)
 {
-    if (!error_msg.empty())
+    if (ec)
     {
-        spdlog::error("[CSession] {}: {}", _uuid, error_msg);
+        if (ec == boost::asio::error::eof)
+        {
+            spdlog::info("[CSession] {}: client disconnected", _uuid);
+        }
+        else
+        {
+            spdlog::error("[CSession] {}: {}", _uuid, ec.message());
+        }
     }
     if (_user_uid != 0)
     {

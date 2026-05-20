@@ -542,13 +542,13 @@ private:
     void ScheduleReadDeadlineCheck();
 
     /**
-     * @brief 完整会话清理（已登录状态出错时调用）
-     * @param error_msg 错误信息，用于日志记录
+     * @brief 完整会话清理（传输层错误时调用）
+     * @param ec boost 错误码，eof 视为正常断开
      */
-    void CleanupSession(const std::string &error_msg = "");
+    void CleanupSession(const boost::system::error_code &ec = {});
 
     /**
-     * @brief 部分会话清理（未登录状态或通用错误时调用）
+     * @brief 部分会话清理（协议错误时调用）
      * @param error_msg 错误信息，用于日志记录
      */
     void TerminateSession(const std::string &error_msg = "");
