@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # =============================================================
 # Platform Detection and Compiler-Specific Settings
+# TODO: scope add_compile_options/definitions to target via target_compile_options/definitions
 # =============================================================
 if(WIN32)
     message(STATUS "Building on Windows (MSVC/MinGW)")
@@ -79,9 +80,6 @@ find_package(Protobuf REQUIRED)
 
 set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # =============================================================
 # 源文件清单 (抛弃一切幻想，全部使用客观绝对路径)
@@ -181,6 +179,11 @@ target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickWidgets)
 target_link_libraries(QmsrChat PRIVATE Qt${QT_VERSION_MAJOR}::QuickControls2 Qt${QT_VERSION_MAJOR}::QuickLayouts)
 target_link_libraries(QmsrChat PRIVATE protobuf::libprotobuf)
 target_link_libraries(QmsrChat PRIVATE spdlog::spdlog)
+
+target_include_directories(QmsrChat PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
 
 # ================= 配置管理自动化核心逻辑 =================
 set(CONFIG_FILE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")

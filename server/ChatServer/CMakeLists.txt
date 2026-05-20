@@ -9,7 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # =============================================================
+# =============================================================
 # 2. 平台检测与编译器设置 (Platform Detection)
+# TODO: 将 add_compile_options/add_compile_definitions 改为 target_compile_options/definitions
+# =============================================================
 # =============================================================
 if(WIN32)
     message(STATUS "Building ChatServer on Windows (MSVC/MinGW)")
@@ -109,19 +112,16 @@ set(SERVER_SOURCES
 )
 
 # =============================================================
-# 4. 包含目录 (Include Directories)
+# 5. 创建可执行文件 (Create Executable)
 # =============================================================
-include_directories(
+add_executable(ChatServer ${SERVER_SOURCES})
+
+target_include_directories(ChatServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Boost_INCLUDE_DIRS}
 )
-
-# =============================================================
-# 5. 创建可执行文件 (Create Executable)
-# =============================================================
-add_executable(ChatServer ${SERVER_SOURCES})
 
 # =============================================================
 # 6. 链接库 (Link Libraries)
