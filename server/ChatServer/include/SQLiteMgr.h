@@ -20,6 +20,7 @@ struct ChatMessage
     std::string content;
     int64_t timestamp;
     int status;
+    std::string client_msg_id;
 };
 
 struct User

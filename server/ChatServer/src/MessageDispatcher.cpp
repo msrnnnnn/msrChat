@@ -383,6 +383,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
  */
 bool HandleChatText(CSession &session, const std::string &body_data)
 {
+    std::string client_msg_id;
     try
     {
         qmsrchat::ChatTextMsg chatMsg;
@@ -396,7 +397,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         int from_uid = chatMsg.from_uid();
         int to_uid = chatMsg.to_uid();
         std::string content = chatMsg.content();
-        std::string client_msg_id = chatMsg.client_msg_id();
+        client_msg_id = chatMsg.client_msg_id();
 
         if (session.GetUserUid() == 0)
         {
@@ -482,6 +483,11 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         spdlog::error("[MessageDispatcher] HandleChatText error: {}", e.what());
         qmsrchat::ChatAck response;
         response.set_error(1);
+        response.set_message("internal server error");
+        if (!client_msg_id.empty())
+        {
+            response.set_client_msg_id(client_msg_id);
+        }
 
         std::string serialized;
         if (response.SerializeToString(&serialized))

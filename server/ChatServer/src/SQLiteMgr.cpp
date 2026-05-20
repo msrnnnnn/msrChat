@@ -307,8 +307,11 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             to_uid INTEGER NOT NULL,
             content TEXT NOT NULL,
             timestamp INTEGER NOT NULL,
-            status INTEGER DEFAULT 0
+            status INTEGER DEFAULT 0,
+            client_msg_id TEXT DEFAULT ''
         );
+        
+        sqlite3_exec(db, "ALTER TABLE offline_messages ADD COLUMN client_msg_id TEXT DEFAULT ''", nullptr, nullptr, nullptr);
         
         CREATE TABLE IF NOT EXISTS file_transfers (
             task_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -928,7 +931,7 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(
-        db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status) VALUES (?, ?, ?, ?, ?)");
+        db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status, client_msg_id) VALUES (?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -939,6 +942,7 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 4, msg.timestamp);
     sqlite3_bind_int(stmt, 5, msg.status);
+    sqlite3_bind_text(stmt, 6, msg.client_msg_id.c_str(), -1, SQLITE_TRANSIENT);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
@@ -959,7 +963,7 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
 
     std::vector<ChatMessage> messages;
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status 
+        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id 
         FROM offline_messages 
         WHERE to_uid = ?
         ORDER BY timestamp ASC
@@ -980,6 +984,8 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
+        msg.client_msg_id = std::string(reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6) : ""));
         messages.push_back(msg);
     }
 
@@ -997,7 +1003,7 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
 
     std::vector<ChatMessage> messages;
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status
+        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id
         FROM offline_messages
         WHERE to_uid = ? AND id > ?
         ORDER BY id ASC
@@ -1021,6 +1027,8 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
+        msg.client_msg_id = std::string(reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6) : ""));
         messages.push_back(msg);
     }
 

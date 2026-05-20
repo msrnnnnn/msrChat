@@ -156,6 +156,7 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
         msg.content = json_data.value("content", "");
         msg.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
         msg.status = 0;
+        msg.client_msg_id = json_data.value("client_msg_id", "");
         return SQLiteMgr::Instance().SaveOfflineMessage(msg);
     }
     catch (const std::exception &e)

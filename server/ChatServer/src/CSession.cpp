@@ -506,6 +506,10 @@ void CSession::SendNextOfflinePage()
         chatMsg.set_from_uid(msg.from_uid);
         chatMsg.set_to_uid(msg.to_uid);
         chatMsg.set_content(msg.content);
+        if (!msg.client_msg_id.empty())
+        {
+            chatMsg.set_client_msg_id(msg.client_msg_id);
+        }
         chatMsg.set_server_msg_id(msg.id);
         chatMsg.set_timestamp(msg.timestamp);
 

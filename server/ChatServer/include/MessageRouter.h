@@ -2,6 +2,7 @@
 #define MESSAGE_ROUTER_H
 
 #include "SessionManager.h"
+#include <atomic>
 #include <memory>
 #include <string>
 
@@ -32,6 +33,8 @@ private:
 
     MessageRouter(MessageRouter &&) = delete;
     MessageRouter &operator=(MessageRouter &&) = delete;
+
+    static std::atomic<int64_t> _next_server_msg_id;
 };
 
 #endif
