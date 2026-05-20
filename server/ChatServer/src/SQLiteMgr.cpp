@@ -311,8 +311,6 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             client_msg_id TEXT DEFAULT ''
         );
         
-        sqlite3_exec(db, "ALTER TABLE offline_messages ADD COLUMN client_msg_id TEXT DEFAULT ''", nullptr, nullptr, nullptr);
-        
         CREATE TABLE IF NOT EXISTS file_transfers (
             task_id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_uid INTEGER NOT NULL,
@@ -345,6 +343,9 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
 
     const char *migration_sql = "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''";
     sqlite3_exec(db, migration_sql, nullptr, nullptr, nullptr);
+
+    const char *offline_migration_sql = "ALTER TABLE offline_messages ADD COLUMN client_msg_id TEXT DEFAULT ''";
+    sqlite3_exec(db, offline_migration_sql, nullptr, nullptr, nullptr);
 
     if (sqlite3_exec(db, sql, nullptr, nullptr, &err_msg) != SQLITE_OK)
     {
