@@ -263,12 +263,32 @@ void ChatController::sendFile(const QString &filePath)
  */
 void ChatController::loadHistory()
 {
+    _has_more_history = true;
     if (_current_uid <= 0 || _target_uid <= 0)
     {
         return;
     }
 
     DbThreadManager::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
+}
+
+/**
+ * @brief 加载更早的历史消息（向上滚动分页）
+ */
+void ChatController::loadMoreHistory()
+{
+    if (_current_uid <= 0 || _target_uid <= 0 || !_has_more_history)
+    {
+        return;
+    }
+
+    qint64 before_time = LLONG_MAX;
+    if (_chat_model != nullptr && _chat_model->rowCount() > 0)
+    {
+        before_time = _chat_model->GetEarliestTimestamp();
+    }
+
+    DbThreadManager::Instance().GetMessages(_current_uid, _target_uid, before_time, HISTORY_PAGE_SIZE);
 }
 
 /**
@@ -421,8 +441,10 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
 {
     if (_chat_model != nullptr)
     {
-        _chat_model->SetMessages(messages);
+        _chat_model->PrependMessages(messages);
     }
+    _has_more_history = (messages.size() >= HISTORY_PAGE_SIZE);
+    emit sigHasMoreHistoryChanged();
 }
 
 /**

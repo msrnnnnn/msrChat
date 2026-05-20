@@ -37,6 +37,7 @@ public:
         int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed = nullptr,
         QString *error = nullptr);
     void CancelRecv(int64_t task_id);
+    int64_t GetReceivedSize(int64_t task_id) const;
 
 signals:
     void SigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);

@@ -38,6 +38,7 @@ public:
     void UpsertMessage(const ChatMessage &msg);
     void AddMessages(const QVector<ChatMessage> &messages);
     void InsertHistoricalMessages(const QVector<ChatMessage> &messages);
+    void PrependMessages(const QVector<ChatMessage> &messages);
     void SetMessages(const QVector<ChatMessage> &messages);
     void UpdateMessageStatus(const QString &client_msg_id, int status);
     void ClearMessages();
@@ -47,6 +48,7 @@ public:
     bool TryGetMessageAt(int index, ChatMessage &out) const;
     QVector<ChatMessage> GetAllMessages() const;
     QVector<ChatMessage> GetMessagesAtomic(int start, int count) const;
+    qint64 GetEarliestTimestamp() const;
 
 signals:
     void messageAdded(const ChatMessage &msg);

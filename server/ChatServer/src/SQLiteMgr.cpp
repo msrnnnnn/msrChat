@@ -683,13 +683,17 @@ int SQLiteMgr::ResetPassword(
         return verify_result;
     }
 
+    std::string salt = GenerateSalt();
+    std::string salted_hash = SHA256(new_password_hash + salt);
+    std::string stored_password = salt + "$" + salted_hash;
+
     ScopedStmt stmt(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
     if (!stmt)
     {
         return 1009;
     }
 
-    sqlite3_bind_text(stmt, 1, new_password_hash.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, stored_password.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 2, user->uid);
 
     if (sqlite3_step(stmt) != SQLITE_DONE)

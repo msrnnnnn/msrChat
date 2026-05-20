@@ -1,6 +1,7 @@
 #include "ChatListModel.h"
 #include <QDateTime>
 #include <QDebug>
+#include <climits>
 
 ChatListModel::ChatListModel(QObject *parent)
     : QAbstractListModel(parent),
@@ -219,6 +220,33 @@ void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &message
     emit scrollToTopRequested();
 }
 
+void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
+{
+    if (messages.isEmpty())
+    {
+        return;
+    }
+
+    int startRow = 0;
+    int endRow = messages.size() - 1;
+
+    beginInsertRows(QModelIndex(), startRow, endRow);
+
+    {
+        QMutexLocker locker(&_mutex);
+        for (int i = messages.size() - 1; i >= 0; --i)
+        {
+            ChatMessage copy = messages[i];
+            copy.bubbleWidth = CalculateBubbleWidth(copy.content);
+            copy.bubbleHeight = CalculateBubbleHeight(copy.content);
+            _messages.prepend(copy);
+        }
+        RebuildIndex();
+    }
+
+    endInsertRows();
+}
+
 void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
 {
     beginResetModel();
@@ -300,6 +328,16 @@ QVector<ChatMessage> ChatListModel::GetMessagesAtomic(int start, int count) cons
         result.append(_messages[i]);
     }
     return result;
+}
+
+qint64 ChatListModel::GetEarliestTimestamp() const
+{
+    QMutexLocker locker(&_mutex);
+    if (_messages.isEmpty())
+    {
+        return LLONG_MAX;
+    }
+    return _messages.first().timestamp;
 }
 
 void ChatListModel::RebuildIndex()

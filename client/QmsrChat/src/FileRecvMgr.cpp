@@ -1,5 +1,6 @@
 #include "FileRecvMgr.h"
 #include <QDir>
+#include <QFileInfo>
 #include <QMutexLocker>
 #include <QThreadPool>
 #include <QDebug>
@@ -103,10 +104,23 @@ bool FileRecvMgr::StartRecv(
     task->final_filepath = BuildFinalPath(task->filename);
     task->file.setFileName(task->temp_filepath);
 
-    if (!task->file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    QFileInfo info(task->temp_filepath);
+    if (info.exists() && info.size() > 0 && info.size() < total_size)
     {
-        delete task;
-        return Fail(error, "open temp file failed");
+        task->received_size = info.size();
+        if (!task->file.open(QIODevice::WriteOnly | QIODevice::Append))
+        {
+            delete task;
+            return Fail(error, "open partial temp file failed");
+        }
+    }
+    else
+    {
+        if (!task->file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        {
+            delete task;
+            return Fail(error, "open temp file failed");
+        }
     }
 
     _tasks.insert(task_id, task);
@@ -206,6 +220,13 @@ void FileRecvMgr::CancelRecv(int64_t task_id)
         delete task;
     }
     _tasks.erase(it);
+}
+
+int64_t FileRecvMgr::GetReceivedSize(int64_t task_id) const
+{
+    QMutexLocker lock(&_mutex);
+    auto it = _tasks.find(task_id);
+    return (it != _tasks.end()) ? it.value()->received_size : 0;
 }
 
 /**

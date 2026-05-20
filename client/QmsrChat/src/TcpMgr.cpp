@@ -438,7 +438,14 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         qmsrchat::FileRsp rsp;
         rsp.set_task_id(fileReq.task_id());
         rsp.set_error(ok ? 0 : 1);
-        rsp.set_offset(0);
+        if (ok)
+        {
+            rsp.set_offset(FileRecvMgr::Instance().GetReceivedSize(fileReq.task_id()));
+        }
+        else
+        {
+            rsp.set_offset(0);
+        }
         rsp.set_message((ok ? QStringLiteral("ready to receive") : error).toStdString());
 
         std::string serialized;

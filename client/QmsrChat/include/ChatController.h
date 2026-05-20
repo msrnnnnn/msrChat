@@ -38,6 +38,8 @@ public:
     Q_INVOKABLE void sendFile(const QString &filePath);
     Q_INVOKABLE void setTargetUid(int uid);
     Q_INVOKABLE void loadHistory();
+    Q_INVOKABLE void loadMoreHistory();
+    Q_PROPERTY(bool hasMoreHistory READ hasMoreHistory NOTIFY sigHasMoreHistoryChanged)
     Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void searchMessages(const QString &keyword);
     Q_INVOKABLE void initialize();
@@ -45,6 +47,7 @@ public:
     int GetCurrentUid() const;
     int GetTargetUid() const;
     bool IsConnected() const;
+    bool hasMoreHistory() const { return _has_more_history; }
     void setChatModel(ChatListModel *model);
 
 signals:
@@ -58,6 +61,7 @@ signals:
     void sigFileRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void sigFileRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
     void sigHistoryCleared();
+    void sigHasMoreHistoryChanged();
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
@@ -81,6 +85,7 @@ private:
     QMutex _pending_mutex;
     QHash<QString, PendingMessageInfo> _pending_messages;
     qint64 _last_offline_received = -1;
+    bool _has_more_history = true;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
     static constexpr int HISTORY_PAGE_SIZE = 50;
