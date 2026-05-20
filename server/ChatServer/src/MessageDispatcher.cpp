@@ -165,6 +165,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
                 {
                     response["uid"] = result.uid;
                     response["user"] = result.username;
+                    response["token"] = result.token;
                 }
                 safe_session->Send(response.dump(), ID_REGISTER_USER);
                 safe_session->ContinueReading();
@@ -329,16 +330,39 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
                 if (safe_session->IsClosed()) return;
 
                 int verify_result = SQLiteMgr::Instance().CheckVerifyCode(email, code);
-                bool success = false;
                 int error_code = verify_result;
+                std::string new_token;
 
                 if (verify_result == 0)
                 {
-                    success = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
-                    error_code = success ? 0 : 1009;
+                    bool success = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
+                    if (success)
+                    {
+                        error_code = 0;
+                        auto user = SQLiteMgr::Instance().GetUserByUsername(username);
+                        if (user.has_value())
+                        {
+                            int uid = user->uid;
+                            AuthResult login_result = SQLiteMgr::Instance().LoginUser(username, new_password_hash);
+                            if (login_result.error == 0)
+                            {
+                                new_token = login_result.token;
+                                auto srv = safe_session->GetServer();
+                                if (srv) srv->SetToken(uid, new_token);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        error_code = 1009;
+                    }
                 }
 
                 nlohmann::json response{{"error", error_code}};
+                if (error_code == 0 && !new_token.empty())
+                {
+                    response["token"] = new_token;
+                }
                 safe_session->Send(response.dump(), ID_RESET_PWD);
                 safe_session->ContinueReading();
             });

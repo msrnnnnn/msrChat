@@ -7,6 +7,7 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <random>
 #include <spdlog/spdlog.h>
@@ -24,20 +25,25 @@ static std::string SHA256(const std::string &input)
     return std::string(hex_str, 2 * SHA256_DIGEST_LENGTH);
 }
 
+static std::string SecureRandomHex(int bytes)
+{
+    std::vector<unsigned char> buf(bytes);
+    if (RAND_bytes(buf.data(), bytes) != 1)
+    {
+        std::random_device rd;
+        for (int i = 0; i < bytes; ++i) buf[i] = static_cast<unsigned char>(rd());
+    }
+    std::stringstream ss;
+    for (int i = 0; i < bytes; ++i)
+    {
+        ss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(buf[i]);
+    }
+    return ss.str();
+}
+
 static std::string GenerateSalt()
 {
-    std::random_device rd;
-    std::string salt;
-    for (int i = 0; i < 16; ++i)
-    {
-        salt += static_cast<char>(rd() & 0xFF);
-    }
-    char hex_salt[33];
-    for (int i = 0; i < 16; ++i)
-    {
-        sprintf(hex_salt + i * 2, "%02x", static_cast<unsigned char>(salt[i]));
-    }
-    return std::string(hex_salt, 32);
+    return SecureRandomHex(16);
 }
 
 SQLiteConnectionPool::SQLiteConnectionPool(const std::string &db_path, int pool_size)
@@ -486,17 +492,10 @@ AuthResult SQLiteMgr::RegisterUser(
 
     int64_t uid = sqlite3_last_insert_rowid(db);
 
-    std::random_device rd;
-    std::stringstream token;
-    for (int i = 0; i < 32; ++i)
-    {
-        token << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (rd() & 0xff);
-    }
-
     AuthResult r;
     r.error = 0;
     r.uid = static_cast<int>(uid);
-    r.token = token.str();
+    r.token = SecureRandomHex(32);
     r.username = username;
     return r;
 }
@@ -550,17 +549,10 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
         }
     }
 
-    std::random_device rd;
-    std::stringstream token;
-    for (int i = 0; i < 32; ++i)
-    {
-        token << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (rd() & 0xff);
-    }
-
     AuthResult r;
     r.error = 0;
     r.uid = user->uid;
-    r.token = token.str();
+    r.token = SecureRandomHex(32);
     r.username = user->username;
     return r;
 }
