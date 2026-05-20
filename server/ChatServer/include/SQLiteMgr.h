@@ -34,8 +34,8 @@ struct User
 
 struct AuthResult
 {
-    int error;
-    int uid;
+    int error = 0;
+    int uid = 0;
     std::string token;
     std::string username;
 };

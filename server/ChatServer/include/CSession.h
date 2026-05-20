@@ -538,6 +538,8 @@ private:
 
     void ResetReadDeadline();
     void ScheduleReadDeadlineCheck();
+    void CleanupSession(const std::string &error_msg);
+    void TerminateSession(const std::string &error_msg);
 
     void AsyncReadHead();
     void AsyncReadBody(int total_len);

@@ -66,10 +66,10 @@ void ChatController::ConnectSignals()
     connect(
         TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
     connect(
-        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
+        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
         Qt::QueuedConnection);
     connect(
-        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_saved, this, &ChatController::slotOnMessageSaved,
+        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved,
         Qt::QueuedConnection);
     connect(
         &FileSendMgr::Instance(), &FileSendMgr::sigSendProgress, this,
@@ -101,8 +101,8 @@ void ChatController::DisconnectSignals()
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected);
     disconnect(
-        &DbThreadPool::Instance(), &DbThreadPool::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
-    disconnect(&DbThreadPool::Instance(), &DbThreadPool::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
+        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
+    disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
     disconnect(&FileSendMgr::Instance(), nullptr, this, nullptr);
     disconnect(&FileRecvMgr::Instance(), nullptr, this, nullptr);
 }
@@ -186,7 +186,7 @@ void ChatController::sendMessage(const QString &content)
         _chat_model->AddMessage(msg);
     }
 
-    DbThreadPool::Instance().SaveMessage(msg);
+    DbThreadManager::Instance().SaveMessage(msg);
 
     ChatTextReqStruct req;
     req.from_uid = msg.from_uid;
@@ -268,7 +268,7 @@ void ChatController::loadHistory()
         return;
     }
 
-    DbThreadPool::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
+    DbThreadManager::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
 }
 
 /**
@@ -296,7 +296,7 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
     chat_msg.status = 1;
 
     // 1. DB 层持久化
-    DbThreadPool::Instance().SaveMessage(chat_msg);
+    DbThreadManager::Instance().SaveMessage(chat_msg);
 
     // 2. UI 层渲染更新
     if (_chat_model != nullptr &&
@@ -314,6 +314,7 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
  */
 void ChatController::slotOnChatAck(const ChatAckStruct &ack)
 {
+    QMutexLocker locker(&_pending_mutex);
     if (ack.client_msg_id.isEmpty() || !_pending_messages.contains(ack.client_msg_id))
     {
         return;
@@ -331,7 +332,7 @@ void ChatController::slotOnChatAck(const ChatAckStruct &ack)
         status = 2;
     }
 
-    DbThreadPool::Instance().UpdateMessageStatus(ack.client_msg_id, status);
+    DbThreadManager::Instance().UpdateMessageStatus(ack.client_msg_id, status);
     if (_chat_model != nullptr)
     {
         _chat_model->UpdateMessageStatus(ack.client_msg_id, status);
@@ -436,7 +437,7 @@ void ChatController::slotCleanTimeoutMessages()
     for (const QString &id : expired_ids)
     {
         _pending_messages.remove(id);
-        DbThreadPool::Instance().UpdateMessageStatus(id, -1);
+        DbThreadManager::Instance().UpdateMessageStatus(id, -1);
         if (_chat_model != nullptr)
         {
             _chat_model->UpdateMessageStatus(id, -1);

@@ -13,6 +13,7 @@
 #include <boost/asio.hpp>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
 class CSession;
@@ -51,11 +52,11 @@ private:
     ThreadPool _thread_pool;
 
     std::unordered_map<uint16_t, BusinessHandler> _handlers;
+    mutable std::mutex _handlers_mutex;
 
     std::atomic<bool> _shutting_down{false};
 
     static constexpr size_t DEFAULT_THREAD_NUM = 4;
-    static constexpr size_t MAX_QUEUE_SIZE = 100000;
 };
 
 #endif // LOGIC_SYSTEM_H

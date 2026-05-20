@@ -117,7 +117,7 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state) << "reqId:" << static_cast<int>(reqId);
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load()) << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -317,6 +317,11 @@ void TcpWorker::slot_reconnect_timeout()
     }
 }
 
+/**
+ * @brief 从环形缓冲区读取指定字节数
+ * @param len 需要读取的字节数
+ * @return 读取到的数据，失败返回空 QByteArray
+ */
 QByteArray TcpWorker::readBytes(qsizetype len)
 {
     QByteArray result;
@@ -330,6 +335,10 @@ QByteArray TcpWorker::readBytes(qsizetype len)
     return result;
 }
 
+/**
+ * @brief 调度重连操作，带指数退避策略
+ * @details 最大重连间隔 60 秒，初始间隔 3 秒，每次翻倍
+ */
 void TcpWorker::schedule_reconnect()
 {
     if (!_socket || _state == ConnectionState::Stopping)

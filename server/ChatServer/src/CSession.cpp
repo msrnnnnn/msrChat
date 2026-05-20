@@ -193,12 +193,7 @@ void CSession::ScheduleReadDeadlineCheck()
                 if (now >= _expiry_time)
                 {
                     spdlog::warn("[CSession] read timeout, closing session {}", _uuid);
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    TerminateSession("Read timeout");
                     return;
                 }
 
@@ -224,21 +219,7 @@ void CSession::AsyncReadHead()
 
                 if (ec)
                 {
-                    if (_user_uid != 0)
-                    {
-                        auto server = _server.lock();
-                        if (server)
-                        {
-                            server->RemoveUserSession(_user_uid);
-                        }
-                        _user_uid = 0;
-                    }
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    CleanupSession(ec.message());
                     return;
                 }
                 ResetReadDeadline();
@@ -251,12 +232,7 @@ void CSession::AsyncReadHead()
 
                 if (msg_len == 0)
                 {
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    TerminateSession("Empty message length");
                     return;
                 }
 
@@ -272,22 +248,14 @@ void CSession::AsyncReadHead()
                     }
                     else
                     {
-                        auto server = _server.lock();
-                        if (server)
-                        {
-                            server->ClearSession(_uuid);
-                        }
+                        TerminateSession("Invalid binary packet");
+                        return;
                     }
-                    return;
                 }
 
                 if (msg_len > MAX_LENGTH)
                 {
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    TerminateSession("Message length exceeds maximum");
                     return;
                 }
                 _recv_msg_node->Reset(msg_len, msg_id);
@@ -313,21 +281,7 @@ void CSession::AsyncReadBody(int total_len)
             {
                 if (ec)
                 {
-                    if (_user_uid != 0)
-                    {
-                        auto server = _server.lock();
-                        if (server)
-                        {
-                            server->RemoveUserSession(_user_uid);
-                        }
-                        _user_uid = 0;
-                    }
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    CleanupSession(ec.message());
                     return;
                 }
                 ResetReadDeadline();
@@ -480,21 +434,7 @@ void CSession::AsyncWriteMsg()
             {
                 if (ec)
                 {
-                    if (_user_uid != 0)
-                    {
-                        auto server = _server.lock();
-                        if (server)
-                        {
-                            server->RemoveUserSession(_user_uid);
-                        }
-                        _user_uid = 0;
-                    }
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    CleanupSession(ec.message());
                     return;
                 }
 
@@ -667,21 +607,7 @@ void CSession::AsyncReadBinBody(int total_len)
             {
                 if (ec)
                 {
-                    if (_user_uid != 0)
-                    {
-                        auto server = _server.lock();
-                        if (server)
-                        {
-                            server->RemoveUserSession(_user_uid);
-                        }
-                        _user_uid = 0;
-                    }
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    CleanupSession(ec.message());
                     return;
                 }
 
@@ -691,12 +617,7 @@ void CSession::AsyncReadBinBody(int total_len)
                 std::string body_data;
                 if (!DecodeBinaryPayload(_bin_packet_state.msg_id, recv_msg_node->_data, total_len, body_data))
                 {
-                    Close();
-                    auto server = _server.lock();
-                    if (server)
-                    {
-                        server->ClearSession(_uuid);
-                    }
+                    TerminateSession("Binary payload decode failed");
                     return;
                 }
 
@@ -707,4 +628,41 @@ void CSession::AsyncReadBinBody(int total_len)
                 MessageTask task(shared_from_this(), _bin_packet_state.msg_id, std::move(body_data));
                 LogicSystem::getInstance().PostTask(std::move(task));
             }));
+}
+
+void CSession::CleanupSession(const std::string &error_msg)
+{
+    if (!error_msg.empty())
+    {
+        spdlog::error("[CSession] {}: {}", _uuid, error_msg);
+    }
+    if (_user_uid != 0)
+    {
+        auto server = _server.lock();
+        if (server)
+        {
+            server->RemoveUserSession(_user_uid);
+        }
+        _user_uid = 0;
+    }
+    Close();
+    auto server = _server.lock();
+    if (server)
+    {
+        server->ClearSession(_uuid);
+    }
+}
+
+void CSession::TerminateSession(const std::string &error_msg)
+{
+    if (!error_msg.empty())
+    {
+        spdlog::error("[CSession] {}: {}", _uuid, error_msg);
+    }
+    Close();
+    auto server = _server.lock();
+    if (server)
+    {
+        server->ClearSession(_uuid);
+    }
 }

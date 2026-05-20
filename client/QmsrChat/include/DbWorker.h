@@ -38,12 +38,12 @@ private:
     std::atomic<bool> _stop_flag;
 };
 
-class DbThreadPool : public QObject
+class DbThreadManager : public QObject
 {
     Q_OBJECT
 
 public:
-    static DbThreadPool &Instance();
+    static DbThreadManager &Instance();
 
     bool Init(const QString &db_path);
     void Shutdown();
@@ -62,10 +62,10 @@ signals:
     void sig_error(const QString &error);
 
 private:
-    DbThreadPool();
-    ~DbThreadPool();
-    DbThreadPool(const DbThreadPool &) = delete;
-    DbThreadPool &operator=(const DbThreadPool &) = delete;
+    DbThreadManager();
+    ~DbThreadManager();
+    DbThreadManager(const DbThreadManager &) = delete;
+    DbThreadManager &operator=(const DbThreadManager &) = delete;
 
     QThread *_thread;
     DbWorker *_worker;

@@ -113,10 +113,8 @@ int main(int argc, char *argv[])
         LogicSystem::getInstance().SetIOContext(&io_context);
         std::shared_ptr<CServer> server = nullptr;
 
-        auto stop_server = [&server, &io_context](const std::string &signal_name)
-        {
-            spdlog::info("Received {}, initiating graceful shutdown...", signal_name);
-
+        auto cleanup = [&server]() {
+            spdlog::info("Cleaning up server resources...");
             if (server)
             {
                 spdlog::info("Stopping CServer acceptor...");
@@ -131,8 +129,7 @@ int main(int argc, char *argv[])
 
             spdlog::info("Shutting down SQLiteMgr...");
             SQLiteMgr::Instance().Shutdown();
-
-            spdlog::info("Graceful shutdown completed");
+            spdlog::info("Cleanup completed");
         };
 
         auto handle_sighup = [](const boost::system::error_code &ec, int signal_number)
@@ -147,7 +144,7 @@ int main(int argc, char *argv[])
             ReloadConfig();
         };
 
-        auto handle_sigint_sigterm = [stop_server](const boost::system::error_code &ec, int signal_number)
+        auto handle_sigint_sigterm = [&io_context](const boost::system::error_code &ec, int signal_number)
         {
             if (ec)
             {
@@ -156,8 +153,8 @@ int main(int argc, char *argv[])
             }
 
             std::string signal_name = (signal_number == SIGINT) ? "SIGINT" : "SIGTERM";
-            spdlog::info("Signal {} captured", signal_name);
-            stop_server(signal_name);
+            spdlog::info("Signal {} captured, stopping io_context...", signal_name);
+            io_context.stop();
         };
 
         boost::asio::signal_set shutdown_signals(io_context, SIGINT, SIGTERM);
@@ -173,6 +170,7 @@ int main(int argc, char *argv[])
         io_context.run();
 
         spdlog::info("Main event loop exited");
+        cleanup();
     }
     catch (const std::exception &e)
     {
