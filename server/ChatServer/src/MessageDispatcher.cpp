@@ -105,7 +105,12 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
         return true;
     }
 
-    bool token_valid = TokenManager::Instance().CheckToken(uid, token);
+    auto server = session.GetServer();
+    bool token_valid = false;
+    if (server)
+    {
+        token_valid = TokenManager::Instance().CheckToken(uid, token);
+    }
     session.OnLoginValidated(uid, token_valid);
     return true;
 }
@@ -209,7 +214,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
 
         auto safe_session = session.shared_from_this();
         server->GetThreadPool().Enqueue(
-            [safe_session, username, password_hash]()
+            [safe_session, server, username, password_hash]()
             {
                 if (safe_session->IsClosed()) return;
 
@@ -345,7 +350,8 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
                             if (login_result.error == 0)
                             {
                                 new_token = login_result.token;
-                                TokenManager::Instance().SetToken(uid, new_token);
+                                auto srv = safe_session->GetServer();
+                                if (srv) TokenManager::Instance().SetToken(uid, new_token);
                             }
                         }
                     }

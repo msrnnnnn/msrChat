@@ -5,19 +5,30 @@
  */
 #include "SessionManager.h"
 #include "CSession.h"
+#include <spdlog/spdlog.h>
+#include <utility>
 
-/**
- * @brief 添加会话到管理器
- * @param uid 用户 ID
- * @param session 会话智能指针
- * @details 同时注册到 _uid_sessions 和 _uuid_sessions 两个索引
- */
 void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
 {
     if (!session)
     {
         return;
     }
+
+    auto old_session = GetSession(uid);
+    if (old_session != nullptr && old_session != session)
+    {
+        spdlog::info("[SessionManager] User {} has existing session, closing old connection.", uid);
+        old_session->Close();
+    }
+
+    std::string uuid = session->GetUuid();
+    // 先清理可能存在的旧 uuid 条目（如 DoAccept 中已添加的 uid=0 条目）
+    RemoveSessionByUuid(uuid);
+    _uuid_sessions.Insert(uuid, session);
+    _uid_sessions.Insert(uid, std::move(session));
+    spdlog::info("[SessionManager] User {} session added.", uid);
+}
 
     std::string uuid = session->GetUuid();
     _uid_sessions.Insert(uid, session);

@@ -6,13 +6,10 @@
 #ifndef CSERVER_H
 #define CSERVER_H
 
-#include "SessionManager.h"
 #include "ThreadPool.h"
 #include <boost/asio.hpp>
 #include <memory>
 #include <string>
-
-class CSession;
 
 class CServer : public std::enable_shared_from_this<CServer>
 {

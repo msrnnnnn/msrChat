@@ -18,9 +18,15 @@ bool TokenManager::CheckToken(int uid, const std::string &token)
     auto stored_token = _uid_tokens.Find(uid);
     if (!stored_token)
     {
+        spdlog::warn("[TokenManager] Token check failed for uid {}", uid);
         return false;
     }
-    return *stored_token == token;
+    bool matched = *stored_token == token;
+    if (!matched)
+    {
+        spdlog::warn("[TokenManager] Token mismatch for uid {}", uid);
+    }
+    return matched;
 }
 
 void TokenManager::RemoveToken(int uid)

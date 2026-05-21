@@ -5,6 +5,7 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "CSession.h"
+#include "MessageRouter.h"
 #include "SQLiteMgr.h"
 #include "const.h"
 #include <nlohmann/json.hpp>

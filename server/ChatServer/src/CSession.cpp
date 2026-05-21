@@ -6,9 +6,9 @@
 #include "CSession.h"
 #include "CServer.h"
 #include "LogicSystem.h"
-#include "SessionManager.h"
 #include "Message.pb.h"
 #include "MessageDispatcher.h"
+#include "SessionManager.h"
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
 #include "const.h"
@@ -59,7 +59,11 @@ void CSession::Close()
     }
     if (_user_uid != 0)
     {
-        SessionManager::Instance().RemoveSession(_user_uid);
+        auto server = _server.lock();
+        if (server)
+        {
+            SessionManager::Instance().RemoveSession(_user_uid);
+        }
         _user_uid = 0;
     }
     boost::system::error_code ec;
@@ -240,13 +244,6 @@ void CSession::OnLoginValidated(int uid, bool valid)
     auto server = _server.lock();
     if (server)
     {
-        auto old_session = SessionManager::Instance().GetSession(uid);
-        if (old_session && old_session.get() != this)
-        {
-            spdlog::info("[CSession] User {} has existing session, closing old connection.", uid);
-            old_session->Close();
-        }
-        SessionManager::Instance().RemoveSessionByUuid(GetUuid());
         SessionManager::Instance().AddSession(uid, shared_from_this());
         _user_uid = uid;
 
@@ -494,11 +491,19 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
     }
     if (_user_uid != 0)
     {
-        SessionManager::Instance().RemoveSession(_user_uid);
+        auto server = _server.lock();
+        if (server)
+        {
+            SessionManager::Instance().RemoveSession(_user_uid);
+        }
         _user_uid = 0;
     }
     Close();
-    SessionManager::Instance().RemoveSessionByUuid(_uuid);
+    auto server = _server.lock();
+    if (server)
+    {
+        SessionManager::Instance().RemoveSessionByUuid(_uuid);
+    }
 }
 
 void CSession::TerminateSession(const std::string &error_msg)
@@ -508,5 +513,9 @@ void CSession::TerminateSession(const std::string &error_msg)
         spdlog::error("[CSession] {}: {}", _uuid, error_msg);
     }
     Close();
-    SessionManager::Instance().RemoveSessionByUuid(_uuid);
+    auto server = _server.lock();
+    if (server)
+    {
+        SessionManager::Instance().RemoveSessionByUuid(_uuid);
+    }
 }
