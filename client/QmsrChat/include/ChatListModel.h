@@ -65,6 +65,7 @@ private:
     QString FormatTime(qint64 timestamp) const;
     int CalculateBubbleWidth(const QString &content) const;
     int CalculateBubbleHeight(const QString &content) const;
+    int FindInsertPosition(qint64 timestamp) const;
 };
 
 #endif

@@ -1,6 +1,7 @@
 #include "ChatListModel.h"
 #include <QDateTime>
 #include <QDebug>
+#include <algorithm>
 #include <climits>
 
 ChatListModel::ChatListModel(QObject *parent)
@@ -83,24 +84,22 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
 
 void ChatListModel::AddMessage(const ChatMessage &msg)
 {
-    int lastRow = rowCount();
-    beginInsertRows(QModelIndex(), lastRow, lastRow);
+    int insertPos = FindInsertPosition(msg.timestamp);
+    beginInsertRows(QModelIndex(), insertPos, insertPos);
 
     {
         QMutexLocker locker(&_mutex);
         ChatMessage copy = msg;
         copy.bubbleWidth = CalculateBubbleWidth(copy.content);
         copy.bubbleHeight = CalculateBubbleHeight(copy.content);
-        _messages.append(copy);
-        if (!copy.client_msg_id.isEmpty())
-        {
-            _clientIdIndex[copy.client_msg_id] = _messages.size() - 1;
-        }
+        _messages.insert(insertPos, copy);
+        RebuildIndex();
     }
 
     endInsertRows();
     emit messageAdded(msg);
-    emit scrollToBottomRequested();
+    if (insertPos >= _messages.size() - 3)
+        emit scrollToBottomRequested();
 }
 
 void ChatListModel::UpsertMessage(const ChatMessage &msg)
@@ -109,7 +108,6 @@ void ChatListModel::UpsertMessage(const ChatMessage &msg)
     {
         QMutexLocker locker(&_mutex);
 
-        // O(1) hash lookup by client_msg_id
         if (!msg.client_msg_id.isEmpty())
         {
             auto it = _clientIdIndex.find(msg.client_msg_id);
@@ -118,20 +116,6 @@ void ChatListModel::UpsertMessage(const ChatMessage &msg)
                 if (_messages[it.value()].client_msg_id == msg.client_msg_id)
                 {
                     changedRow = it.value();
-                }
-            }
-        }
-
-        // Fall back to linear scan for server_msg_id match
-        if (changedRow < 0)
-        {
-            for (int i = 0; i < _messages.size(); ++i)
-            {
-                const bool sameServerId = msg.server_msg_id > 0 && _messages[i].server_msg_id == msg.server_msg_id;
-                if (sameServerId)
-                {
-                    changedRow = i;
-                    break;
                 }
             }
         }
@@ -227,25 +211,42 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
         return;
     }
 
+    QVector<ChatMessage> filtered;
+    {
+        QMutexLocker locker(&_mutex);
+        for (const auto &msg : messages)
+        {
+            if (!msg.client_msg_id.isEmpty() && _clientIdIndex.contains(msg.client_msg_id))
+                continue;
+            filtered.append(msg);
+        }
+    }
+
+    if (filtered.isEmpty())
+    {
+        return;
+    }
+
     int startRow = 0;
-    int endRow = messages.size() - 1;
+    int endRow = filtered.size() - 1;
 
     beginInsertRows(QModelIndex(), startRow, endRow);
 
     {
         QMutexLocker locker(&_mutex);
-        for (int i = messages.size() - 1; i >= 0; --i)
+        for (int i = filtered.size() - 1; i >= 0; --i)
         {
-            ChatMessage copy = messages[i];
+            ChatMessage copy = filtered[i];
             copy.bubbleWidth = CalculateBubbleWidth(copy.content);
             copy.bubbleHeight = CalculateBubbleHeight(copy.content);
             _messages.prepend(copy);
         }
+        std::stable_sort(_messages.begin(), _messages.end(),
+            [](const ChatMessage &a, const ChatMessage &b) { return a.timestamp < b.timestamp; });
         RebuildIndex();
     }
 
     endInsertRows();
-    emit scrollToBottomRequested();
 }
 
 void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
@@ -383,6 +384,20 @@ int ChatListModel::CalculateBubbleHeight(const QString &content) const
 
     int lines = (charCount + charsPerLine - 1) / charsPerLine;
     return baseHeight + (lines - 1) * lineHeight;
+}
+
+int ChatListModel::FindInsertPosition(qint64 timestamp) const
+{
+    int lo = 0, hi = _messages.size();
+    while (lo < hi)
+    {
+        int mid = lo + (hi - lo) / 2;
+        if (_messages[mid].timestamp <= timestamp)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    return lo;
 }
 
 QString ChatListModel::FormatTime(qint64 timestamp) const
