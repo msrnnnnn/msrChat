@@ -30,11 +30,6 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
     spdlog::info("[SessionManager] User {} session added.", uid);
 }
 
-    std::string uuid = session->GetUuid();
-    _uid_sessions.Insert(uid, session);
-    _uuid_sessions.Insert(uuid, session);
-}
-
 /**
  * @brief 通过 UID 移除会话
  * @param uid 用户 ID
