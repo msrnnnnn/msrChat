@@ -35,8 +35,7 @@ Rectangle {
             font.pixelSize: 14
             font.family: "Microsoft YaHei"
             wrapMode: Text.WordWrap
-            Layout.maximumWidth: maxBubbleWidth - 16
-            Layout.preferredWidth: Math.min(maxBubbleWidth - 16, messageText.implicitWidth)
+            width: Math.min(implicitWidth, maxBubbleWidth - 16)
             Layout.margins: 8
         }
 

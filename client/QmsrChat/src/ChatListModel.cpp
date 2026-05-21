@@ -241,6 +241,7 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
             copy.bubbleHeight = CalculateBubbleHeight(copy.content);
             _messages.prepend(copy);
         }
+        FixCorruptedTimestamps();
         std::stable_sort(_messages.begin(), _messages.end(),
             [](const ChatMessage &a, const ChatMessage &b) { return a.timestamp < b.timestamp; });
         RebuildIndex();
@@ -386,6 +387,20 @@ int ChatListModel::CalculateBubbleHeight(const QString &content) const
     return baseHeight + (lines - 1) * lineHeight;
 }
 
+void ChatListModel::FixCorruptedTimestamps()
+{
+    const qint64 kMaxValidTs = 4102444800000LL;  // 2100-01-01 in ms
+    qint64 fallback = QDateTime::currentMSecsSinceEpoch();
+
+    for (auto &msg : _messages)
+    {
+        if (msg.timestamp <= 0 || msg.timestamp > kMaxValidTs)
+        {
+            msg.timestamp = fallback++;
+        }
+    }
+}
+
 int ChatListModel::FindInsertPosition(qint64 timestamp) const
 {
     int lo = 0, hi = _messages.size();
@@ -402,6 +417,9 @@ int ChatListModel::FindInsertPosition(qint64 timestamp) const
 
 QString ChatListModel::FormatTime(qint64 timestamp) const
 {
+    if (timestamp <= 0 || timestamp > 4102444800000LL)
+        return QString();
+
     QDateTime dateTime = QDateTime::fromMSecsSinceEpoch(timestamp);
     QDateTime now = QDateTime::currentDateTime();
 
