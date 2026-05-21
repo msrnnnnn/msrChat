@@ -256,6 +256,9 @@ void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
     {
         QMutexLocker locker(&_mutex);
         _messages = messages;
+        FixCorruptedTimestamps();
+        std::stable_sort(_messages.begin(), _messages.end(),
+            [](const ChatMessage &a, const ChatMessage &b) { return a.timestamp < b.timestamp; });
         RebuildIndex();
     }
     endResetModel();
@@ -389,12 +392,11 @@ int ChatListModel::CalculateBubbleHeight(const QString &content) const
 
 void ChatListModel::FixCorruptedTimestamps()
 {
-    const qint64 kMaxValidTs = 4102444800000LL;  // 2100-01-01 in ms
     qint64 fallback = QDateTime::currentMSecsSinceEpoch();
-
     for (auto &msg : _messages)
     {
-        if (msg.timestamp <= 0 || msg.timestamp > kMaxValidTs)
+        int year = QDateTime::fromMSecsSinceEpoch(msg.timestamp).date().year();
+        if (year < 2020)
         {
             msg.timestamp = fallback++;
         }

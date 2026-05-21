@@ -4,7 +4,6 @@
  * @details 用于在聊天界面中显示单条消息气泡，支持左右对齐、状态显示和动画效果。
  */
 import QtQuick
-import QtQuick.Layouts
 
 Rectangle {
     id: messageBubble
@@ -15,16 +14,16 @@ Rectangle {
 
     property int maxBubbleWidth: Math.min(chatViewRoot.width * 0.7, 300)
 
-    implicitWidth: bubbleLayout.width + 24
-    implicitHeight: bubbleLayout.height + 16
+    implicitWidth: bubbleContent.width + 24
+    implicitHeight: bubbleContent.height + 16
     radius: 12
     color: isSelf ? "#2196F3" : "#FFFFFF"
 
     border.width: 1
     border.color: isSelf ? "#1976D2" : "#E0E0E0"
 
-    ColumnLayout {
-        id: bubbleLayout
+    Column {
+        id: bubbleContent
         anchors.centerIn: parent
         spacing: 4
 
@@ -35,14 +34,12 @@ Rectangle {
             font.pixelSize: 14
             font.family: "Microsoft YaHei"
             wrapMode: Text.WordWrap
-            width: Math.min(implicitWidth, maxBubbleWidth - 16)
-            Layout.margins: 8
+            width: Math.min(implicitWidth, messageBubble.maxBubbleWidth - 16)
         }
 
-        RowLayout {
+        Row {
             spacing: 4
-            Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
-            Layout.margins: 8
+            layoutDirection: isSelf ? Qt.RightToLeft : Qt.LeftToRight
 
             Text {
                 id: timeText
