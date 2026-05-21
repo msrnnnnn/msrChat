@@ -55,12 +55,12 @@ void SessionManager::RemoveSession(int uid)
  */
 void SessionManager::RemoveSessionByUuid(const std::string &uuid)
 {
-    int uid_to_erase = 0;
+    int uid_to_erase = -1;
     _uuid_sessions.RemoveIfMatch(uuid, [&](const std::shared_ptr<CSession> &session) {
         uid_to_erase = session->GetUserUid();
         return true;
     });
-    if (uid_to_erase != 0)
+    if (uid_to_erase != -1)
     {
         _uid_sessions.Erase(uid_to_erase);
     }
