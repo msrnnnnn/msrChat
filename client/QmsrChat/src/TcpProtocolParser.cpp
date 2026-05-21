@@ -1,9 +1,10 @@
 #include "TcpProtocolParser.h"
-#include "TcpMgr.h"
 #include "Message.pb.h"
-#include <QDebug>
+#include "ProtocolStructs.h"
+#include "TcpMgr.h"
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDebug>
 
 void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray &data)
 {
@@ -83,14 +84,11 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
             msg.server_msg_id = chatMsg.server_msg_id();
             msg.timestamp = chatMsg.timestamp();
 
-            qDebug() << "[TcpProtocolParser] MSG_CHAT_TEXT from:" << msg.from_uid
-                     << "to:" << msg.to_uid << "content:" << msg.content
-                     << "server_msg_id:" << msg.server_msg_id;
             emit _tcpMgr.sig_chat_text_msg(msg);
         }
         else
         {
-            qWarning() << "[TcpProtocolParser] Failed to parse ServerChatMsg from Protobuf, data size:" << data.size();
+            qWarning() << "Failed to parse ServerChatMsg from Protobuf";
         }
         return;
     }
@@ -119,11 +117,12 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
             return;
         }
 
-        QJsonObject obj = doc.object();
+        QJsonObject jsonObj = doc.object();
         OfflineAckStruct ack;
-        ack.received = obj.value("received").toInteger();
-        ack.total = obj.value("total").toInteger();
+        ack.received = jsonObj["received"].toInteger(0);
+        ack.total = jsonObj["total"].toInteger(0);
 
         emit _tcpMgr.sig_offline_ack(ack);
+        return;
     }
 }

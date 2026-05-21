@@ -2,7 +2,6 @@
 #define TCP_PROTOCOL_PARSER_H
 
 #include "Global.h"
-#include "ProtocolStructs.h"
 #include <QByteArray>
 
 class TcpMgr;

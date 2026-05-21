@@ -20,8 +20,6 @@ class TcpMgr : public QObject
 {
     Q_OBJECT
 
-    friend class TcpProtocolParser;
-
 public:
     static TcpMgr *Instance();
     static void Init();
@@ -73,8 +71,8 @@ private:
 
     QThread *_netThread;
     TcpWorker *_worker;
-    std::atomic<bool> _is_connected{false};
     TcpProtocolParser _parser{*this};
+    std::atomic<bool> _is_connected{false};
 };
 
 #endif
