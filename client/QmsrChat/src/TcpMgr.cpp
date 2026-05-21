@@ -221,6 +221,7 @@ void TcpMgr::slot_send_file_req(const FileReqStruct &req)
     fileReq.set_filename(req.filename.toStdString());
     fileReq.set_total_size(req.total_size);
     fileReq.set_md5(req.md5.toStdString());
+    fileReq.set_offset(req.offset);
 
     std::string serialized;
     if (fileReq.SerializeToString(&serialized))

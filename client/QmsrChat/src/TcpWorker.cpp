@@ -103,10 +103,14 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
         return;
     }
 
+    QString host;
+    uint16_t port;
     {
         QMutexLocker locker(&_host_port_mutex);
         _host = si.Host;
         _port = static_cast<uint16_t>(si.Port.toUInt());
+        host = _host;
+        port = _port;
     }
     _pending_connect = si;
     _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
@@ -116,7 +120,7 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
 
     _socket->abort();
     _state.store(ConnectionState::Connecting);
-    _socket->connectToHost(_host, _port);
+    _socket->connectToHost(host, port);
 }
 
 void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)

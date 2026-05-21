@@ -73,6 +73,7 @@ message FileReq {
     string filename = 4;
     int64 total_size = 5;
     string md5 = 6;
+    int64 offset = 7;
 }
 
 message FileRsp {

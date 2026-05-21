@@ -120,6 +120,22 @@ void FileTransfer::RemoveTask(int64_t task_id)
     _tasks.erase(task_id);
 }
 
+void FileTransfer::RemoveTaskBySession(int uid)
+{
+    std::lock_guard<std::mutex> lock(_task_mutex);
+    for (auto it = _tasks.begin(); it != _tasks.end(); )
+    {
+        if (it->second->GetFromUid() == uid || it->second->GetToUid() == uid)
+        {
+            it = _tasks.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
 /**
  * @brief 分片发送文件（同步模式）
  * @param fd 文件描述符

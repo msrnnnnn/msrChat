@@ -140,6 +140,7 @@ public:
     void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
     std::shared_ptr<FileTransferTask> GetTask(int64_t task_id);
     void RemoveTask(int64_t task_id);
+    void RemoveTaskBySession(int uid);
 
     bool SendFileChunked(int fd, std::function<bool(const char *, size_t)> send_callback, int64_t offset, int64_t size);
 

@@ -13,8 +13,6 @@
 #include <random>
 #include <spdlog/spdlog.h>
 #include <sstream>
-#include <spdlog/spdlog.h>
-#include <sstream>
 
 static std::string SHA256(const std::string &input)
 {
@@ -743,7 +741,7 @@ int SQLiteMgr::ResetPassword(
 }
 
 /**
- * @brief 搜索消息
+ * @brief 搜索消息（无 RPC endpoint，当前仅客户端本地搜索使用）
  * @param uid1 用户1 ID
  * @param uid2 用户2 ID
  * @param keyword 关键词（LIKE 模糊匹配）
@@ -981,52 +979,6 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     sqlite3_bind_text(stmt, 6, msg.client_msg_id.c_str(), -1, SQLITE_TRANSIENT);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
-}
-
-/**
- * @brief 获取用户离线消息
- * @param uid 用户 ID
- * @return 消息列表，按时间升序
- */
-std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-    {
-        return {};
-    }
-    sqlite3 *db = guard.Get();
-
-    std::vector<ChatMessage> messages;
-    ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id 
-        FROM offline_messages 
-        WHERE to_uid = ?
-        ORDER BY timestamp ASC
-    )");
-    if (!stmt)
-    {
-        return messages;
-    }
-
-    sqlite3_bind_int(stmt, 1, uid);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        ChatMessage msg;
-        msg.id = sqlite3_column_int64(stmt, 0);
-        msg.from_uid = sqlite3_column_int(stmt, 1);
-        msg.to_uid = sqlite3_column_int(stmt, 2);
-        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
-        msg.timestamp = sqlite3_column_int64(stmt, 4);
-        msg.status = sqlite3_column_int(stmt, 5);
-        const char *client_msg_id_text =
-            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
-        msg.client_msg_id = client_msg_id_text ? std::string(client_msg_id_text) : "";
-        messages.push_back(msg);
-    }
-
-    return messages;
 }
 
 std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64_t after_id)

@@ -5,6 +5,7 @@
  */
 #include "CSession.h"
 #include "CServer.h"
+#include "FileTransfer.h"
 #include "LogicSystem.h"
 #include "Message.pb.h"
 #include "MessageDispatcher.h"
@@ -59,6 +60,7 @@ void CSession::Close()
     }
     if (_user_uid != 0)
     {
+        FileTransfer::Instance().RemoveTaskBySession(_user_uid);
         auto server = _server.lock();
         if (server)
         {
@@ -324,35 +326,6 @@ void CSession::AsyncWriteMsg()
 }
 
 /**
- * @brief 启动文件发送
- * @param task_id 任务 ID
- * @param filepath 文件路径
- * @details 以只读模式打开文件，记录文件描述符和大小
- */
-void CSession::StartFileSend(int64_t task_id, const std::string &filepath)
-{
-    std::lock_guard<std::mutex> lock(_file_mutex);
-    if (_file_send_state.sending)
-        return;
-    int fd = open(filepath.c_str(), O_RDONLY);
-    if (fd < 0)
-        return;
-    struct stat st;
-    if (fstat(fd, &st) < 0)
-    {
-        close(fd);
-        return;
-    }
-    _file_send_state.task_id = task_id;
-    _file_send_state.fd.Reset(fd);
-    _file_send_state.total_size = st.st_size;
-    _file_send_state.sent_size = 0;
-    _file_send_state.filename = filepath;
-    _file_send_state.sending = true;
-    spdlog::info("[CSession] Start file send: task={}, file={}, size={}", task_id, filepath, st.st_size);
-}
-
-/**
  * @brief 分页发送离线消息
  * @details 每次发送 OFFLINE_PAGE_SIZE 条，发完一页后等待客户端 ACK 再继续
  */
@@ -420,59 +393,6 @@ void CSession::ContinueOfflineSend()
     if (HasOfflineMessagesToSend())
     {
         SendNextOfflinePage();
-    }
-}
-
-/**
- * @brief 发送下一个文件分片
- * @details 每次发送 CHUNK_SIZE 大小的块，更新发送进度
- */
-void CSession::SendNextFileChunk()
-{
-    std::lock_guard<std::mutex> lock(_file_mutex);
-
-    if (!_file_send_state.sending)
-    {
-        return;
-    }
-
-    int64_t remain = _file_send_state.total_size - _file_send_state.sent_size;
-    if (remain <= 0)
-    {
-        _file_send_state.sending = false;
-        _file_send_state.fd.Reset();
-        return;
-    }
-
-    char buffer[CHUNK_SIZE];
-    int64_t to_read = std::min(static_cast<int64_t>(CHUNK_SIZE), remain);
-    ssize_t bytes_read = read(_file_send_state.fd, buffer, to_read);
-
-    if (bytes_read <= 0)
-    {
-        _file_send_state.sending = false;
-        _file_send_state.fd.Reset();
-        return;
-    }
-
-    qmsrchat::FileChunk chunk;
-    chunk.set_task_id(_file_send_state.task_id);
-    chunk.set_offset(_file_send_state.sent_size);
-    chunk.set_size(bytes_read);
-    chunk.set_data(buffer, bytes_read);
-
-    std::string serialized;
-    if (chunk.SerializeToString(&serialized))
-    {
-        Send(serialized, MSG_FILE_CHUNK);
-    }
-
-    _file_send_state.sent_size += bytes_read;
-
-    if (_file_send_state.sent_size >= _file_send_state.total_size)
-    {
-        _file_send_state.sending = false;
-        _file_send_state.fd.Reset();
     }
 }
 

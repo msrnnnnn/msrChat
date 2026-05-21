@@ -125,6 +125,7 @@ struct FileReqStruct
     QString filename;
     int64_t total_size;
     QString md5;
+    int64_t offset = 0;
 };
 
 #endif // PROTOCOLSTRUCTS_H

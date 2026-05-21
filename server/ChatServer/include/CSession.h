@@ -17,13 +17,10 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
-#include <functional>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
-#include <vector>
 
 class CServer;
 
@@ -50,8 +47,6 @@ public:
 
     void Send(const std::string &msg, short msg_id);
 
-    void StartFileSend(int64_t task_id, const std::string &filepath);
-    void SendNextFileChunk();
     void SendNextOfflinePage();
 
     bool HasOfflineMessagesToSend() const
@@ -191,57 +186,6 @@ public:
         return 0;
     }
 
-    void StartFileSend(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_send_state.sending)
-            return;
-        if (_file_send_state.task_id == task_id)
-        {
-            _file_send_state.sending = true;
-        }
-    }
-
-    void UpdateFileSendProgress(int64_t task_id, int64_t received)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_send_state.task_id == task_id)
-        {
-            _file_send_state.sent_size = received;
-            SendNextFileChunk();
-        }
-    }
-
-    void FinishFileSend(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_send_state.task_id == task_id)
-        {
-            if (_file_send_state.fd >= 0)
-            {
-                close(_file_send_state.fd);
-                _file_send_state.fd = -1;
-            }
-            _file_send_state.sending = false;
-            _file_send_state.task_id = 0;
-        }
-    }
-
-    void CancelFileSend(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_send_state.task_id == task_id)
-        {
-            if (_file_send_state.fd >= 0)
-            {
-                close(_file_send_state.fd);
-                _file_send_state.fd = -1;
-            }
-            _file_send_state.sending = false;
-            _file_send_state.task_id = 0;
-        }
-    }
-
 private:
     friend class CServer;
     friend class MessageDispatcher;
@@ -284,7 +228,6 @@ private:
     std::atomic<bool> _login_in_progress{false};
 
     FileTransferState _file_recv_state;
-    FileSendState _file_send_state;
     OfflineSendState _offline_send_state;
 
     std::mutex _file_mutex;
