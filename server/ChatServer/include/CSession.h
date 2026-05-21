@@ -5,7 +5,9 @@
  */
 #pragma once
 #include "FileDescriptor.h"
+#include "FileTransferState.h"
 #include "ObjectPool.h"
+#include "OfflineSendState.h"
 #include "const.h"
 #include <atomic>
 #include <boost/asio.hpp>
@@ -23,37 +25,6 @@
 #include <vector>
 
 class CServer;
-
-struct FileTransferState
-{
-    int64_t task_id = 0;
-    int from_uid = 0;
-    int to_uid = 0;
-    std::string filename;
-    int64_t total_size = 0;
-    int64_t received_size = 0;
-    std::vector<char> data;
-    bool transfer_ready = false;
-};
-
-struct FileSendState
-{
-    int64_t task_id = 0;
-    FileDescriptor fd;
-    int64_t total_size = 0;
-    int64_t sent_size = 0;
-    std::string filename;
-    bool sending = false;
-};
-
-struct OfflineSendState
-{
-    int uid = 0;
-    int64_t total_count = 0;
-    int64_t sent_count = 0;
-    int64_t last_sent_id = 0;
-    bool sending = false;
-};
 
 class RecvNode
 {
