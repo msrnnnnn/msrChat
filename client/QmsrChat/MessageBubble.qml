@@ -15,8 +15,8 @@ Rectangle {
 
     property int maxBubbleWidth: chatViewRoot.width * 0.5
 
-    width: messageText.contentWidth + 24
-    height: bubbleLayout.height + 16
+    implicitWidth: bubbleLayout.width + 24
+    implicitHeight: bubbleLayout.height + 16
     radius: 12
     color: isSelf ? "#2196F3" : "#FFFFFF"
 
@@ -35,7 +35,9 @@ Rectangle {
             font.pixelSize: 14
             font.family: "Microsoft YaHei"
             wrapMode: Text.WordWrap
-            width: Math.min(implicitWidth, maxBubbleWidth - 16)
+            Layout.maximumWidth: maxBubbleWidth - 16
+            Layout.preferredWidth: Math.min(maxBubbleWidth - 16, messageText.contentWidth + 1)
+            Layout.margins: 8
         }
 
         RowLayout {
