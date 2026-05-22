@@ -82,15 +82,10 @@ graph TD
         MD --> FT
     end
 
-    Client -- "TCP 长连接 (6B头 + Protobuf体)" --> Server
+    Client -->|"TCP 长连接 (6B头 + Protobuf体)"| Server
 
-    subgraph Storage["数据层"]
-        SQLiteS[("SQLite (服务端)")]
-        SQLiteC[("SQLite (客户端)")]
-
-        DB --> SQLiteS
-        DW --> SQLiteC
-    end
+    DB -.->|"访问"| SQLiteS[("SQLite (服务端)")]
+    DW -.->|"访问"| SQLiteC[("SQLite (客户端)")]
 ```
 
 ### 服务端组件
