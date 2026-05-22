@@ -6,7 +6,6 @@
 #include <QMutex>
 #include <QObject>
 #include <QString>
-#include <memory>
 
 struct FileRecvTask
 {
@@ -50,7 +49,7 @@ private:
     FileRecvMgr(const FileRecvMgr &) = delete;
     FileRecvMgr &operator=(const FileRecvMgr &) = delete;
 
-    bool CompleteTask(QHash<int64_t, std::unique_ptr<FileRecvTask>>::iterator it, QString *error);
+    bool CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QString *error);
     bool Fail(QString *error, const char *message) const;
     bool FailAndEmit(int64_t task_id, QString *error, const char *message);
     int CalcProgress(int64_t received, int64_t total) const;
@@ -60,7 +59,7 @@ private:
     QString BuildFinalPath(const QString &fileName) const;
     QString CalcMd5(const QString &filepath) const;
 
-    QHash<int64_t, std::unique_ptr<FileRecvTask>> _tasks;
+    QHash<int64_t, FileRecvTask *> _tasks;
     QHash<int64_t, QString> _pendingMd5;
     mutable QMutex _mutex;
 };
