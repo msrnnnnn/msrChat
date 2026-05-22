@@ -10,7 +10,7 @@
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMutexLocker>
+#include <mutex>
 
 namespace {
 QByteArray MakeJsonPayload(const QJsonObject &obj)
@@ -19,20 +19,12 @@ QByteArray MakeJsonPayload(const QJsonObject &obj)
 }
 } // namespace
 
-QMutex TcpMgr::_mutex;
 TcpMgr *TcpMgr::_instance = nullptr;
 
 TcpMgr *TcpMgr::Instance()
 {
-    if (_instance)
-    {
-        return _instance;
-    }
-    QMutexLocker locker(&_mutex);
-    if (!_instance)
-    {
-        _instance = new TcpMgr();
-    }
+    static std::once_flag flag;
+    std::call_once(flag, []{ _instance = new TcpMgr(); });
     return _instance;
 }
 
@@ -43,12 +35,8 @@ void TcpMgr::Init()
 
 void TcpMgr::Destroy()
 {
-    QMutexLocker locker(&_mutex);
-    if (_instance)
-    {
-        delete _instance;
-        _instance = nullptr;
-    }
+    delete _instance;
+    _instance = nullptr;
 }
 
 /**

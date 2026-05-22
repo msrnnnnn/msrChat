@@ -7,6 +7,7 @@
 #ifndef SINGLETON_H
 #define SINGLETON_H
 
+#include <atomic>
 #include <mutex>
 
 template <typename T>
@@ -20,31 +21,33 @@ protected:
 
 public:
     static T* Instance() {
-        return _instance;
+        return _instance.load(std::memory_order_acquire);
     }
 
     static void Init() {
-        if (!_instance) {
-            static std::mutex mtx;
-            std::lock_guard<std::mutex> lock(mtx);
-            if (!_instance) {
-                _instance = new T();
-            }
+        T* tmp = _instance.load(std::memory_order_acquire);
+        if (tmp) {
+            return;
+        }
+        static std::mutex mtx;
+        std::lock_guard<std::mutex> lock(mtx);
+        tmp = _instance.load(std::memory_order_relaxed);
+        if (!tmp) {
+            tmp = new T();
+            _instance.store(tmp, std::memory_order_release);
         }
     }
 
     static void Destroy() {
-        if (_instance) {
-            delete _instance;
-            _instance = nullptr;
-        }
+        T* tmp = _instance.exchange(nullptr, std::memory_order_acq_rel);
+        delete tmp;
     }
 
 private:
-    static T* _instance;
+    static std::atomic<T*> _instance;
 };
 
 template <typename T>
-T* Singleton<T>::_instance = nullptr;
+std::atomic<T*> Singleton<T>::_instance{nullptr};
 
 #endif

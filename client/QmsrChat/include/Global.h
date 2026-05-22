@@ -45,18 +45,6 @@ struct ServerInfo
 
 Q_DECLARE_METATYPE(ServerInfo)
 
-const int MAX_MESSAGE_LEN = 1024 * 1024;
-
-/**
- * @brief 功能模块标识枚举
- */
-enum class Modules
-{
-    REGISTER_MOD = 0, ///< 注册模块
-    RESETMOD = 1,     ///< 重置密码模块
-    LOGINMOD = 2,     ///< 登录模块
-};
-
 /**
  * @brief 全局错误码定义
  */

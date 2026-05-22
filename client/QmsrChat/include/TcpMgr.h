@@ -10,7 +10,6 @@
 #include "ProtocolStructs.h"
 #include "Global.h"
 #include "TcpProtocolParser.h"
-#include <QMutex>
 #include <QObject>
 #include <QThread>
 
@@ -66,7 +65,6 @@ private:
     void init_thread();
     void handle_file_packet(RequestType req_type, const QByteArray &data);
 
-    static QMutex _mutex;
     static TcpMgr *_instance;
 
     QThread *_netThread;

@@ -121,6 +121,8 @@ set(PROJECT_SOURCES
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
+        include/AuthUiHelpers.h
+        include/ProtocolStructs.h
 
         # QML 视图 (严格锁定在根目录)
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
@@ -157,7 +159,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        .gitignore
     )
 else()
     if(ANDROID)

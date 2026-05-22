@@ -37,6 +37,9 @@ constexpr auto kReadCheckInterval = std::chrono::seconds(5);
 // 文件传输
 constexpr size_t CHUNK_SIZE = 4 * 1024;
 
+// 验证码有效期（秒）
+constexpr int VERIFY_CODE_EXPIRY_SEC = 600;
+
 // 错误码（与客户端 Global.h:69-83 的 ERRORCODES 枚举对应）
 constexpr int ERR_SUCCESS = 0;
 constexpr int ERR_JSON_PARSE = 1001;

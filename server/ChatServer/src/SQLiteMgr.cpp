@@ -491,7 +491,7 @@ AuthResult SQLiteMgr::RegisterUser(
     if (existing.has_value())
     {
         AuthResult r;
-        r.error = 1005;
+        r.error = ERR_USER_EXIST;
         return r;
     }
 
@@ -551,7 +551,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
     if (!user.has_value())
     {
         AuthResult r;
-        r.error = 1007;
+        r.error = ERR_USER_NOT_EXIST;
         return r;
     }
 
@@ -562,7 +562,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
         if (stored != password_hash)
         {
             AuthResult r;
-            r.error = 1006;
+            r.error = ERR_PASSWD_ERR;
             return r;
         }
     }
@@ -574,7 +574,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
         if (expected_hash != stored_hash)
         {
             AuthResult r;
-            r.error = 1006;
+            r.error = ERR_PASSWD_ERR;
             return r;
         }
     }
@@ -631,7 +631,7 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
     sqlite3_bind_text(ins_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(ins_stmt, 2, code);
     sqlite3_bind_int64(ins_stmt, 3, now);
-    sqlite3_bind_int64(ins_stmt, 4, now + 600);
+    sqlite3_bind_int64(ins_stmt, 4, now + VERIFY_CODE_EXPIRY_SEC);
 
     spdlog::info("[Auth] VerifyCode for {}: {}", email, code);
 
@@ -649,14 +649,14 @@ int SQLiteMgr::CheckVerifyCode(const std::string &email, const std::string &code
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
     {
-        return 1003;
+        return ERR_VERIFY_EXPIRED;
     }
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(db, "SELECT expires_at FROM verify_codes WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1");
     if (!stmt)
     {
-        return 1003;
+        return ERR_VERIFY_EXPIRED;
     }
 
     sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
@@ -668,12 +668,12 @@ int SQLiteMgr::CheckVerifyCode(const std::string &email, const std::string &code
 
         if (time(nullptr) > expires_at)
         {
-            return 1003;
+            return ERR_VERIFY_EXPIRED;
         }
         return 0;
     }
 
-    return 1004;
+    return ERR_VERIFY_WRONG;
 }
 
 /**
@@ -691,19 +691,19 @@ int SQLiteMgr::ResetPassword(
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
     {
-        return 1;
+        return ERR_DB;
     }
     sqlite3 *db = guard.Get();
 
     auto user = GetUserByUsername_unlocked(db, username);
     if (!user.has_value())
     {
-        return 1007;
+        return ERR_USER_NOT_EXIST;
     }
 
     if (user->email != email)
     {
-        return 1008;
+        return ERR_EMAIL_NOT_MATCH;
     }
 
     int verify_result = CheckVerifyCode_unlocked(db, email, code);
@@ -719,7 +719,7 @@ int SQLiteMgr::ResetPassword(
     ScopedStmt stmt(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
     if (!stmt)
     {
-        return 1009;
+        return ERR_PASSWD_UPDATE;
     }
 
     sqlite3_bind_text(stmt, 1, stored_password.c_str(), -1, SQLITE_TRANSIENT);
@@ -727,7 +727,7 @@ int SQLiteMgr::ResetPassword(
 
     if (sqlite3_step(stmt) != SQLITE_DONE)
     {
-        return 1009;
+        return ERR_PASSWD_UPDATE;
     }
 
     ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
@@ -881,7 +881,7 @@ int SQLiteMgr::CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, c
     ScopedStmt stmt(db, "SELECT expires_at FROM verify_codes WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1");
     if (!stmt)
     {
-        return 1003;
+        return ERR_VERIFY_EXPIRED;
     }
     sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, code.c_str(), -1, SQLITE_TRANSIENT);
@@ -890,11 +890,11 @@ int SQLiteMgr::CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, c
         int64_t expires_at = sqlite3_column_int64(stmt, 0);
         if (time(nullptr) > expires_at)
         {
-            return 1003;
+            return ERR_VERIFY_EXPIRED;
         }
         return 0;
     }
-    return 1004;
+    return ERR_VERIFY_WRONG;
 }
 
 std::optional<User> SQLiteMgr::GetUserByUid(int uid)
