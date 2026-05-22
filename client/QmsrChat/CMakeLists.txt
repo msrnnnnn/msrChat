@@ -110,9 +110,7 @@ set(PROJECT_SOURCES
         include/FileSendMgr.h
         include/singleton.h
         include/Logger.h
-        include/logmacros.h
         include/DPIHelper.h
-        include/PathUtils.h
         include/Utils.h
         include/TimerBtn.h
         include/ClickedLabel.h

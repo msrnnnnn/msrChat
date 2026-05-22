@@ -54,7 +54,7 @@ CSession::~CSession()
 void CSession::Close()
 {
     bool expected = false;
-    if (!_b_closed.compare_exchange_strong(expected, true))
+    if (!_closed.compare_exchange_strong(expected, true))
     {
         return;
     }
@@ -110,7 +110,7 @@ void CSession::ScheduleReadDeadlineCheck()
                     return;
                 }
 
-                if (_b_closed.load())
+                if (_closed.load())
                 {
                     return;
                 }
@@ -216,7 +216,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
 {
     _login_in_progress.store(false);
 
-    if (_b_closed.load())
+    if (_closed.load())
     {
         return;
     }
@@ -280,7 +280,7 @@ void CSession::Send(const std::string &msg, short msg_id)
         _strand,
         [this, self, send_node]()
         {
-            if (_b_closed.load())
+            if (_closed.load())
             {
                 return;
             }

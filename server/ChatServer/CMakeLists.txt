@@ -83,7 +83,7 @@ find_package(OpenSSL REQUIRED)
 # =============================================================
 # Protobuf 自动化生成
 # =============================================================
-set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
+set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../client/QmsrChat/proto/Message.proto")
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
 
 # =============================================================

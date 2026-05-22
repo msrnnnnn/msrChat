@@ -3,7 +3,8 @@
  * @brief TCP 会话与协议收发定义
  * @details 包含协议收包节点、发包节点以及会话类声明。
  */
-#pragma once
+#ifndef CSESSION_H
+#define CSESSION_H
 #include "FileDescriptor.h"
 #include "FileTransferState.h"
 #include "ObjectPool.h"
@@ -96,7 +97,7 @@ public:
 
     bool IsClosed() const
     {
-        return _b_closed.load();
+        return _closed.load();
     }
 
     bool TrySetLoginInProgress(bool &expected)
@@ -223,7 +224,7 @@ private:
 
     std::deque<std::shared_ptr<SendNode>> _send_queue;
     std::atomic<bool> _is_writing{false};
-    std::atomic<bool> _b_closed{false};
+    std::atomic<bool> _closed{false};
     std::atomic<bool> _read_active{false};
     std::atomic<bool> _login_in_progress{false};
 
@@ -235,3 +236,5 @@ private:
 
     std::weak_ptr<CServer> _server;
 };
+
+#endif // CSESSION_H

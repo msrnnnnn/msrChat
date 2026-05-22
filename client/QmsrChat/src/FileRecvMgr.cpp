@@ -1,7 +1,9 @@
 #include "FileRecvMgr.h"
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QMutexLocker>
+#include <QStandardPaths>
 #include <QThreadPool>
 #include <QDebug>
 
@@ -56,7 +58,6 @@ FileRecvMgr::~FileRecvMgr()
         {
             it.value()->file.close();
             QFile::remove(it.value()->temp_filepath);
-            delete it.value();
         }
     }
     _tasks.clear();
@@ -94,7 +95,7 @@ bool FileRecvMgr::StartRecv(
         return Fail(error, "invalid total size");
     }
 
-    auto *task = new FileRecvTask();
+    auto task = std::make_unique<FileRecvTask>();
     task->task_id = task_id;
     task->from_uid = from_uid;
     task->filename = QString::fromStdString(filename);
@@ -110,7 +111,6 @@ bool FileRecvMgr::StartRecv(
         task->received_size = info.size();
         if (!task->file.open(QIODevice::WriteOnly | QIODevice::Append))
         {
-            delete task;
             return Fail(error, "open partial temp file failed");
         }
     }
@@ -118,12 +118,11 @@ bool FileRecvMgr::StartRecv(
     {
         if (!task->file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         {
-            delete task;
             return Fail(error, "open temp file failed");
         }
     }
 
-    _tasks.insert(task_id, task);
+    _tasks.insert(task_id, std::move(task));
     return true;
 }
 
@@ -148,7 +147,7 @@ bool FileRecvMgr::WriteChunk(
         return Fail(error, "task not found");
     }
 
-    FileRecvTask *task = it.value();
+    FileRecvTask *task = it.value().get();
     if (!task)
     {
         return Fail(error, "task not found");
@@ -212,12 +211,11 @@ void FileRecvMgr::CancelRecv(int64_t task_id)
         return;
     }
 
-    FileRecvTask *task = it.value();
+    FileRecvTask *task = it.value().get();
     if (task)
     {
         task->file.close();
         QFile::remove(task->temp_filepath);
-        delete task;
     }
     _tasks.erase(it);
 }
@@ -236,9 +234,9 @@ int64_t FileRecvMgr::GetReceivedSize(int64_t task_id) const
  * @return 是否成功
  * @details 关闭文件、重命名临时文件为正式文件名、异步计算 MD5 校验
  */
-bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QString *error)
+bool FileRecvMgr::CompleteTask(QHash<int64_t, std::unique_ptr<FileRecvTask>>::iterator it, QString *error)
 {
-    FileRecvTask *task = it.value();
+    FileRecvTask *task = it.value().get();
     if (!task)
     {
         return Fail(error, "task not found");
@@ -251,7 +249,6 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
     {
         const bool emitted = FailAndEmit(task->task_id, error, "rename failed");
         QFile::remove(task->temp_filepath);
-        delete task;
         _tasks.erase(it);
         return emitted;
     }
@@ -260,7 +257,6 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
     {
         const QString finalPath = task->final_filepath;
         const int64_t taskId = task->task_id;
-        delete task;
         _tasks.erase(it);
         emit SigRecvComplete(taskId, finalPath, true, {});
         return true;
@@ -268,7 +264,6 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
 
     _pendingMd5.insert(task->task_id, task->md5);
     QThreadPool::globalInstance()->start(new Md5Runnable(task->task_id, task->final_filepath));
-    delete task;
     _tasks.erase(it);
     return true;
 }

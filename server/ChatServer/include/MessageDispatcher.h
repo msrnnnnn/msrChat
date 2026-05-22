@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MESSAGEDISPATCHER_H
+#define MESSAGEDISPATCHER_H
 #include "const.h"
 #include "CSession.h"
 #include <atomic>
@@ -80,3 +81,5 @@ private:
 
     std::unordered_map<uint16_t, HandlerInfo> _handlers;
 };
+
+#endif // MESSAGEDISPATCHER_H
