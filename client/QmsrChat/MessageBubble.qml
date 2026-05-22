@@ -6,66 +6,75 @@
 import QtQuick
 import QtQuick.Layouts
 
-Rectangle {
+Item {
     id: messageBubble
+
     property bool isSelf: false
     property string content: ""
     property string timestamp: ""
     property int status: 0
 
-    property int maxBubbleWidth: chatViewRoot.width * 0.5
+    property real viewWidth: 400
+    property int maxBubbleWidth: Math.min(viewWidth * 0.7, 300)
 
-    implicitWidth: bubbleLayout.width + 24
-    implicitHeight: bubbleLayout.height + 16
-    radius: 12
-    color: isSelf ? "#2196F3" : "#FFFFFF"
+    width: parent ? parent.width : 0
+    height: bubbleRect.height
 
-    border.width: 1
-    border.color: isSelf ? "#1976D2" : "#E0E0E0"
+    Rectangle {
+        id: bubbleRect
+        width: Math.min(maxBubbleWidth, bubbleContent.width + 16)
+        height: bubbleContent.height + 16
+        anchors.right: isSelf ? parent.right : undefined
+        anchors.left: isSelf ? undefined : parent.left
+        anchors.top: parent.top
+        radius: 12
+        color: isSelf ? "#2196F3" : "#FFFFFF"
+        border.width: 1
+        border.color: isSelf ? "#1976D2" : "#E0E0E0"
 
-    ColumnLayout {
-        id: bubbleLayout
-        anchors.centerIn: parent
-        spacing: 4
-
-        Text {
-            id: messageText
-            text: content
-            color: isSelf ? "#FFFFFF" : "#333333"
-            font.pixelSize: 14
-            font.family: "Microsoft YaHei"
-            wrapMode: Text.WordWrap
-            Layout.maximumWidth: maxBubbleWidth - 16
-            Layout.preferredWidth: Math.min(maxBubbleWidth - 16, messageText.contentWidth + 1)
-            Layout.margins: 8
-        }
-
-        RowLayout {
+        ColumnLayout {
+            id: bubbleContent
+            x: 8
+            y: 8
+            width: Math.min(maxBubbleWidth - 16, implicitWidth)
             spacing: 4
-            Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
-            Layout.margins: 8
 
             Text {
-                id: timeText
-                text: timestamp
-                color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
-                font.pixelSize: 10
+                id: messageText
+                text: content
+                color: isSelf ? "#FFFFFF" : "#333333"
+                font.pixelSize: 16
                 font.family: "Microsoft YaHei"
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                Layout.fillWidth: true
             }
 
-            Text {
-                id: statusIcon
-                visible: isSelf
-                font.pixelSize: 10
-                color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
+            RowLayout {
+                spacing: 4
+                Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
 
-                text: {
-                    switch (status) {
-                        case 0: return "发送中"
-                        case 1: return "已送达"
-                        case 2: return "离线"
-                        case -1: return "失败"
-                        default: return ""
+                Text {
+                    id: timeText
+                    text: timestamp
+                    color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
+                    font.pixelSize: 10
+                    font.family: "Microsoft YaHei"
+                }
+
+                Text {
+                    id: statusIcon
+                    visible: isSelf
+                    font.pixelSize: 10
+                    color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
+
+                    text: {
+                        switch (status) {
+                            case 0: return "发送中"
+                            case 1: return "已送达"
+                            case 2: return "离线"
+                            case -1: return "失败"
+                            default: return ""
+                        }
                     }
                 }
             }
@@ -77,15 +86,13 @@ Rectangle {
         width: 12
         height: 12
         rotation: 45
-        color: parent.color
-        border.width: 1
-        border.color: parent.border.color
+        color: bubbleRect.color
 
-        anchors {
-            verticalCenter: parent.verticalCenter
-            horizontalCenter: isSelf ? parent.left : parent.right
-            horizontalCenterOffset: isSelf ? 6 : -6
-        }
+        anchors.bottom: bubbleRect.bottom
+        anchors.bottomMargin: 6
+        anchors.horizontalCenter: isSelf ? bubbleRect.right : bubbleRect.left
+        anchors.horizontalCenterOffset: isSelf ? 6 : -6
+        z: -1
     }
 
     SequentialAnimation {
@@ -93,13 +100,13 @@ Rectangle {
         running: false
 
         PropertyAction {
-            target: messageBubble
+            target: bubbleRect
             property: "opacity"
             value: 0
         }
 
         NumberAnimation {
-            target: messageBubble
+            target: bubbleRect
             property: "opacity"
             from: 0
             to: 1

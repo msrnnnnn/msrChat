@@ -441,11 +441,15 @@ QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString
 
     QString sql = R"(
         SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
-        FROM messages 
-        WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
-        AND content LIKE ?
-        ORDER BY timestamp DESC 
-        LIMIT ?
+        FROM (
+            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
+            FROM messages 
+            WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
+            AND content LIKE ?
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        )
+        ORDER BY timestamp ASC
     )";
 
     query.prepare(sql);

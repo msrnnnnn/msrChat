@@ -142,6 +142,12 @@ void MainWindow::slotLoginSuccess()
         _chat_dialog = new ChatDialog(this);
         _chat_dialog->setWindowFlags(Qt::Widget);
         setCentralWidget(_chat_dialog);
+
+        QVector<ChatTextMsgStruct> buffered = _login_dialog->TakeBufferedMessages();
+        if (!buffered.isEmpty() && _chat_dialog->GetChatController())
+        {
+            _chat_dialog->GetChatController()->drainBufferedMessages(buffered);
+        }
     }
 
     // 使用 DPI 适配的尺寸设置聊天界面

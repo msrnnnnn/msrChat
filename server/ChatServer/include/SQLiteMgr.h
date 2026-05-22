@@ -226,7 +226,6 @@ public:
     bool UpdateUserAvatar(int uid, const std::string &avatar_path);
 
     bool SaveOfflineMessage(const ChatMessage &msg);
-    std::vector<ChatMessage> GetOfflineMessages(int uid);
     std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);
     int64_t GetOfflineMessageCount(int uid);
     bool ClearOfflineMessages(int uid);

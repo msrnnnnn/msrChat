@@ -33,26 +33,17 @@ Rectangle {
             spacing: 4
             verticalLayoutDirection: ListView.TopToBottom
             clip: true
+            cacheBuffer: 2000
 
             model: chatModel
 
-            delegate: Item {
-                width: chatViewRoot.width - 20
-                height: bubbleLoader.item ? bubbleLoader.item.height + 8 : 0
-
-                Loader {
-                    id: bubbleLoader
-                    anchors.left: isSelf ? undefined : parent.left
-                    anchors.right: isSelf ? parent.right : undefined
-                    anchors.top: parent.top
-                    anchors.margins: 4
-                    sourceComponent: MessageBubble {
-                        isSelf: model.isSelf
-                        content: model.content
-                        timestamp: model.displayTime
-                        status: model.status
-                    }
-                }
+            delegate: MessageBubble {
+                width: messageListView.width - 12
+                viewWidth: chatViewRoot.width
+                isSelf: model.isSelf
+                content: model.content
+                timestamp: model.displayTime
+                status: model.status
             }
 
             ScrollBar.vertical: ScrollBar {
@@ -74,35 +65,6 @@ Rectangle {
                 Qt.callLater(function() {
                     positionViewAtEnd()
                 })
-            }
-        }
-
-        Rectangle {
-            id: errorBanner
-            Layout.fillWidth: true
-            Layout.preferredHeight: 0
-            color: "#FF5252"
-            visible: height > 0
-            clip: true
-            Behavior on Layout.preferredHeight { NumberAnimation { duration: 300 } }
-
-            Text {
-                id: errorBannerText
-                anchors.centerIn: parent
-                color: "#FFFFFF"
-                font.pixelSize: 13
-            }
-
-            Timer {
-                id: errorBannerTimer
-                interval: 4000
-                onTriggered: errorBanner.Layout.preferredHeight = 0
-            }
-
-            function show(msg) {
-                errorBannerText.text = msg
-                errorBanner.Layout.preferredHeight = 32
-                errorBannerTimer.restart()
             }
         }
 
@@ -207,6 +169,49 @@ Rectangle {
                     fileDialog.open()
                 }
             }
+        }
+    }
+
+    FileDialog {
+        id: fileDialog
+        title: "选择文件"
+        onAccepted: {
+            console.log("[ChatView] FileDialog onAccepted, selectedFile:", selectedFile.toString())
+            if (chatController) {
+                console.log("[ChatView] calling chatController.sendFile")
+                chatController.sendFile(selectedFile.toString())
+            }
+        }
+    }
+
+    Rectangle {
+        id: errorBanner
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: inputArea.top
+        height: 0
+        color: "#FF5252"
+        visible: height > 0
+        clip: true
+        Behavior on height { NumberAnimation { duration: 300 } }
+
+        Text {
+            id: errorBannerText
+            anchors.centerIn: parent
+            color: "#FFFFFF"
+            font.pixelSize: 13
+        }
+
+        Timer {
+            id: errorBannerTimer
+            interval: 4000
+            onTriggered: errorBanner.height = 0
+        }
+
+        function show(msg) {
+            errorBannerText.text = msg
+            errorBanner.height = 32
+            errorBannerTimer.restart()
         }
     }
 

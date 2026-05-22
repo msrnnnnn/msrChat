@@ -39,6 +39,12 @@ LoginDialog::LoginDialog(QWidget *parent)
     connect(ui->forget_password_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
 
     AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
+
+    _msg_buffer_connection = connect(
+        TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this,
+        [this](const ChatTextMsgStruct &msg) {
+            _buffered_messages.append(msg);
+        }, Qt::QueuedConnection);
 }
 
 /**
@@ -191,6 +197,14 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
         showTip(tr("聊天登录成功，正在进入聊天界面..."), true);
         emit sig_login_success();
     }
+}
+
+QVector<ChatTextMsgStruct> LoginDialog::TakeBufferedMessages()
+{
+    disconnect(_msg_buffer_connection);
+    QVector<ChatTextMsgStruct> msgs = _buffered_messages;
+    _buffered_messages.clear();
+    return msgs;
 }
 
 /**

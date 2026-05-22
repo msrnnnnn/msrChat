@@ -9,6 +9,7 @@
 #include "ProtocolStructs.h"
 #include "Global.h"
 #include <QDialog>
+#include <QVector>
 
 namespace Ui
 {
@@ -26,6 +27,8 @@ class LoginDialog : public QDialog
 public:
     explicit LoginDialog(QWidget *parent = nullptr);
     ~LoginDialog();
+
+    QVector<ChatTextMsgStruct> TakeBufferedMessages();
 
 protected:
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
@@ -91,6 +94,8 @@ private:
     int _uid = 0;
     QString _token;
     bool _chat_login_ready = false;
+    QVector<ChatTextMsgStruct> _buffered_messages;
+    QMetaObject::Connection _msg_buffer_connection;
 };
 
 #endif // LOGINDIALOG_H

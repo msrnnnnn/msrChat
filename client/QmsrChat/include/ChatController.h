@@ -44,6 +44,8 @@ public:
     Q_INVOKABLE void searchMessages(const QString &keyword);
     Q_INVOKABLE void initialize();
 
+    void drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs);
+
     int GetCurrentUid() const;
     int GetTargetUid() const;
     bool IsConnected() const;
@@ -86,8 +88,8 @@ private:
     QMutex _pending_mutex;
     QHash<QString, PendingMessageInfo> _pending_messages;
     qint64 _last_offline_received = -1;
+    qint64 _max_received_timestamp = 0;
     bool _has_more_history = true;
-    bool _is_loading_more = false;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
     static constexpr int HISTORY_PAGE_SIZE = 50;

@@ -31,6 +31,14 @@ ChatController::~ChatController()
     _cleanup_timer->stop();
 }
 
+void ChatController::drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs)
+{
+    for (const ChatTextMsgStruct &msg : msgs)
+    {
+        slotOnChatTextMsg(msg);
+    }
+}
+
 void ChatController::initialize()
 {
     _current_uid = UserMgr::Instance()->GetUid();
@@ -139,6 +147,7 @@ void ChatController::setTargetUid(int uid)
     }
 
     _target_uid = uid;
+    _max_received_timestamp = 0;
     emit sigTargetUidChanged();
 
     if (_chat_model != nullptr)
@@ -180,7 +189,7 @@ void ChatController::sendMessage(const QString &content)
     msg.from_uid = _current_uid;
     msg.to_uid = _target_uid;
     msg.content = trimmed;
-    msg.timestamp = QDateTime::currentMSecsSinceEpoch();
+    msg.timestamp = qMax(QDateTime::currentMSecsSinceEpoch(), _max_received_timestamp + 1);
     msg.status = 0;
 
     QMutexLocker locker(&_pending_mutex);
@@ -268,7 +277,6 @@ void ChatController::sendFile(const QString &filePath)
 void ChatController::loadHistory()
 {
     _has_more_history = true;
-    _is_loading_more = false;
     if (_current_uid <= 0 || _target_uid <= 0)
     {
         return;
@@ -286,8 +294,6 @@ void ChatController::loadMoreHistory()
     {
         return;
     }
-
-    _is_loading_more = true;
 
     qint64 before_time = LLONG_MAX;
     if (_chat_model != nullptr && _chat_model->rowCount() > 0)
@@ -340,14 +346,16 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
     chat_msg.to_uid = msg.to_uid;
     chat_msg.content = msg.content;
     chat_msg.timestamp = msg.timestamp;
+    _max_received_timestamp = qMax(_max_received_timestamp, msg.timestamp);
     chat_msg.status = 1;
 
     // 1. DB 层持久化
     DbThreadManager::Instance().SaveMessage(chat_msg);
 
-    // 2. UI 层渲染更新 — 只要涉及当前用户就入库展示，不按 _target_uid 过滤
+    // 2. UI 层渲染更新
     if (_chat_model != nullptr &&
-        (chat_msg.from_uid == _current_uid || chat_msg.to_uid == _current_uid))
+       ((chat_msg.from_uid == _target_uid && chat_msg.to_uid == _current_uid) ||
+        (chat_msg.from_uid == _current_uid && chat_msg.to_uid == _target_uid)))
     {
         _chat_model->UpsertMessage(chat_msg);
     }
@@ -459,14 +467,7 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
 {
     if (_chat_model != nullptr)
     {
-        if (_is_loading_more)
-        {
-            _chat_model->PrependMessages(messages);
-        }
-        else
-        {
-            _chat_model->SetMessages(messages);
-        }
+        _chat_model->PrependMessages(messages);
     }
     _has_more_history = (messages.size() >= HISTORY_PAGE_SIZE);
     emit sigHasMoreHistoryChanged();

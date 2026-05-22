@@ -26,6 +26,8 @@ public:
     explicit ChatDialog(QWidget *parent = nullptr);
     ~ChatDialog();
 
+    ChatController *GetChatController() const { return _chat_controller; }
+
 private:
     void SetupQmlView();
 

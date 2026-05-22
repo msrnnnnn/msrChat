@@ -100,7 +100,6 @@ set(SERVER_SOURCES
     src/SessionManager.cpp
     src/MessageRouter.cpp
     src/TokenManager.cpp
-    src/OfflineStorage.cpp
     src/Protocol/BaseProtocol.cpp
     src/Protocol/TLVProtocol.cpp
     src/Protocol/BinaryPacketProtocol.cpp
