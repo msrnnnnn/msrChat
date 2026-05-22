@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, new]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake g++ \
+            libboost-system-dev libboost-thread-dev \
+            libssl-dev \
+            libsqlite3-dev \
+            nlohmann-json3-dev \
+            libspdlog-dev \
+            protobuf-compiler libprotobuf-dev
+
+      - name: Configure
+        working-directory: server/ChatServer
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build tests
+        working-directory: server/ChatServer
+        run: cmake --build build --target ChatServerTests -j$(nproc)
+
+      - name: Run tests
+        working-directory: server/ChatServer
+        run: cd build && ctest --output-on-failure
+
+      - name: Build server
+        working-directory: server/ChatServer
+        run: cmake --build build --target ChatServer -j$(nproc)
+
+  client-ringbuffer-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gtest
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev cmake g++
+
+      - name: Build gtest
+        run: |
+          cd /usr/src/gtest
+          sudo cmake -B build
+          sudo cmake --build build
+          sudo cp build/lib/libgtest*.a /usr/lib
+
+      - name: Build RingBuffer test
+        run: |
+          g++ -std=c++17 \
+            -I client/QmsrChat/include \
+            client/QmsrChat/tests/test_RingBuffer.cpp \
+            -lgtest -lgtest_main -lpthread \
+            -o test_ringbuffer
+
+      - name: Run RingBuffer test
+        run: ./test_ringbuffer

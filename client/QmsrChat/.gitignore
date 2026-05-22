@@ -58,6 +58,7 @@ ehthumbs.db
 desktop.ini
 
 # 5. Qt 相关文件
+third_party/
 moc_*.cpp
 ui_*.h
 qrc_*.cpp

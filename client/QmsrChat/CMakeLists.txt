@@ -225,3 +225,20 @@ if(QT_VERSION_MAJOR EQUAL 6)
     qt_import_qml_plugins(QmsrChat)
     qt_finalize_executable(QmsrChat)
 endif()
+
+# =============================================================
+# Google Test (Unit Tests)
+# =============================================================
+add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
+
+enable_testing()
+
+add_executable(QmsrChatTests
+    tests/test_RingBuffer.cpp
+)
+
+target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(QmsrChatTests PRIVATE gtest gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(QmsrChatTests)

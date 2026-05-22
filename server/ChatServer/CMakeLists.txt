@@ -142,3 +142,52 @@ target_link_libraries(ChatServer
 install(TARGETS ChatServer
     RUNTIME DESTINATION bin
 )
+
+# =============================================================
+# 8. Google Test (Unit Tests)
+# =============================================================
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.15.2
+)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(ChatServerTests
+    tests/test_ShardedMap.cpp
+    tests/test_TLVProtocol.cpp
+    tests/test_ThreadPool.cpp
+    tests/test_UserData.cpp
+    src/Protocol/TLVProtocol.cpp
+    src/Protocol/BinaryPacketProtocol.cpp
+    src/Protocol/BaseProtocol.cpp
+    src/ThreadPool.cpp
+    src/UserData.cpp
+)
+
+target_include_directories(ChatServerTests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${Boost_INCLUDE_DIRS}
+)
+
+target_link_libraries(ChatServerTests PRIVATE
+    ${Boost_LIBRARIES}
+    Threads::Threads
+    nlohmann_json::nlohmann_json
+    spdlog::spdlog
+    SQLite::SQLite3
+    protobuf::libprotobuf
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    gtest
+    gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(ChatServerTests)
