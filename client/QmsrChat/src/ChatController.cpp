@@ -160,7 +160,7 @@ void ChatController::setTargetUid(int uid)
 /**
  * @brief 发送文本消息
  * @param content 消息内容
- * @details 限制 512 字符，生成客户端消息 ID 后通过 TcpMgr 发送并持久化到数据库
+ * @details 限制 4096 字符，生成客户端消息 ID 后通过 TcpMgr 发送并持久化到数据库
  */
 void ChatController::sendMessage(const QString &content)
 {
@@ -176,7 +176,7 @@ void ChatController::sendMessage(const QString &content)
         return;
     }
 
-    if (trimmed.size() > 512)
+    if (trimmed.size() > 4096)
     {
         emit sigError(QStringLiteral("内容过长"));
         return;

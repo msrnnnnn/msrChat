@@ -112,7 +112,7 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
         host = _host;
         port = _port;
     }
-    _pending_connect = si;
+
     _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = 0;
     stop_timers();
