@@ -6,6 +6,7 @@
 #include <QStandardPaths>
 #include <QThreadPool>
 #include <QDebug>
+#include <QUuid>
 
 namespace
 {
@@ -308,6 +309,22 @@ QString FileRecvMgr::GetTempDir() const
 
 QString FileRecvMgr::GetFinalPath(const QString &filename) const
 {
+    // Image mode detection: filename stem is a UUID → 落到 client_image_cache/
+    // (server uses image_id as task_id and encodes format in filename "{uuid}.{ext}")
+    int dot = filename.lastIndexOf('.');
+    if (dot > 0)
+    {
+        QString stem = filename.left(dot);
+        QUuid uuid(stem);
+        if (!uuid.isNull())
+        {
+            QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                                + "/client_image_cache";
+            QDir().mkpath(cache_dir);
+            return cache_dir + "/" + filename;
+        }
+    }
+    // 默认路径（普通文件）
     const QString base = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/msrchat";
     QDir().mkpath(base);
     return base + "/" + filename;
