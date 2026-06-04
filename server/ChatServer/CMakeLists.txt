@@ -166,6 +166,7 @@ add_executable(ChatServerTests
     src/ThreadPool.cpp
     src/UserData.cpp
     src/ImageStorage.cpp
+    src/SQLiteMgr.cpp
 )
 
 target_include_directories(ChatServerTests PRIVATE
