@@ -98,6 +98,12 @@ void ChatController::ConnectSignals()
         &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvComplete, this,
         [this](int64_t task_id, const QString &filepath, bool success, const QString &error)
         { emit sigFileRecvComplete(task_id, filepath, success, error); }, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatImage, this, &ChatController::slotOnChatImage, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigImageDownloadRsp, this, &ChatController::slotOnImageDownloadRsp, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatRecallRsp, this, &ChatController::slotOnChatRecallRsp, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatEditAck, this, &ChatController::slotOnChatEditAck, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatRecallNotify, this, &ChatController::slotOnChatRecallNotify, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatEditNotify, this, &ChatController::slotOnChatEditNotify, Qt::QueuedConnection);
 }
 
 /**
@@ -269,6 +275,67 @@ void ChatController::sendFile(const QString &filePath)
 
     // 3. 通知 QML 进度面板显示条目
     emit sigFileSendStarted(task_id, fileInfo.fileName(), total_size);
+}
+
+void ChatController::sendImage(const QString &imagePath, const QString &caption)
+{
+    qDebug() << "[ChatController] sendImage called, path:" << imagePath << "caption_len:" << caption.size();
+    // v1: stub — actual image_id generation + FileSendMgr start happens in P3-T5+ client-side flow
+    // TODO(P3-T5-client-flow): generate image_id, build ChatImageStruct with all fields, emit sigSendImageMsg
+}
+
+void ChatController::slotOnChatImage(const ChatImageStruct &msg)
+{
+    if (!_chat_model) return;
+    ChatMessage m;
+    m.from_uid = msg.from_uid;
+    m.to_uid = msg.to_uid;
+    m.type = 1;  // image
+    m.image_id = msg.image_id;
+    m.image_width = msg.width;
+    m.image_height = msg.height;
+    m.image_ext = msg.ext;
+    m.content = msg.caption;  // caption also stored in content
+    m.timestamp = msg.timestamp;
+    _chat_model->AddMessage(m);
+}
+
+void ChatController::slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp)
+{
+    if (!_chat_model) return;
+    // Find the image message by image_id, set recalled or error state if needed
+    // v1: this is handled in Phase 4 (ImageDownloadMgr); for now, just log
+    if (rsp.error != 0) {
+        qWarning() << "[ChatController] image download failed: id=" << rsp.image_id << "error=" << rsp.error;
+    }
+}
+
+void ChatController::slotOnChatRecallRsp(const ChatEditAckStruct &ack)
+{
+    if (ack.error != 0) {
+        qWarning() << "[ChatController] recall failed: error=" << ack.error;
+        emit sigError(QStringLiteral("Recall failed (error %1)").arg(ack.error));
+    }
+}
+
+void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
+{
+    if (ack.error != 0) {
+        qWarning() << "[ChatController] edit failed: error=" << ack.error;
+        emit sigError(QStringLiteral("Edit failed (error %1)").arg(ack.error));
+    }
+}
+
+void ChatController::slotOnChatRecallNotify(const ChatRecallNotifyStruct &n)
+{
+    if (!_chat_model) return;
+    _chat_model->MarkRecalled(n.msg_timestamp);
+}
+
+void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
+{
+    if (!_chat_model) return;
+    _chat_model->MarkEdited(n.msg_timestamp, n.new_content, n.edit_ts);
 }
 
 /**

@@ -36,6 +36,7 @@ public:
 
     Q_INVOKABLE void sendMessage(const QString &content);
     Q_INVOKABLE void sendFile(const QString &filePath);
+    Q_INVOKABLE void sendImage(const QString &imagePath, const QString &caption);
     Q_INVOKABLE void setTargetUid(int uid);
     Q_INVOKABLE void loadHistory();
     Q_INVOKABLE void loadMoreHistory();
@@ -64,6 +65,8 @@ signals:
     void sigFileRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
     void sigHistoryCleared();
     void sigHasMoreHistoryChanged();
+    void sigSendImageMsg(const ChatImageStruct &msg);
+    void sigSendEditMsg(const ChatEditMsgStruct &msg);
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
@@ -75,6 +78,12 @@ public slots:
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);
     void slotOnMessageSaved(bool success);
     void slotCleanTimeoutMessages();
+    void slotOnChatImage(const ChatImageStruct &msg);
+    void slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp);
+    void slotOnChatRecallRsp(const ChatEditAckStruct &ack);
+    void slotOnChatEditAck(const ChatEditAckStruct &ack);
+    void slotOnChatRecallNotify(const ChatRecallNotifyStruct &n);
+    void slotOnChatEditNotify(const ChatEditNotifyStruct &n);
 
 private:
     void ConnectSignals();
