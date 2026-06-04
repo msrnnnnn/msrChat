@@ -125,4 +125,105 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         emit _tcpMgr.sig_offline_ack(ack);
         return;
     }
+    if (req_type == RequestType::MSG_CHAT_IMAGE)
+    {
+        qmsrchat::ImageMsg imgMsg;
+        if (!imgMsg.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse ImageMsg from Protobuf";
+            return;
+        }
+        ChatImageStruct msg;
+        msg.from_uid = imgMsg.from_uid();
+        msg.to_uid = imgMsg.to_uid();
+        msg.image_id = QString::fromStdString(imgMsg.image_id());
+        msg.caption = QString::fromStdString(imgMsg.caption());
+        msg.timestamp = imgMsg.timestamp();
+        msg.width = imgMsg.width();
+        msg.height = imgMsg.height();
+        msg.ext = QString::fromStdString(imgMsg.ext());
+        msg.size = imgMsg.size();
+        msg.md5 = QString::fromStdString(imgMsg.md5());
+        emit _tcpMgr.sigChatImage(msg);
+        return;
+    }
+    if (req_type == RequestType::MSG_IMAGE_DOWNLOAD_RSP)
+    {
+        qmsrchat::ImageDownloadRsp rsp;
+        if (!rsp.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse ImageDownloadRsp from Protobuf";
+            return;
+        }
+        ImageDownloadRspStruct r;
+        r.error = rsp.error();
+        r.image_id = QString::fromStdString(rsp.image_id());
+        r.offset = rsp.offset();
+        emit _tcpMgr.sigImageDownloadRsp(r);
+        return;
+    }
+    if (req_type == RequestType::MSG_CHAT_RECALL)
+    {
+        qmsrchat::EditAck ack;
+        if (!ack.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse EditAck (recall ack) from Protobuf";
+            return;
+        }
+        ChatEditAckStruct a;
+        a.error = ack.error();
+        a.message = QString::fromStdString(ack.message());
+        a.msg_timestamp = ack.msg_timestamp();
+        a.edit_ts = ack.edit_ts();
+        emit _tcpMgr.sigChatRecallRsp(a);
+        return;
+    }
+    if (req_type == RequestType::MSG_CHAT_EDIT)
+    {
+        qmsrchat::EditAck ack;
+        if (!ack.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse EditAck from Protobuf";
+            return;
+        }
+        ChatEditAckStruct a;
+        a.error = ack.error();
+        a.message = QString::fromStdString(ack.message());
+        a.msg_timestamp = ack.msg_timestamp();
+        a.edit_ts = ack.edit_ts();
+        emit _tcpMgr.sigChatEditAck(a);
+        return;
+    }
+    if (req_type == RequestType::MSG_CHAT_RECALL_NOTIFY)
+    {
+        qmsrchat::RecallNotify n;
+        if (!n.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse RecallNotify from Protobuf";
+            return;
+        }
+        ChatRecallNotifyStruct notify;
+        notify.msg_timestamp = n.msg_timestamp();
+        notify.recall_uid = n.recall_uid();
+        notify.recalled_to = n.recalled_to();
+        notify.recall_ts = n.recall_ts();
+        emit _tcpMgr.sigChatRecallNotify(notify);
+        return;
+    }
+    if (req_type == RequestType::MSG_CHAT_EDIT_NOTIFY)
+    {
+        qmsrchat::EditNotify n;
+        if (!n.ParseFromArray(data.constData(), data.size()))
+        {
+            qWarning() << "Failed to parse EditNotify from Protobuf";
+            return;
+        }
+        ChatEditNotifyStruct notify;
+        notify.msg_timestamp = n.msg_timestamp();
+        notify.from_uid = n.from_uid();
+        notify.new_content = QString::fromStdString(n.new_content());
+        notify.edit_ts = n.edit_ts();
+        emit _tcpMgr.sigChatEditNotify(notify);
+        return;
+    }
 }

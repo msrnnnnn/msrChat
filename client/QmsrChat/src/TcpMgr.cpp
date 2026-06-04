@@ -240,6 +240,12 @@ void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
         case RequestType::MSG_CHAT_TEXT:
         case RequestType::MSG_CHAT_ACK:
         case RequestType::MSG_OFFLINE_ACK:
+        case RequestType::MSG_CHAT_IMAGE:
+        case RequestType::MSG_IMAGE_DOWNLOAD_RSP:
+        case RequestType::MSG_CHAT_RECALL:
+        case RequestType::MSG_CHAT_EDIT:
+        case RequestType::MSG_CHAT_RECALL_NOTIFY:
+        case RequestType::MSG_CHAT_EDIT_NOTIFY:
             _parser.parseChatPacket(req_type, data);
             return;
         case RequestType::MSG_FILE_REQ:

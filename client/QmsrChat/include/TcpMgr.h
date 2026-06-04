@@ -53,6 +53,13 @@ signals:
     void sig_register_rsp(const RegisterRspStruct &rsp);
     void sig_reset_pwd_rsp(const ResetPwdRspStruct &rsp);
 
+    void sigChatImage(const ChatImageStruct &msg);
+    void sigImageDownloadRsp(const ImageDownloadRspStruct &rsp);
+    void sigChatRecallRsp(const ChatEditAckStruct &ack);
+    void sigChatEditAck(const ChatEditAckStruct &ack);
+    void sigChatRecallNotify(const ChatRecallNotifyStruct &n);
+    void sigChatEditNotify(const ChatEditNotifyStruct &n);
+
     void sig_stop_worker();
     void sig_connect_worker(ServerInfo si);
     void sig_send_data_worker(RequestType reqId, const QByteArray &data);

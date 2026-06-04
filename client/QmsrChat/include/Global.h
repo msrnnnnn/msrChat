@@ -24,6 +24,12 @@ enum class RequestType
     MSG_CHAT_TEXT = 1006,
     MSG_CHAT_ACK = 1007,
     MSG_OFFLINE_ACK = 1008,       ///< 离线消息分页确认
+    MSG_CHAT_IMAGE = 1009,          ///< 图片消息
+    MSG_IMAGE_DOWNLOAD_RSP = 1010,  ///< 图片下载响应
+    MSG_CHAT_RECALL = 1011,        ///< 消息撤回请求
+    MSG_CHAT_EDIT = 1012,           ///< 消息编辑请求
+    MSG_CHAT_RECALL_NOTIFY = 1013, ///< 撤回通知
+    MSG_CHAT_EDIT_NOTIFY = 1014,   ///< 编辑通知
     MSG_FILE_REQ = 2001,          ///< 文件传输请求
     MSG_FILE_RSP = 2002,          ///< 文件传输响应(断点续传)
     MSG_FILE_CHUNK = 2003,        ///< 文件数据分片
