@@ -24,6 +24,10 @@ bool HandleFileChunk(CSession &session, const std::string &body_data);
 bool HandleFileChunk(CSession &session, std::string_view body_view);
 bool HandleFileAck(CSession &session, const std::string &body_data);
 bool HandleOfflineAck(CSession &session, const std::string &body_data);
+bool HandleChatImage(CSession &session, const std::string &body_data);
+bool HandleImageDownloadReq(CSession &session, const std::string &body_data);
+bool HandleChatRecall(CSession &session, const std::string &body_data);
+bool HandleChatEdit(CSession &session, const std::string &body_data);
 } // namespace
 
 void MessageDispatcher::RegisterDefaultHandlers()
@@ -48,6 +52,10 @@ void MessageDispatcher::RegisterDefaultHandlers()
         }, true);
     RegisterHandler(MSG_FILE_ACK, HandleFileAck, true);
     RegisterHandler(MSG_OFFLINE_ACK, HandleOfflineAck, true);
+    RegisterHandler(MSG_CHAT_IMAGE, HandleChatImage, true);
+    RegisterHandler(MSG_IMAGE_DOWNLOAD_REQ, HandleImageDownloadReq, true);
+    RegisterHandler(MSG_CHAT_RECALL, HandleChatRecall, true);
+    RegisterHandler(MSG_CHAT_EDIT, HandleChatEdit, true);
 }
 
 namespace
@@ -782,6 +790,34 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
         spdlog::error("[MessageDispatcher] HandleOfflineAck error: {}", e.what());
         session.ContinueReading();
     }
+    return true;
+}
+
+bool HandleChatImage(CSession &session, const std::string &)
+{
+    spdlog::warn("HandleChatImage: stub (Phase 2 implements)");
+    session.ContinueReading();
+    return true;
+}
+
+bool HandleImageDownloadReq(CSession &session, const std::string &)
+{
+    spdlog::warn("HandleImageDownloadReq: stub (Phase 2 implements)");
+    session.ContinueReading();
+    return true;
+}
+
+bool HandleChatRecall(CSession &session, const std::string &)
+{
+    spdlog::warn("HandleChatRecall: stub (Phase 7 implements)");
+    session.ContinueReading();
+    return true;
+}
+
+bool HandleChatEdit(CSession &session, const std::string &)
+{
+    spdlog::warn("HandleChatEdit: stub (Phase 7 implements)");
+    session.ContinueReading();
     return true;
 }
 
