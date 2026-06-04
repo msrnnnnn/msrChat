@@ -67,6 +67,8 @@ public:
         _total_size = 0;
         _transferred_size.store(0, std::memory_order_relaxed);
         _status.store(Status::PENDING, std::memory_order_relaxed);
+        _is_image = false;
+        _image_id.clear();
     }
 
     void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size) noexcept
@@ -78,6 +80,8 @@ public:
         _total_size = total_size;
         _transferred_size.store(0, std::memory_order_relaxed);
         _status.store(Status::PENDING, std::memory_order_relaxed);
+        _is_image = false;
+        _image_id.clear();
     }
 
     int64_t GetTaskId() const
@@ -113,6 +117,11 @@ public:
     bool IsCompleted() const;
     void SetStatus(Status status);
 
+    void SetIsImage(bool is_image) { _is_image = is_image; }
+    bool IsImage() const { return _is_image; }
+    const std::string &GetImageId() const { return _image_id; }
+    void SetImageId(const std::string &id) { _image_id = id; }
+
 private:
     int64_t _task_id = 0;
     int _from_uid = 0;
@@ -122,6 +131,8 @@ private:
     std::atomic<int64_t> _transferred_size{0};
     std::atomic<Status> _status{Status::PENDING};
     ObjectPool<FileTransferTask> *_pool = nullptr;
+    bool _is_image = false;
+    std::string _image_id;
 };
 
 class FileTransfer
