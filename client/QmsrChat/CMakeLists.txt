@@ -72,7 +72,7 @@ endif()
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets QuickControls2 QuickLayouts)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts Test)
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -256,6 +256,7 @@ target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(QmsrChatTests PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Sql
+    Qt${QT_VERSION_MAJOR}::Test
     gtest
     gtest_main
 )
