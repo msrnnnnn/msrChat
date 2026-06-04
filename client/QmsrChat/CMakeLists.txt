@@ -239,7 +239,12 @@ add_executable(QmsrChatTests
 )
 
 target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(QmsrChatTests PRIVATE gtest gtest_main)
+target_link_libraries(QmsrChatTests PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Sql
+    gtest
+    gtest_main
+)
 
 include(GoogleTest)
 gtest_discover_tests(QmsrChatTests)
