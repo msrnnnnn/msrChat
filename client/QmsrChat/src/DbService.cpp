@@ -171,6 +171,46 @@ bool DbService::CreateTables(QSqlDatabase &db)
     {
         return false;
     }
+    if (!EnsureColumn(db, "messages", "type", "INTEGER DEFAULT 0"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "image_id", "TEXT"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "image_path", "TEXT"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "image_width", "INTEGER DEFAULT 0"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "image_height", "INTEGER DEFAULT 0"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "image_ext", "TEXT"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "edited", "INTEGER DEFAULT 0"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "edited_at", "INTEGER"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "recalled", "INTEGER DEFAULT 0"))
+    {
+        return false;
+    }
+    if (!EnsureColumn(db, "messages", "recalled_at", "INTEGER"))
+    {
+        return false;
+    }
 
     sql = R"(
         CREATE INDEX IF NOT EXISTS idx_messages_pair_time
@@ -291,15 +331,15 @@ bool DbService::SaveMessage(const ChatMessage &msg)
         query.prepare(
             "UPDATE messages "
             "SET client_msg_id = ?, server_msg_id = ?, from_uid = ?, to_uid = ?, content = ?, timestamp = ?, status = "
-            "? "
+            "?, type = ?, image_id = ?, image_path = ?, image_width = ?, image_height = ?, image_ext = ?, edited = ?, edited_at = ?, recalled = ?, recalled_at = ? "
             "WHERE id = ?");
-        query.bindValue(7, existingId);
+        query.bindValue(17, existingId);
     }
     else
     {
         query.prepare(
-            "INSERT INTO messages (client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)");
+            "INSERT INTO messages (client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status, type, image_id, image_path, image_width, image_height, image_ext, edited, edited_at, recalled, recalled_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
     query.bindValue(0, msg.client_msg_id);
@@ -309,6 +349,16 @@ bool DbService::SaveMessage(const ChatMessage &msg)
     query.bindValue(4, msg.content);
     query.bindValue(5, msg.timestamp);
     query.bindValue(6, msg.status);
+    query.bindValue(7, msg.type);
+    query.bindValue(8, msg.image_id);
+    query.bindValue(9, msg.image_path);
+    query.bindValue(10, msg.image_width);
+    query.bindValue(11, msg.image_height);
+    query.bindValue(12, msg.image_ext);
+    query.bindValue(13, msg.edited ? 1 : 0);
+    query.bindValue(14, msg.edited_at);
+    query.bindValue(15, msg.recalled ? 1 : 0);
+    query.bindValue(16, msg.recalled_at);
 
     if (!query.exec())
     {
@@ -375,9 +425,13 @@ QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_ti
     QSqlQuery query(db);
 
     QString sql = R"(
-        SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
+        SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
+               type, image_id, image_path, image_width, image_height, image_ext,
+               edited, edited_at, recalled, recalled_at
         FROM (
-            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
+            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
+                   type, image_id, image_path, image_width, image_height, image_ext,
+                   edited, edited_at, recalled, recalled_at
             FROM messages
             WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
             AND timestamp < ?
@@ -412,6 +466,16 @@ QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_ti
         msg.content = query.value(5).toString();
         msg.timestamp = query.value(6).toLongLong();
         msg.status = query.value(7).toInt();
+        msg.type = query.value(8).toInt();
+        msg.image_id = query.value(9).toString();
+        msg.image_path = query.value(10).toString();
+        msg.image_width = query.value(11).toInt();
+        msg.image_height = query.value(12).toInt();
+        msg.image_ext = query.value(13).toString();
+        msg.edited = query.value(14).toBool();
+        msg.edited_at = query.value(15).toLongLong();
+        msg.recalled = query.value(16).toBool();
+        msg.recalled_at = query.value(17).toLongLong();
         messages.push_back(msg);
     }
 
@@ -477,6 +541,16 @@ QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString
         msg.content = query.value(5).toString();
         msg.timestamp = query.value(6).toLongLong();
         msg.status = query.value(7).toInt();
+        msg.type = query.value(8).toInt();
+        msg.image_id = query.value(9).toString();
+        msg.image_path = query.value(10).toString();
+        msg.image_width = query.value(11).toInt();
+        msg.image_height = query.value(12).toInt();
+        msg.image_ext = query.value(13).toString();
+        msg.edited = query.value(14).toBool();
+        msg.edited_at = query.value(15).toLongLong();
+        msg.recalled = query.value(16).toBool();
+        msg.recalled_at = query.value(17).toLongLong();
         messages.push_back(msg);
     }
 
