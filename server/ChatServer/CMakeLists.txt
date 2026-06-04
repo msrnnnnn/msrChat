@@ -159,11 +159,13 @@ add_executable(ChatServerTests
     tests/test_TLVProtocol.cpp
     tests/test_ThreadPool.cpp
     tests/test_UserData.cpp
+    tests/test_ImageStorage.cpp
     src/Protocol/TLVProtocol.cpp
     src/Protocol/BinaryPacketProtocol.cpp
     src/Protocol/BaseProtocol.cpp
     src/ThreadPool.cpp
     src/UserData.cpp
+    src/ImageStorage.cpp
 )
 
 target_include_directories(ChatServerTests PRIVATE
