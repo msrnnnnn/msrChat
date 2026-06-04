@@ -1,7 +1,7 @@
 #include "ImageDownloadMgr.h"
+#include <QDebug>
 #include <QDir>
 #include <QStandardPaths>
-#include <spdlog/spdlog.h>
 
 ImageDownloadMgr &ImageDownloadMgr::Instance() {
     static ImageDownloadMgr inst; return inst;
@@ -32,7 +32,7 @@ void ImageDownloadMgr::Request(const QString &image_id, int retry_count)
     QMutexLocker lock(&_mutex);
     if (_pending.contains(image_id) || _cache_index.contains(image_id)) return;
     _pending[image_id] = {retry_count, ""};
-    spdlog::info("ImageDownloadMgr::Request {}", image_id.toStdString());
+    qDebug() << "ImageDownloadMgr::Request" << image_id;
     // 实际：emit sigRequestImageDownload(image_id); 由 ChatController 转发给 TcpMgr
     // 当前 Phase 4 范围：仅 placeholder，待 P4-T2 + TcpMgr 信号集成后填充
 }
@@ -42,7 +42,7 @@ void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t
     QMutexLocker lock(&_mutex);
     if (error == 4040)  // ERR_IMAGE_EXPIRED
     {
-        spdlog::warn("image expired: {}", image_id.toStdString());
+        qWarning() << "image expired:" << image_id;
         _pending.remove(image_id);
         emit sigImageFailed(image_id, 4040);
         return;
