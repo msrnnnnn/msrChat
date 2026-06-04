@@ -903,9 +903,49 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     return true;
 }
 
-bool HandleImageDownloadReq(CSession &session, const std::string &)
+bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
 {
-    spdlog::warn("HandleImageDownloadReq: stub (Phase 2 implements)");
+    qmsrchat::ImageDownloadReq req;
+    if (!req.ParseFromString(body_data))
+    {
+        spdlog::error("[MessageDispatcher] HandleImageDownloadReq: parse failed");
+        session.ContinueReading();
+        return true;
+    }
+
+    qmsrchat::ImageDownloadRsp rsp;
+    rsp.set_image_id(req.image_id());
+
+    auto rec = ImageStorage::Instance().Get(req.image_id());
+    if (!rec.has_value())
+    {
+        // 图片不存在（可能从未上传 或 已过期被清理）
+        rsp.set_error(ERR_IMAGE_EXPIRED);
+        rsp.set_offset(0);
+        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} not found / expired",
+                     req.image_id());
+    }
+    else if (rec->recalled)
+    {
+        // 图片被发送方撤回
+        rsp.set_error(ERR_IMAGE_EXPIRED);
+        rsp.set_offset(0);
+        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} recalled",
+                     req.image_id());
+    }
+    else
+    {
+        rsp.set_error(0);
+        rsp.set_offset(0);
+        // 客户端在收到 error=0 后，使用现有 FileReq 通道（task_id=image_id）拉取二进制
+        // 这里不直接 push 二进制 — 走 FileReq 路径复用 64KB chunk 协议
+        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} authorized, size={} ext={}",
+                     req.image_id(), rec->size, rec->ext);
+    }
+
+    std::string data;
+    rsp.SerializeToString(&data);
+    session.Send(data, MSG_IMAGE_DOWNLOAD_REQ);
     session.ContinueReading();
     return true;
 }
