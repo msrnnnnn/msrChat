@@ -5,6 +5,8 @@
 #include "ImageStorage.h"
 #include "Message.pb.h"
 #include "MessageRouter.h"
+#include "OfflineStorage.h"
+#include "SessionManager.h"
 #include "SQLiteMgr.h"
 #include "TokenManager.h"
 #include "nlohmann/json.hpp"
@@ -854,9 +856,49 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
     return true;
 }
 
-bool HandleChatImage(CSession &session, const std::string &)
+bool HandleChatImage(CSession &session, const std::string &body_data)
 {
-    spdlog::warn("HandleChatImage: stub (Phase 2 implements)");
+    qmsrchat::ImageMsg msg;
+    if (!msg.ParseFromString(body_data))
+    {
+        spdlog::error("[MessageDispatcher] HandleChatImage: parse failed");
+        session.ContinueReading();
+        return true;
+    }
+
+    int from = session.GetUserUid();
+    if (from != msg.from_uid())
+    {
+        spdlog::warn("[MessageDispatcher] HandleChatImage: from_uid mismatch (session={}, msg={})",
+                     from, msg.from_uid());
+        session.ContinueReading();
+        return true;
+    }
+
+    auto target_session = SessionManager::Instance().GetSession(msg.to_uid());
+    if (target_session)
+    {
+        // 在线：直接发送 ImageMsg 给对方
+        std::string serialized;
+        msg.SerializeToString(&serialized);
+        MessageRouter::Instance().SendToSession(target_session, serialized, MSG_CHAT_IMAGE);
+        spdlog::info("[MessageDispatcher] HandleChatImage: forwarded to uid={}", msg.to_uid());
+    }
+    else
+    {
+        // 离线：入队（仅元数据，binary 已由 Task 2.2-2.4 写入 image_storage）
+        OfflineStorage::Instance().StoreMessage(msg.to_uid(), body_data);
+        spdlog::info("[MessageDispatcher] HandleChatImage: offline, queued for uid={}", msg.to_uid());
+    }
+
+    // 回复 ACK
+    qmsrchat::ChatAck ack;
+    ack.set_error(0);
+    ack.set_message("ok");
+    ack.set_client_msg_id(msg.image_id());  // 用 image_id 作关联 key
+    std::string ack_data;
+    ack.SerializeToString(&ack_data);
+    session.Send(ack_data, MSG_CHAT_ACK);
     session.ContinueReading();
     return true;
 }
