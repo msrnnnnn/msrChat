@@ -128,4 +128,74 @@ struct FileReqStruct
     int64_t offset = 0;
 };
 
+// === 图片消息 (Phase 3 新增) ===
+struct ChatImageStruct
+{
+    int from_uid = 0;
+    int to_uid = 0;
+    QString image_id;
+    QString caption;
+    qint64 timestamp = 0;
+    int width = 0;
+    int height = 0;
+    QString ext;
+    qint64 size = 0;
+    QString md5;
+};
+
+struct ImageDownloadRspStruct
+{
+    int error = 0;
+    QString image_id;
+    qint64 offset = 0;
+};
+
+// === 撤回 (Phase 3 新增) ===
+struct ChatRecallMsgStruct
+{
+    int from_uid = 0;
+    qint64 msg_timestamp = 0;
+    QString client_msg_id;
+};
+
+struct ChatRecallNotifyStruct
+{
+    qint64 msg_timestamp = 0;
+    int recall_uid = 0;
+    int recalled_to = 0;
+    qint64 recall_ts = 0;
+};
+
+// === 编辑 (Phase 3 新增) ===
+struct ChatEditMsgStruct
+{
+    int from_uid = 0;
+    qint64 msg_timestamp = 0;
+    QString new_content;
+};
+
+struct ChatEditAckStruct
+{
+    int error = 0;
+    QString message;
+    qint64 msg_timestamp = 0;
+    qint64 edit_ts = 0;
+};
+
+struct ChatEditNotifyStruct
+{
+    qint64 msg_timestamp = 0;
+    int from_uid = 0;
+    QString new_content;
+    qint64 edit_ts = 0;
+};
+
+Q_DECLARE_METATYPE(ChatImageStruct)
+Q_DECLARE_METATYPE(ImageDownloadRspStruct)
+Q_DECLARE_METATYPE(ChatRecallMsgStruct)
+Q_DECLARE_METATYPE(ChatRecallNotifyStruct)
+Q_DECLARE_METATYPE(ChatEditMsgStruct)
+Q_DECLARE_METATYPE(ChatEditAckStruct)
+Q_DECLARE_METATYPE(ChatEditNotifyStruct)
+
 #endif // PROTOCOLSTRUCTS_H
