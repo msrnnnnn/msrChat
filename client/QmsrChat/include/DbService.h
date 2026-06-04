@@ -21,6 +21,17 @@ struct ChatMessage
     QString content;
     qint64 timestamp = 0;
     int status = 0;
+    // === image + recall + edit (Phase 3 新增) ===
+    int     type        = 0;     // 0=text, 1=image
+    QString image_id;           // UUID
+    QString image_path;         // 本地缓存绝对路径
+    int     image_width = 0;
+    int     image_height = 0;
+    QString image_ext;
+    bool    edited      = false;
+    qint64  edited_at   = 0;
+    bool    recalled    = false;
+    qint64  recalled_at = 0;
 };
 
 Q_DECLARE_METATYPE(ChatMessage)
