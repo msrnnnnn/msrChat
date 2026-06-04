@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QVector>
+#include <functional>
 #include <optional>
 
 class ChatListModel : public QAbstractListModel
@@ -22,7 +23,14 @@ public:
         TimestampRole,
         StatusRole,
         IsSelfRole,
-        DisplayTimeRole
+        DisplayTimeRole,
+        TypeRole,
+        ImageIdRole,
+        ImagePathRole,
+        ImageWidthRole,
+        ImageHeightRole,
+        EditedRole,
+        RecalledRole
     };
 
     explicit ChatListModel(QObject *parent = nullptr);
@@ -48,6 +56,9 @@ public:
     QVector<ChatMessage> GetAllMessages() const;
     QVector<ChatMessage> GetMessagesAtomic(int start, int count) const;
     qint64 GetEarliestTimestamp() const;
+    void UpdateMessageByTimestamp(qint64 ts, const std::function<void(ChatMessage &)> &mutator);
+    void MarkRecalled(qint64 ts);
+    void MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts);
 
 signals:
     void messageAdded(const ChatMessage &msg);

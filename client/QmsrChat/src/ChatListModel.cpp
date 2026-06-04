@@ -2,6 +2,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <climits>
+#include <ctime>
 
 ChatListModel::ChatListModel(QObject *parent)
     : QAbstractListModel(parent),
@@ -57,6 +58,20 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
             return msg.from_uid == _current_uid;
         case DisplayTimeRole:
             return FormatTime(msg.timestamp);
+        case TypeRole:
+            return msg.type;
+        case ImageIdRole:
+            return msg.image_id;
+        case ImagePathRole:
+            return msg.image_path;
+        case ImageWidthRole:
+            return msg.image_width;
+        case ImageHeightRole:
+            return msg.image_height;
+        case EditedRole:
+            return msg.edited;
+        case RecalledRole:
+            return msg.recalled;
         default:
             return QVariant();
     }
@@ -72,6 +87,13 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
     roles[StatusRole] = "status";
     roles[IsSelfRole] = "isSelf";
     roles[DisplayTimeRole] = "displayTime";
+    roles[TypeRole] = "messageType";
+    roles[ImageIdRole] = "imageId";
+    roles[ImagePathRole] = "imagePath";
+    roles[ImageWidthRole] = "imageWidth";
+    roles[ImageHeightRole] = "imageHeight";
+    roles[EditedRole] = "edited";
+    roles[RecalledRole] = "recalled";
     return roles;
 }
 
@@ -368,4 +390,37 @@ QString ChatListModel::FormatTime(qint64 timestamp) const
     {
         return dateTime.toString("yyyy-MM-dd hh:mm:ss");
     }
+}
+
+void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
+        const std::function<void(ChatMessage &)> &mutator)
+{
+    QMutexLocker lock(&_mutex);
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].timestamp == ts)
+        {
+            mutator(_messages[i]);
+            QModelIndex idx = index(i);
+            emit dataChanged(idx, idx);
+            return;
+        }
+    }
+}
+
+void ChatListModel::MarkRecalled(qint64 ts)
+{
+    UpdateMessageByTimestamp(ts, [](ChatMessage &m) {
+        m.recalled = true;
+        m.recalled_at = std::time(nullptr);
+    });
+}
+
+void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts)
+{
+    UpdateMessageByTimestamp(ts, [&](ChatMessage &m) {
+        m.content = new_content;
+        m.edited = true;
+        m.edited_at = edit_ts;
+    });
 }
