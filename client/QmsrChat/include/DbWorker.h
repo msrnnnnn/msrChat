@@ -24,6 +24,7 @@ public slots:
     void slot_get_messages(int uid1, int uid2, qint64 before_time, int limit);
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
+    void slot_delete_message_by_timestamp(qint64 ts);  // Phase 6
     void slot_stop();
     void slot_db_destroy();
     void stopAsync();
@@ -55,6 +56,7 @@ public:
     void GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
     void SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     void DeleteMessages(int uid1, int uid2);
+    void DeleteMessageByTimestamp(qint64 ts);  // Phase 6
 
 signals:
     void sig_messages_loaded(const QVector<ChatMessage> &messages);
@@ -69,6 +71,7 @@ signals:
     void sig_get_msgs(int uid1, int uid2, qint64 before_time, int limit);
     void sig_search_msgs(int uid1, int uid2, const QString &keyword, int limit);
     void sig_delete_msgs(int uid1, int uid2);
+    void sig_delete_msg_by_ts(qint64 ts);  // Phase 6
 
 private:
     DbThreadManager();

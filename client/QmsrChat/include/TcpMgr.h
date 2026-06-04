@@ -40,6 +40,10 @@ public:
 
     void slot_send_file_req(const FileReqStruct &req);
 
+    // Phase 6 — 撤回 / 编辑发送
+    void slot_send_chat_recall(const ChatRecallMsgStruct &req);
+    void slot_send_chat_edit(const ChatEditMsgStruct &req);
+
 signals:
     void sig_con_success(bool bsuccess);
     void sig_reconnected();

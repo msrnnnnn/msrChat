@@ -5,8 +5,10 @@
 #include "ChatController.h"
 #include "FileRecvMgr.h"
 #include "FileSendMgr.h"
+#include <QClipboard>
 #include <QDebug>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QTimer>
 
 /**
@@ -104,6 +106,10 @@ void ChatController::ConnectSignals()
     connect(TcpMgr::Instance(), &TcpMgr::sigChatEditAck, this, &ChatController::slotOnChatEditAck, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigChatRecallNotify, this, &ChatController::slotOnChatRecallNotify, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigChatEditNotify, this, &ChatController::slotOnChatEditNotify, Qt::QueuedConnection);
+
+    // Phase 6 — 把 sigSendRecallMsg 桥接到 TcpMgr 发送（sigSendEditMsg 已在 P3 用同样模式）
+    connect(this, &ChatController::sigSendRecallMsg,
+            TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall, Qt::QueuedConnection);
 }
 
 /**
@@ -655,4 +661,114 @@ QVariantList ChatController::getImageListForViewer() const
     }
 
     return list;
+}
+
+// === Phase 6 — 右键菜单 6 项 action 实现 ===
+
+/**
+ * @brief 菜单项：回复（v1 stub）
+ * @details 在输入框插入"回复 {from_uid}: "前缀；QML 端 onSigSetReplyContext 处理实际插入
+ */
+void ChatController::actionReply(qint64 timestamp)
+{
+    if (_chat_model == nullptr) return;
+    for (const auto &m : _chat_model->GetAllMessages())
+    {
+        if (m.timestamp == timestamp)
+        {
+            const QString prefix = QStringLiteral("回复 %1: ").arg(m.from_uid);
+            emit sigSetReplyContext(prefix);
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 菜单项：复制文字（v1 走系统剪贴板）
+ * @details QGuiApplication::clipboard() 跨平台，Windows / Linux / macOS 都可用
+ */
+void ChatController::actionCopyText(qint64 timestamp)
+{
+    if (_chat_model == nullptr) return;
+    for (const auto &m : _chat_model->GetAllMessages())
+    {
+        if (m.timestamp == timestamp)
+        {
+            QGuiApplication::clipboard()->setText(m.content);
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 菜单项：撤回（仅自方 + 2 分钟内）
+ * @details 构造 ChatRecallMsgStruct → emit sigSendRecallMsg → TcpMgr::slot_send_chat_recall
+ *          实际服务端校验 + DB 标记 + Notify 推送由 P7 补全
+ */
+void ChatController::actionRecall(qint64 timestamp)
+{
+    if (_chat_model == nullptr) return;
+    for (const auto &m : _chat_model->GetAllMessages())
+    {
+        if (m.timestamp == timestamp && m.from_uid == _current_uid)
+        {
+            ChatRecallMsgStruct req;
+            req.from_uid = _current_uid;
+            req.msg_timestamp = timestamp;
+            req.client_msg_id = m.client_msg_id;
+            emit sigSendRecallMsg(req);
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 菜单项：编辑（仅自方，2 分钟校验在 P7 服务端做）
+ * @details 长度校验本地做（避免显然非法的请求发到服务端），其他校验走服务端
+ */
+void ChatController::actionEdit(qint64 timestamp, const QString &newContent)
+{
+    if (newContent.isEmpty() || newContent.size() > 4096) return;
+    if (_chat_model == nullptr) return;
+    for (const auto &m : _chat_model->GetAllMessages())
+    {
+        if (m.timestamp == timestamp && m.from_uid == _current_uid)
+        {
+            ChatEditMsgStruct req;
+            req.from_uid = _current_uid;
+            req.msg_timestamp = timestamp;
+            req.new_content = newContent;
+            emit sigSendEditMsg(req);  // P3 已有的 signal
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 菜单项：另存为（仅图片，v1 stub 只 emit signal）
+ * @details QML 端 onSigShowSaveAsDialog 接住，弹 FileDialog 选目标路径
+ *          实际 copy 逻辑 v1 暂省略，事件 P8 / v2 补
+ */
+void ChatController::actionSaveAs(qint64 timestamp)
+{
+    if (_chat_model == nullptr) return;
+    for (const auto &m : _chat_model->GetAllMessages())
+    {
+        if (m.timestamp == timestamp && m.type == 1)
+        {
+            emit sigShowSaveAsDialog(m.image_path);
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 菜单项：删除（仅本地，不通知对端）
+ * @details model 移除 + DB 单条删除。**修复 plan bug** — 不用 DeleteMessages(uid1, uid2)
+ */
+void ChatController::actionDelete(qint64 timestamp)
+{
+    if (_chat_model == nullptr) return;
+    _chat_model->RemoveMessageByTimestamp(timestamp);
+    DbThreadManager::Instance().DeleteMessageByTimestamp(timestamp);
 }

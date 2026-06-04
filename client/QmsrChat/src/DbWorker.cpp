@@ -168,6 +168,33 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
     }
 }
 
+// === Phase 6 — 单条删除 ===
+
+void DbWorker::slot_delete_message_by_timestamp(qint64 ts)
+{
+    if (_stop_flag.load())
+    {
+        qDebug() << "DbWorker is stopping, ignoring delete message by timestamp request";
+        emit sig_messages_deleted(false);
+        return;
+    }
+
+    if (!_dbInitialized)
+    {
+        emit sig_error(QString("Database not initialized"));
+        emit sig_messages_deleted(false);
+        return;
+    }
+
+    bool success = DbService::Instance().DeleteMessageByTimestamp(ts);
+    emit sig_messages_deleted(success);
+
+    if (!success)
+    {
+        emit sig_error(QString("Failed to delete message by timestamp: %1").arg(ts));
+    }
+}
+
 DbThreadManager &DbThreadManager::Instance()
 {
     static DbThreadManager instance;
@@ -243,6 +270,7 @@ bool DbThreadManager::Init(const QString &db_path)
     connect(this, &DbThreadManager::sig_get_msgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_search_msgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_delete_msgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_delete_msg_by_ts, _worker, &DbWorker::slot_delete_message_by_timestamp, Qt::QueuedConnection);
 
     _thread->start();
 
@@ -317,4 +345,15 @@ void DbThreadManager::DeleteMessages(int uid1, int uid2)
     }
 
     emit sig_delete_msgs(uid1, uid2);
+}
+
+void DbThreadManager::DeleteMessageByTimestamp(qint64 ts)
+{
+    if (_worker == nullptr)
+    {
+        qWarning() << "DbThreadManager not initialized";
+        return;
+    }
+
+    emit sig_delete_msg_by_ts(ts);
 }

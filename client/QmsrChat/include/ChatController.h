@@ -47,6 +47,14 @@ public:
     Q_INVOKABLE void openImageViewer(const QString &imageId);
     Q_INVOKABLE QVariantList getImageListForViewer() const;
 
+    // Phase 6 — 右键菜单 6 项 action
+    Q_INVOKABLE void actionReply(qint64 timestamp);
+    Q_INVOKABLE void actionCopyText(qint64 timestamp);
+    Q_INVOKABLE void actionRecall(qint64 timestamp);
+    Q_INVOKABLE void actionEdit(qint64 timestamp, const QString &newContent);
+    Q_INVOKABLE void actionSaveAs(qint64 timestamp);
+    Q_INVOKABLE void actionDelete(qint64 timestamp);
+
     void drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs);
 
     int GetCurrentUid() const;
@@ -70,6 +78,10 @@ signals:
     void sigSendImageMsg(const ChatImageStruct &msg);
     void sigSendEditMsg(const ChatEditMsgStruct &msg);
     void sigShowImageViewer(QVariantList imageList, int currentIndex);
+    // Phase 6 — 菜单 action signals
+    void sigSendRecallMsg(const ChatRecallMsgStruct &msg);
+    void sigSetReplyContext(const QString &prefix);
+    void sigShowSaveAsDialog(const QString &imagePath);
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);

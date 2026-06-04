@@ -225,6 +225,36 @@ void TcpMgr::slot_send_file_req(const FileReqStruct &req)
     }
 }
 
+// === Phase 6 — 撤回 / 编辑发送（套用 slot_send_chat_text_req 模板）===
+
+void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
+{
+    qmsrchat::RecallMsg msg;
+    msg.set_from_uid(req.from_uid);
+    msg.set_msg_timestamp(req.msg_timestamp);
+    msg.set_client_msg_id(req.client_msg_id.toStdString());
+
+    std::string serialized;
+    if (msg.SerializeToString(&serialized))
+    {
+        slot_send_data(RequestType::MSG_CHAT_RECALL, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    }
+}
+
+void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
+{
+    qmsrchat::EditMsg msg;
+    msg.set_from_uid(req.from_uid);
+    msg.set_msg_timestamp(req.msg_timestamp);
+    msg.set_new_content(req.new_content.toStdString());
+
+    std::string serialized;
+    if (msg.SerializeToString(&serialized))
+    {
+        slot_send_data(RequestType::MSG_CHAT_EDIT, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    }
+}
+
 void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
 {
     const auto req_type = static_cast<RequestType>(msg_id);

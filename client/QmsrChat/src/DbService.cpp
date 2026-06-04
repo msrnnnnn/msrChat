@@ -587,3 +587,30 @@ bool DbService::DeleteMessages(int uid1, int uid2)
 
     return true;
 }
+
+/**
+ * @brief 按时间戳删除单条消息（Phase 6）
+ * @param ts 消息时间戳（毫秒）
+ * @return 是否删除成功
+ */
+bool DbService::DeleteMessageByTimestamp(qint64 ts)
+{
+    QSqlDatabase &db = GetOrCreateThreadConnection();
+    if (!db.isOpen())
+    {
+        qDebug() << "Database not open in DeleteMessageByTimestamp";
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare("DELETE FROM messages WHERE timestamp = ?");
+    query.bindValue(0, ts);
+
+    if (!query.exec())
+    {
+        qDebug() << "Failed to delete message by timestamp:" << query.lastError().text();
+        return false;
+    }
+
+    return true;
+}

@@ -49,6 +49,10 @@ Rectangle {
                         content: model.content
                         timestamp: model.displayTime
                         status: model.status
+                        onRightClicked: function(localX, localY, ts) {
+                            chatViewRoot.showActionMenu(localX, localY, ts,
+                                /*isImage*/ false, model.isSelf, model.content)
+                        }
                     }
                 }
                 Component {
@@ -64,6 +68,10 @@ Rectangle {
                         recalled: model.recalled
                         timestamp: model.displayTime
                         onClicked: chatController.openImageViewer(model.imageId)
+                        onRightClicked: function(localX, localY, ts) {
+                            chatViewRoot.showActionMenu(localX, localY, ts,
+                                /*isImage*/ true, model.isSelf, model.content)
+                        }
                     }
                 }
             }
@@ -414,6 +422,13 @@ Rectangle {
                 fileProgressModel.append({"task_id": task_id, "filename": "接收失败", "progress": -1, "error": error})
             }
         }
+
+        // Phase 6 — "回复"菜单项触发：在输入框插入"回复 XXX: "前缀并 focus
+        function onSigSetReplyContext(prefix) {
+            messageInput.text = prefix + messageInput.text
+            messageInput.cursorPosition = prefix.length
+            messageInput.forceActiveFocus()
+        }
     }
 
     Connections {
@@ -461,5 +476,54 @@ Rectangle {
             imageViewerLoader.currentIndex = idx
             imageViewerLoader.active = true
         }
+    }
+
+    // === Phase 6 — 右键消息气泡弹操作菜单 ===
+
+    // 菜单外区透明 MouseArea — 仅 active 时显示，z 999（低于 menuLoader z:1000，避免盖住菜单）
+    MouseArea {
+        anchors.fill: parent
+        z: 999
+        visible: actionMenuLoader.active
+        onClicked: actionMenuLoader.active = false
+    }
+
+    Loader {
+        id: actionMenuLoader
+        active: false
+        z: 1000
+        x: menuX
+        y: menuY
+        sourceComponent: MessageActionMenu {
+            isImage: actionMenuLoader.menuIsImage
+            isOwn: actionMenuLoader.menuIsOwn
+            messageTimestamp: actionMenuLoader.menuTimestamp
+            hasCaption: actionMenuLoader.menuHasCaption
+            onReplyRequested: { chatController.actionReply(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
+            onCopyTextRequested: { chatController.actionCopyText(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
+            onRecallRequested: { chatController.actionRecall(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
+            onEditRequested: { actionMenuLoader.active = false /* v1 stub */ }
+            onSaveAsRequested: { chatController.actionSaveAs(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
+            onDeleteRequested: { chatController.actionDelete(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
+        }
+        property real menuX: 0
+        property real menuY: 0
+        property int menuTimestamp: 0
+        property bool menuIsImage: false
+        property bool menuIsOwn: false
+        property bool menuHasCaption: true
+    }
+
+    // 在 chatViewRoot 上暴露 showActionMenu 函数（bubble 的 onRightClicked 调用）
+    function showActionMenu(localX, localY, ts, isImage, isOwn, content) {
+        // 简化坐标：bubbleRect 锚定在 messageListView.contentItem 顶部，x 与 delegate x 一致
+        // localX/Y 来自 bubbleRect 局部坐标，加 messageListView.contentX/Y 转 chatViewRoot 坐标
+        actionMenuLoader.menuX = Math.max(0, messageListView.contentX + localX)
+        actionMenuLoader.menuY = Math.max(0, messageListView.contentY + localY)
+        actionMenuLoader.menuTimestamp = ts
+        actionMenuLoader.menuIsImage = isImage
+        actionMenuLoader.menuIsOwn = isOwn
+        actionMenuLoader.menuHasCaption = (content && content.length > 0)
+        actionMenuLoader.active = true
     }
 }

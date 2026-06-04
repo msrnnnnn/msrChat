@@ -424,3 +424,45 @@ void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edi
         m.edited_at = edit_ts;
     });
 }
+
+// === Phase 6 ===
+
+/**
+ * @brief 按时间戳删除单条消息（仅本地）
+ * @details 走 beginRemoveRows / endRemoveRows 让 QML ListView 正确更新。
+ *          不通知对端（删除作用域：本地）。
+ */
+void ChatListModel::RemoveMessageByTimestamp(qint64 ts)
+{
+    QMutexLocker lock(&_mutex);
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].timestamp == ts)
+        {
+            beginRemoveRows(QModelIndex(), i, i);
+            _messages.removeAt(i);
+            endRemoveRows();
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 按时间戳查找消息
+ * @param ts 消息时间戳（毫秒）
+ * @param out 找到时填充
+ * @return true 找到；false 未找到
+ */
+bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
+{
+    QMutexLocker lock(&_mutex);
+    for (const auto &m : _messages)
+    {
+        if (m.timestamp == ts)
+        {
+            out = m;
+            return true;
+        }
+    }
+    return false;
+}

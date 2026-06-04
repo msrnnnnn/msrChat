@@ -95,6 +95,18 @@ Item {
         z: -1
     }
 
+    // 右键 MouseArea（Phase 6）— 召唤 MessageActionMenu
+    MouseArea {
+        anchors.fill: bubbleRect
+        acceptedButtons: Qt.RightButton
+        z: 1
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                messageBubble.rightClicked(mouse.x, mouse.y, messageBubble.timestamp)
+            }
+        }
+    }
+
     SequentialAnimation {
         id: appearAnimation
         running: false
@@ -118,4 +130,6 @@ Item {
     Component.onCompleted: {
         appearAnimation.running = true
     }
+
+    signal rightClicked(real x, real y, string timestamp)
 }

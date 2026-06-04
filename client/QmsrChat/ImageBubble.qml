@@ -168,5 +168,18 @@ Item {
         }
     }
 
+    // 右键 MouseArea（Phase 6）— 与左键 MouseArea（line 128）不冲突，acceptedButtons 不同
+    MouseArea {
+        anchors.fill: bubbleRect
+        acceptedButtons: Qt.RightButton
+        z: 1
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                imageBubble.rightClicked(mouse.x, mouse.y, imageBubble.timestamp)
+            }
+        }
+    }
+
     signal clicked()
+    signal rightClicked(real x, real y, string timestamp)
 }
