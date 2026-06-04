@@ -77,7 +77,31 @@ bool ImageStorage::Insert(const ImageRecord &rec)
     return rc == SQLITE_DONE;
 }
 
-bool ImageStorage::AppendChunk(const std::string &, int64_t, const uint8_t *, size_t) { return false; }
+bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
+                               const uint8_t *data, size_t len)
+{
+    if (!data || len == 0) return false;
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+    // SQLite 没有直接的 BLOB 区间替换；用 SUBSTR 拼接
+    //   blob = prefix || chunk || suffix
+    //   其中 prefix = SUBSTR(blob, 1, offset)（offset 从 0 开始 → prefix 长度 = offset）
+    //   其中 suffix = SUBSTR(blob, offset + len + 1)（1-indexed，offset 后的剩余部分）
+    const char *sql =
+        "UPDATE image_storage "
+        "SET blob = SUBSTR(blob, 1, ?) || ? || SUBSTR(blob, ?) "
+        "WHERE image_id = ?;";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int64(stmt, 1, offset);  // prefix length
+    sqlite3_bind_blob(stmt, 2, data, (int)len, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 3, offset + (int64_t)len + 1);  // suffix start (1-indexed)
+    sqlite3_bind_text(stmt, 4, image_id.c_str(), -1, SQLITE_TRANSIENT);
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_DONE;
+}
 
 bool ImageStorage::MarkCompleted(const std::string &image_id)
 {
