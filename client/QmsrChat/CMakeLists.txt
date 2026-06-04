@@ -235,6 +235,7 @@ enable_testing()
 
 add_executable(QmsrChatTests
     tests/test_RingBuffer.cpp
+    tests/test_ChatListModel.cpp
 )
 
 target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
