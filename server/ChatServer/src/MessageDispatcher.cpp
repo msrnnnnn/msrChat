@@ -738,6 +738,20 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
             server->ForwardRawMessage(to_uid, MSG_FILE_CHUNK, std::string(body_view));
         }
 
+        // Image mode: write chunk bytes to image_storage (in addition to forwarding)
+        if (task->IsImage())
+        {
+            const std::string &data = chunk.data();
+            if (!data.empty())
+            {
+                ImageStorage::Instance().AppendChunk(
+                    task->GetImageId(),
+                    chunk.offset(),
+                    reinterpret_cast<const uint8_t *>(data.data()),
+                    data.size());
+            }
+        }
+
         spdlog::debug("[MessageDispatcher] FileChunk forwarded: task_id={}, to_uid={}", task_id, to_uid);
         session.ContinueReading();
     }
@@ -796,6 +810,12 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
 
         if (fileAck.received() >= task->GetTotalSize())
         {
+            // Image mode: mark image_storage complete (sets expires_at = now + 7d)
+            if (task->IsImage())
+            {
+                ImageStorage::Instance().MarkCompleted(task->GetImageId());
+                spdlog::info("[MessageDispatcher] image upload complete: {}", task->GetImageId());
+            }
             FileTransfer::Instance().RemoveTask(task_id);
             spdlog::info("[MessageDispatcher] File transfer completed (received={}, total={}), task_id={} removed",
                          fileAck.received(), task->GetTotalSize(), task_id);
