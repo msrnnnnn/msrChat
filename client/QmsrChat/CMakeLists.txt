@@ -115,6 +115,7 @@ set(PROJECT_SOURCES
         include/TimerBtn.h
         include/ClickedLabel.h
         include/ChatListModel.h
+        include/ImageDownloadMgr.h
         include/DbService.h
         include/DbWorker.h
         include/RingBuffer.h
@@ -142,6 +143,7 @@ set(PROJECT_SOURCES
         src/TimerBtn.cpp
         src/ClickedLabel.cpp
         src/ChatListModel.cpp
+        src/ImageDownloadMgr.cpp
         src/DbService.cpp
         src/DbWorker.cpp
         src/ChatController.cpp
@@ -238,6 +240,8 @@ add_executable(QmsrChatTests
     tests/test_ChatListModel.cpp
     src/ChatListModel.cpp
     include/ChatListModel.h
+    src/ImageDownloadMgr.cpp
+    include/ImageDownloadMgr.h
 )
 
 # AUTOMOC for the test target: ChatListModel.h has Q_OBJECT, so its moc file
@@ -245,7 +249,7 @@ add_executable(QmsrChatTests
 # per-target and per-file to ensure AUTOMOC triggers (the global
 # CMAKE_AUTOMOC=ON didn't auto-apply to this target's new sources).
 set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
-set_source_files_properties(include/ChatListModel.h PROPERTIES AUTOMOC ON)
+set_source_files_properties(include/ChatListModel.h include/ImageDownloadMgr.h PROPERTIES AUTOMOC ON)
 
 target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(QmsrChatTests PRIVATE
