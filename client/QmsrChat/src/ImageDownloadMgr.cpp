@@ -54,7 +54,7 @@ void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t
         if (it != _pending.end() && it->retry_count < kMaxRetries)
         {
             it->retry_count++;
-            QTimer::singleShot(kRetryIntervalMs, this, [image_id, rc = it->retry_count]() {
+            QTimer::singleShot(kRetryIntervalMs, this, [this, image_id, rc = it->retry_count]() {
                 Request(image_id, rc);
             });
         }
