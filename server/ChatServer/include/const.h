@@ -17,6 +17,12 @@ constexpr uint16_t MSG_CHAT_LOGIN = 1005;        ///< 聊天会话登录
 constexpr uint16_t MSG_CHAT_TEXT = 1006;         ///< 聊天文本消息
 constexpr uint16_t MSG_CHAT_ACK = 1007;          ///< 聊天消息确认
 constexpr uint16_t MSG_OFFLINE_ACK = 1008;       ///< 离线消息分页确认
+constexpr uint16_t MSG_CHAT_IMAGE         = 1009;  ///< 图片消息
+constexpr uint16_t MSG_CHAT_RECALL        = 1010;  ///< 消息撤回
+constexpr uint16_t MSG_CHAT_EDIT          = 1011;  ///< 消息编辑
+constexpr uint16_t MSG_IMAGE_DOWNLOAD_REQ = 1012;  ///< 离线图片下载请求
+constexpr uint16_t MSG_CHAT_RECALL_NOTIFY = 1013;  ///< 撤回通知（server→client）
+constexpr uint16_t MSG_CHAT_EDIT_NOTIFY   = 1014;  ///< 编辑通知（server→client）
 constexpr uint16_t MSG_FILE_REQ = 2001;          ///< 文件传输请求
 constexpr uint16_t MSG_FILE_RSP = 2002;          ///< 文件传输响应(断点续传)
 constexpr uint16_t MSG_FILE_CHUNK = 2003;        ///< 文件数据分片(Protobuf 消息体)
@@ -53,5 +59,14 @@ constexpr int ERR_EMAIL_NOT_MATCH = 1008;
 constexpr int ERR_PASSWD_UPDATE = 1009;
 constexpr int ERR_DB = 1011;
 constexpr int ERR_NETWORK = 2;
+
+// 图片 + 撤回/编辑 错误码
+constexpr int ERR_RECALL_TIMEOUT     = 4001;  ///< 超过 2 分钟无法撤回
+constexpr int ERR_RECALL_NOT_OWNER   = 4002;  ///< 非本人消息无法撤回
+constexpr int ERR_EDIT_TIMEOUT       = 4003;  ///< 超过 2 分钟无法编辑
+constexpr int ERR_EDIT_NOT_OWNER     = 4004;  ///< 非本人消息无法编辑
+constexpr int ERR_EDIT_TOO_LONG      = 4005;  ///< 编辑内容超长
+constexpr int ERR_MSG_ALREADY_RECALLED = 4006; ///< 目标消息已撤回
+constexpr int ERR_IMAGE_EXPIRED      = 4040;  ///< 图片 7 天过期
 
 #endif // CONST_H
