@@ -238,6 +238,7 @@ enable_testing()
 add_executable(QmsrChatTests
     tests/test_RingBuffer.cpp
     tests/test_ChatListModel.cpp
+    tests/test_ImageDownloadMgr.cpp
     src/ChatListModel.cpp
     include/ChatListModel.h
     src/ImageDownloadMgr.cpp
