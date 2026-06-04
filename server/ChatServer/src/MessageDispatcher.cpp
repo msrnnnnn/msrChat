@@ -2,12 +2,14 @@
 #include "CServer.h"
 #include "CSession.h"
 #include "FileTransfer.h"
+#include "ImageStorage.h"
 #include "Message.pb.h"
 #include "MessageRouter.h"
 #include "SQLiteMgr.h"
 #include "TokenManager.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
+#include <ctime>
 #include <string_view>
 
 namespace
@@ -564,6 +566,45 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
         // 记录 P2P 路由映射，用于后续转发
         FileTransfer::Instance().AddTask(
             task_id, session.GetUserUid(), to_uid, filename, total_size);
+
+        // Image mode detection: filename is "{uuid}.{ext}" → seed ImageStorage
+        // (client uses image_id as task_id and encodes format in filename)
+        if (filename.find('.') != std::string::npos)
+        {
+            size_t dot_pos = filename.find('.');
+            std::string image_id = filename.substr(0, dot_pos);
+            std::string ext = filename.substr(dot_pos + 1);
+            // Validate UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, 36 chars with 4 dashes)
+            if (image_id.size() == 36 && image_id[8] == '-' && image_id[13] == '-'
+                && image_id[18] == '-' && image_id[23] == '-')
+            {
+                auto task = FileTransfer::Instance().GetTask(task_id);
+                if (task)
+                {
+                    task->SetIsImage(true);
+                    task->SetImageId(image_id);
+                    ImageRecord rec;
+                    rec.image_id = image_id;
+                    rec.from_uid = session.GetUserUid();
+                    rec.to_uid = to_uid;
+                    rec.ext = ext;
+                    rec.size = total_size;
+                    rec.md5 = fileReq.md5();
+                    rec.width = 0;
+                    rec.height = 0;
+                    rec.created_at = std::time(nullptr);
+                    rec.expires_at = std::time(nullptr);
+                    if (!ImageStorage::Instance().Insert(rec))
+                    {
+                        spdlog::warn("HandleFileReq: ImageStorage Insert failed for {}", image_id);
+                    }
+                    else
+                    {
+                        spdlog::info("HandleFileReq: image mode, seeded image_storage for {}", image_id);
+                    }
+                }
+            }
+        }
 
         // 转发给接收方 B
         auto server = session.GetServer();
