@@ -595,3 +595,64 @@ QVariantMap ChatController::ChatMessageToVariant(const ChatMessage &msg)
     map["isSelf"] = msg.from_uid == _current_uid;
     return map;
 }
+
+/**
+ * @brief 打开图片查看器（Phase 5）
+ * @param imageId 触发查看的图片 UUID
+ * @details 扫描当前会话所有 type==1 且未撤回的图片，构造 QVariantList
+ *          并发出 sigShowImageViewer 信号。QML 端用 Loader 接收并弹出 ImageViewer。
+ *          文本消息和已撤回图片不进入 Viewer 序列（spec section 6.2 v1 决策）。
+ */
+void ChatController::openImageViewer(const QString &imageId)
+{
+    QVariantList list;
+    int current = 0;
+    int idx = 0;
+
+    if (_chat_model != nullptr)
+    {
+        const auto messages = _chat_model->GetAllMessages();  // 拷贝，安全
+        for (const auto &m : messages)
+        {
+            if (m.type != 1) continue;  // 1=image
+            if (m.recalled) continue;   // 撤回图片不进 Viewer
+            if (m.image_id == imageId) current = idx;
+
+            QVariantMap entry;
+            entry["imageId"] = m.image_id;
+            entry["imagePath"] = m.image_path;
+            entry["caption"] = m.content;  // caption 复用 content 字段（P3 决策）
+            list.append(entry);
+            ++idx;
+        }
+    }
+
+    emit sigShowImageViewer(list, current);
+}
+
+/**
+ * @brief 获取当前会话所有图片列表（供 ImageViewer 初始化 / 刷新用）
+ * @return QVariantList，每项 {imageId, imagePath, caption}
+ */
+QVariantList ChatController::getImageListForViewer() const
+{
+    QVariantList list;
+
+    if (_chat_model != nullptr)
+    {
+        const auto messages = _chat_model->GetAllMessages();
+        for (const auto &m : messages)
+        {
+            if (m.type != 1) continue;
+            if (m.recalled) continue;
+
+            QVariantMap entry;
+            entry["imageId"] = m.image_id;
+            entry["imagePath"] = m.image_path;
+            entry["caption"] = m.content;
+            list.append(entry);
+        }
+    }
+
+    return list;
+}

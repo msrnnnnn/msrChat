@@ -37,13 +37,35 @@ Rectangle {
 
             model: chatModel
 
-            delegate: MessageBubble {
+            delegate: Loader {
                 width: messageListView.width - 12
-                viewWidth: chatViewRoot.width
-                isSelf: model.isSelf
-                content: model.content
-                timestamp: model.displayTime
-                status: model.status
+                sourceComponent: model.messageType === 1 ? imageBubbleComponent : textBubbleComponent
+
+                Component {
+                    id: textBubbleComponent
+                    MessageBubble {
+                        viewWidth: chatViewRoot.width
+                        isSelf: model.isSelf
+                        content: model.content
+                        timestamp: model.displayTime
+                        status: model.status
+                    }
+                }
+                Component {
+                    id: imageBubbleComponent
+                    ImageBubble {
+                        viewWidth: chatViewRoot.width
+                        isSelf: model.isSelf
+                        imagePath: model.imagePath
+                        caption: model.content
+                        imageWidth: model.imageWidth
+                        imageHeight: model.imageHeight
+                        edited: model.edited
+                        recalled: model.recalled
+                        timestamp: model.displayTime
+                        onClicked: chatController.openImageViewer(model.imageId)
+                    }
+                }
             }
 
             ScrollBar.vertical: ScrollBar {
@@ -415,5 +437,29 @@ Rectangle {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.margins: 5
+    }
+
+    // ImageViewer modal（Phase 5）— 接收 sigShowImageViewer 信号弹出
+    Loader {
+        id: imageViewerLoader
+        anchors.fill: parent
+        active: false
+        z: 999
+        sourceComponent: ImageViewer {
+            imageList: imageViewerLoader.imageList
+            currentIndex: imageViewerLoader.currentIndex
+            onCloseRequested: imageViewerLoader.active = false
+        }
+        property var imageList: []
+        property int currentIndex: 0
+    }
+
+    Connections {
+        target: chatController
+        function onSigShowImageViewer(list, idx) {
+            imageViewerLoader.imageList = list
+            imageViewerLoader.currentIndex = idx
+            imageViewerLoader.active = true
+        }
     }
 }

@@ -126,6 +126,8 @@ set(PROJECT_SOURCES
         # QML 视图 (严格锁定在根目录)
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageBubble.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImageBubble.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
 
         # 实现文件
         src/MainWindow.cpp

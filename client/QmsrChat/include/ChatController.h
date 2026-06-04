@@ -44,6 +44,8 @@ public:
     Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void searchMessages(const QString &keyword);
     Q_INVOKABLE void initialize();
+    Q_INVOKABLE void openImageViewer(const QString &imageId);
+    Q_INVOKABLE QVariantList getImageListForViewer() const;
 
     void drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs);
 
@@ -67,6 +69,7 @@ signals:
     void sigHasMoreHistoryChanged();
     void sigSendImageMsg(const ChatImageStruct &msg);
     void sigSendEditMsg(const ChatEditMsgStruct &msg);
+    void sigShowImageViewer(QVariantList imageList, int currentIndex);
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
