@@ -237,7 +237,15 @@ add_executable(QmsrChatTests
     tests/test_RingBuffer.cpp
     tests/test_ChatListModel.cpp
     src/ChatListModel.cpp
+    include/ChatListModel.h
 )
+
+# AUTOMOC for the test target: ChatListModel.h has Q_OBJECT, so its moc file
+# (moc_ChatListModel.cpp) must be compiled into the test binary. Set both
+# per-target and per-file to ensure AUTOMOC triggers (the global
+# CMAKE_AUTOMOC=ON didn't auto-apply to this target's new sources).
+set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
+set_source_files_properties(include/ChatListModel.h PROPERTIES AUTOMOC ON)
 
 target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(QmsrChatTests PRIVATE
