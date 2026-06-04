@@ -108,6 +108,7 @@ set(SERVER_SOURCES
     src/SQLiteMgr.cpp
     src/UserData.cpp
     src/OfflineStorage.cpp
+    src/ImageStorage.cpp
 )
 
 # =============================================================

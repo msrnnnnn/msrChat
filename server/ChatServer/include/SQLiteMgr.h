@@ -214,6 +214,7 @@ public:
     static SQLiteMgr &Instance();
 
     bool Init(const std::string &db_path, int pool_size = 8);
+    std::shared_ptr<SQLiteConnectionPool> GetPool() const { return _pool; }
     void Shutdown();
 
     bool SaveMessage(const ChatMessage &msg);
