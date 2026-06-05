@@ -17,7 +17,7 @@ Rectangle {
 
     property bool isImage: false
     property bool isOwn: false
-    property qint64 messageTimestamp: 0   // 毫秒
+    property double messageTimestamp: 0  // 毫秒（QML 不支持 qint64，用 double；JS Number 53-bit 精度足够毫秒时间戳）
     property bool hasCaption: true
 
     readonly property int recallWindowSec: 120   // 2 分钟
