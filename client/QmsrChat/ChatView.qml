@@ -21,6 +21,7 @@ Rectangle {
     property int currentUid: chatController ? chatController.currentUid : 0
     property int targetUid: chatController ? chatController.targetUid : 0
     property bool isConnected: chatController ? chatController.isConnected : false
+    property string pendingImagePath: ""  // 待发送图片路径（选中后内嵌预览）
 
     ColumnLayout {
         anchors.fill: parent
@@ -103,6 +104,85 @@ Rectangle {
             }
         }
 
+        // 图片内嵌预览条（选图后显示在输入区上方）
+        Rectangle {
+            id: imagePreviewBar
+            Layout.fillWidth: true
+            Layout.preferredHeight: pendingImagePath !== "" ? 72 : 0
+            color: "#F0F4F8"
+            visible: pendingImagePath !== ""
+            clip: true
+
+            Behavior on Layout.preferredHeight {
+                NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
+
+                // 缩略图
+                Image {
+                    source: pendingImagePath
+                    Layout.preferredWidth: 56
+                    Layout.preferredHeight: 56
+                    fillMode: Image.PreserveAspectCrop
+                    clip: true
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 6
+                        color: "transparent"
+                        border.width: 1
+                        border.color: "#CCCCCC"
+                    }
+                }
+
+                // Caption 输入
+                TextField {
+                    id: inlineCaptionInput
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("添加图片说明（可选）")
+                    maximumLength: 200
+                    font.pixelSize: 13
+                    background: Rectangle {
+                        color: "#FFFFFF"
+                        radius: 6
+                        border.width: 1
+                        border.color: "#DDDDDD"
+                    }
+                }
+
+                // 发送图片按钮
+                Button {
+                    text: qsTr("发送")
+                    Layout.preferredWidth: 60
+                    Layout.preferredHeight: 36
+                    highlighted: true
+                    onClicked: {
+                        if (chatController) {
+                            chatController.sendImage(pendingImagePath, inlineCaptionInput.text)
+                        }
+                        pendingImagePath = ""
+                        inlineCaptionInput.text = ""
+                    }
+                }
+
+                // 取消按钮
+                Button {
+                    text: qsTr("✕")
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    flat: true
+                    onClicked: {
+                        pendingImagePath = ""
+                        inlineCaptionInput.text = ""
+                    }
+                }
+            }
+        }
+
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
@@ -175,6 +255,37 @@ Rectangle {
             }
 
             Button {
+                id: imageButton
+                anchors.right: fileButton.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: 36
+                height: 36
+                text: qsTr("🖼️")
+                font.pixelSize: 16
+                enabled: isConnected
+
+                contentItem: Text {
+                    text: parent.text
+                    color: parent.enabled ? "#666666" : "#A0A0A0"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font: parent.font
+                }
+
+                background: Rectangle {
+                    color: "#F0F0F0"
+                    radius: 8
+                    border.width: 1
+                    border.color: "#E0E0E0"
+                }
+
+                onClicked: {
+                    imageFileDialog.open()
+                }
+            }
+
+            Button {
                 id: fileButton
                 anchors.right: sendButton.left
                 anchors.bottom: parent.bottom
@@ -219,11 +330,21 @@ Rectangle {
         }
     }
 
+    FileDialog {
+        id: imageFileDialog
+        title: "选择图片"
+        nameFilters: ["图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp)"]
+        onAccepted: {
+            pendingImagePath = selectedFile.toString()
+        }
+    }
+
     Rectangle {
         id: errorBanner
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: inputArea.top
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 130  // inputArea height
         height: 0
         color: "#FF5252"
         visible: height > 0

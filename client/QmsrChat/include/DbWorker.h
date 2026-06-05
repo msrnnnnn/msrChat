@@ -21,6 +21,7 @@ public slots:
     void slot_init(const QString &db_path);
     void slot_save_message(const ChatMessage &msg);
     void slot_update_message_status(const QString &client_msg_id, int status);
+    void slot_update_image_path(const QString &image_id, const QString &local_path);
     void slot_get_messages(int uid1, int uid2, qint64 before_time, int limit);
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
@@ -53,6 +54,7 @@ public:
 
     void SaveMessage(const ChatMessage &msg);
     void UpdateMessageStatus(const QString &client_msg_id, int status);
+    void UpdateImagePath(const QString &image_id, const QString &local_path);
     void GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
     void SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     void DeleteMessages(int uid1, int uid2);
@@ -68,6 +70,7 @@ signals:
     void sig_destroy_db();
     void sig_save_msg(const ChatMessage &msg);
     void sig_update_msg_status(const QString &client_msg_id, int status);
+    void sig_update_image_path(const QString &image_id, const QString &local_path);
     void sig_get_msgs(int uid1, int uid2, qint64 before_time, int limit);
     void sig_search_msgs(int uid1, int uid2, const QString &keyword, int limit);
     void sig_delete_msgs(int uid1, int uid2);

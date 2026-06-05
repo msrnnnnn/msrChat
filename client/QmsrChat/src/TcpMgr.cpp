@@ -256,6 +256,41 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
     }
 }
 
+void TcpMgr::slot_send_chat_image(const ChatImageStruct &msg)
+{
+    qmsrchat::ImageMsg imgMsg;
+    imgMsg.set_from_uid(msg.from_uid);
+    imgMsg.set_to_uid(msg.to_uid);
+    imgMsg.set_image_id(msg.image_id.toStdString());
+    imgMsg.set_caption(msg.caption.toStdString());
+    imgMsg.set_timestamp(msg.timestamp);
+    imgMsg.set_width(msg.width);
+    imgMsg.set_height(msg.height);
+    imgMsg.set_ext(msg.ext.toStdString());
+    imgMsg.set_size(msg.size);
+    imgMsg.set_md5(msg.md5.toStdString());
+
+    std::string serialized;
+    if (imgMsg.SerializeToString(&serialized))
+    {
+        slot_send_data(RequestType::MSG_CHAT_IMAGE,
+                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    }
+}
+
+void TcpMgr::slot_send_image_download_req(const QString &image_id)
+{
+    qmsrchat::ImageDownloadReq req;
+    req.set_image_id(image_id.toStdString());
+
+    std::string serialized;
+    if (req.SerializeToString(&serialized))
+    {
+        slot_send_data(RequestType::MSG_IMAGE_DOWNLOAD_REQ,
+                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    }
+}
+
 void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
 {
     const auto req_type = static_cast<RequestType>(msg_id);

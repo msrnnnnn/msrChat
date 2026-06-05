@@ -94,6 +94,8 @@ bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
         return false;
     }
 
+    sqlite3_busy_timeout(*db, 5000);  // 5 second busy timeout for concurrent access
+
     return true;
 }
 
@@ -309,7 +311,9 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             content TEXT NOT NULL,
             timestamp INTEGER NOT NULL,
             status INTEGER DEFAULT 0,
-            client_msg_id TEXT DEFAULT ''
+            client_msg_id TEXT DEFAULT '',
+            type INTEGER DEFAULT 0,
+            image_id TEXT DEFAULT ''
         );
         
         CREATE TABLE IF NOT EXISTS file_transfers (
@@ -395,6 +399,26 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
                 spdlog::warn("[SQLiteMgr] P7 migration failed: {} (err={})", p7_sql, p7_err_str);
             }
             // duplicate column 视为成功（旧库已有）
+        }
+    }
+
+    // === Phase D — offline_messages 表增 type + image_id 列 ===
+    const char *pd_migrations[] = {
+        "ALTER TABLE offline_messages ADD COLUMN type INTEGER DEFAULT 0",
+        "ALTER TABLE offline_messages ADD COLUMN image_id TEXT DEFAULT ''"
+    };
+    for (const char *pd_sql : pd_migrations)
+    {
+        char *pd_err = nullptr;
+        int pd_rc = sqlite3_exec(db, pd_sql, nullptr, nullptr, &pd_err);
+        if (pd_rc != SQLITE_OK && pd_err)
+        {
+            std::string pd_err_str(pd_err);
+            sqlite3_free(pd_err);
+            if (pd_err_str.find("duplicate column") == std::string::npos)
+            {
+                spdlog::warn("[SQLiteMgr] PD migration failed: {} (err={})", pd_sql, pd_err_str);
+            }
         }
     }
 
@@ -1021,7 +1045,7 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(
-        db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status, client_msg_id) VALUES (?, ?, ?, ?, ?, ?)");
+        db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status, client_msg_id, type, image_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -1029,10 +1053,20 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
 
     sqlite3_bind_int(stmt, 1, msg.from_uid);
     sqlite3_bind_int(stmt, 2, msg.to_uid);
-    sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
+    if (msg.type == 1)
+    {
+        // 图片消息：content 存 Base64 编码的 protobuf binary，用 blob 绑定保留 \0
+        sqlite3_bind_blob(stmt, 3, msg.content.data(), static_cast<int>(msg.content.size()), SQLITE_TRANSIENT);
+    }
+    else
+    {
+        sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
+    }
     sqlite3_bind_int64(stmt, 4, msg.timestamp);
     sqlite3_bind_int(stmt, 5, msg.status);
     sqlite3_bind_text(stmt, 6, msg.client_msg_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 7, msg.type);
+    sqlite3_bind_text(stmt, 8, msg.image_id.c_str(), -1, SQLITE_TRANSIENT);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
@@ -1048,7 +1082,7 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
 
     std::vector<ChatMessage> messages;
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id
+        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id, type, image_id
         FROM offline_messages
         WHERE to_uid = ? AND id > ?
         ORDER BY id ASC
@@ -1069,12 +1103,30 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
         msg.id = sqlite3_column_int64(stmt, 0);
         msg.from_uid = sqlite3_column_int(stmt, 1);
         msg.to_uid = sqlite3_column_int(stmt, 2);
-        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
+        // content: type=1 时用 blob 读取（保留 \0 字节）
+        msg.type = sqlite3_column_int(stmt, 7);
+        if (msg.type == 1)
+        {
+            const void *blob = sqlite3_column_blob(stmt, 3);
+            int blob_size = sqlite3_column_bytes(stmt, 3);
+            if (blob && blob_size > 0)
+            {
+                msg.content = std::string(static_cast<const char *>(blob), blob_size);
+            }
+        }
+        else
+        {
+            const char *text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+            msg.content = text ? std::string(text) : "";
+        }
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
         const char *client_msg_id_text =
             reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
         msg.client_msg_id = client_msg_id_text ? std::string(client_msg_id_text) : "";
+        const char *image_id_text =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
+        msg.image_id = image_id_text ? std::string(image_id_text) : "";
         messages.push_back(msg);
     }
 

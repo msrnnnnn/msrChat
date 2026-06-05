@@ -350,21 +350,32 @@ void CSession::SendNextOfflinePage()
 
     for (const auto &msg : messages)
     {
-        qmsrchat::ServerChatMsg chatMsg;
-        chatMsg.set_from_uid(msg.from_uid);
-        chatMsg.set_to_uid(msg.to_uid);
-        chatMsg.set_content(msg.content);
-        if (!msg.client_msg_id.empty())
+        if (msg.type == 1)
         {
-            chatMsg.set_client_msg_id(msg.client_msg_id);
+            // 图片离线消息：content 存的是序列化后的 ImageMsg protobuf binary
+            Send(msg.content, MSG_CHAT_IMAGE);
+            spdlog::debug("[CSession] SendNextOfflinePage: sent image msg id={} image_id={}",
+                          msg.id, msg.image_id);
         }
-        chatMsg.set_server_msg_id(msg.id);
-        chatMsg.set_timestamp(msg.timestamp);
-
-        std::string serialized;
-        if (chatMsg.SerializeToString(&serialized))
+        else
         {
-            Send(serialized, MSG_CHAT_TEXT);
+            // 文本离线消息：保持原有逻辑
+            qmsrchat::ServerChatMsg chatMsg;
+            chatMsg.set_from_uid(msg.from_uid);
+            chatMsg.set_to_uid(msg.to_uid);
+            chatMsg.set_content(msg.content);
+            if (!msg.client_msg_id.empty())
+            {
+                chatMsg.set_client_msg_id(msg.client_msg_id);
+            }
+            chatMsg.set_server_msg_id(msg.id);
+            chatMsg.set_timestamp(msg.timestamp);
+
+            std::string serialized;
+            if (chatMsg.SerializeToString(&serialized))
+            {
+                Send(serialized, MSG_CHAT_TEXT);
+            }
         }
     }
 

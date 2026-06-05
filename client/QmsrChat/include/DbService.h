@@ -47,6 +47,7 @@ public:
 
     bool SaveMessage(const ChatMessage &msg);
     bool UpdateMessageStatus(const QString &client_msg_id, int status);
+    bool UpdateImagePath(const QString &image_id, const QString &local_path);
     QVector<ChatMessage> GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
     QVector<ChatMessage> SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     bool DeleteMessages(int uid1, int uid2);

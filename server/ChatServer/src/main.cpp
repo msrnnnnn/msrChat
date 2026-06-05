@@ -7,6 +7,7 @@
 #include "CServer.h"
 #include "LogicSystem.h"
 #include "SQLiteMgr.h"
+#include "ImageStorage.h"
 #include "TokenManager.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -103,6 +104,12 @@ int main(int argc, char *argv[])
         if (!SQLiteMgr::Instance().Init(config.db_path))
         {
             spdlog::error("Failed to initialize SQLite database at {}", config.db_path);
+            return 1;
+        }
+
+        if (!ImageStorage::Instance().Init(SQLiteMgr::Instance().GetPool()))
+        {
+            spdlog::error("Failed to initialize ImageStorage");
             return 1;
         }
 

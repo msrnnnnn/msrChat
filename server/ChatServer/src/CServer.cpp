@@ -118,6 +118,16 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 }
 
 /**
+ * @brief 存储离线消息（ChatMessage 重载）
+ * @param msg 构造好的 ChatMessage（支持图片等任意类型）
+ * @return 是否存储成功
+ */
+bool CServer::StoreOfflineMessage(const ChatMessage &msg)
+{
+    return SQLiteMgr::Instance().SaveOfflineMessage(msg);
+}
+
+/**
  * @brief 发送离线消息给用户
  * @param uid 用户 ID
  * @param session 目标会话

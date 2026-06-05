@@ -5,10 +5,12 @@
 #include "ChatController.h"
 #include "FileRecvMgr.h"
 #include "FileSendMgr.h"
+#include "ImageDownloadMgr.h"
 #include <QClipboard>
 #include <QDebug>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QImage>
 #include <QTimer>
 
 /**
@@ -99,7 +101,22 @@ void ChatController::ConnectSignals()
     connect(
         &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvComplete, this,
         [this](int64_t task_id, const QString &filepath, bool success, const QString &error)
-        { emit sigFileRecvComplete(task_id, filepath, success, error); }, Qt::QueuedConnection);
+        {
+            // Phase D — 图片文件接收完成 → 更新 ChatListModel
+            if (success && _chat_model)
+            {
+                QFileInfo fi(filepath);
+                QString stem = fi.completeBaseName();
+                QUuid uuid(stem);
+                if (!uuid.isNull())
+                {
+                    _chat_model->UpdateImagePath(stem, filepath);
+                    DbThreadManager::Instance().UpdateImagePath(stem, filepath);
+                    ImageDownloadMgr::Instance().OnFileRecvComplete(stem, filepath, true);
+                }
+            }
+            emit sigFileRecvComplete(task_id, filepath, success, error);
+        }, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigChatImage, this, &ChatController::slotOnChatImage, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigImageDownloadRsp, this, &ChatController::slotOnImageDownloadRsp, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigChatRecallRsp, this, &ChatController::slotOnChatRecallRsp, Qt::QueuedConnection);
@@ -112,6 +129,21 @@ void ChatController::ConnectSignals()
             TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall, Qt::QueuedConnection);
     connect(this, &ChatController::sigSendEditMsg,
             TcpMgr::Instance(), &TcpMgr::slot_send_chat_edit, Qt::QueuedConnection);
+
+    // Phase D — sigSendImageMsg 桥接到 TcpMgr
+    connect(this, &ChatController::sigSendImageMsg,
+            TcpMgr::Instance(), &TcpMgr::slot_send_chat_image, Qt::QueuedConnection);
+
+    // Phase D — ImageDownloadMgr 请求下载 → TcpMgr 发送协议消息
+    connect(&ImageDownloadMgr::Instance(), &ImageDownloadMgr::sigRequestDownload,
+            TcpMgr::Instance(), &TcpMgr::slot_send_image_download_req, Qt::QueuedConnection);
+    connect(&ImageDownloadMgr::Instance(), &ImageDownloadMgr::sigImageFailed,
+            this, [this](const QString &image_id, int reason) {
+                if (_chat_model) {
+                    _chat_model->UpdateImagePath(image_id, QStringLiteral("error"));
+                }
+                qWarning() << "[ChatController] image download permanently failed:" << image_id << "reason:" << reason;
+            }, Qt::QueuedConnection);
 }
 
 /**
@@ -131,6 +163,10 @@ void ChatController::DisconnectSignals()
     disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
     disconnect(this, &ChatController::sigSendRecallMsg, TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall);
     disconnect(this, &ChatController::sigSendEditMsg,   TcpMgr::Instance(), &TcpMgr::slot_send_chat_edit);
+    disconnect(this, &ChatController::sigSendImageMsg,  TcpMgr::Instance(), &TcpMgr::slot_send_chat_image);
+    disconnect(&ImageDownloadMgr::Instance(), &ImageDownloadMgr::sigRequestDownload,
+               TcpMgr::Instance(), &TcpMgr::slot_send_image_download_req);
+    disconnect(&ImageDownloadMgr::Instance(), &ImageDownloadMgr::sigImageFailed, this, nullptr);
     disconnect(&FileSendMgr::Instance(), nullptr, this, nullptr);
     disconnect(&FileRecvMgr::Instance(), nullptr, this, nullptr);
 }
@@ -291,13 +327,97 @@ void ChatController::sendFile(const QString &filePath)
 void ChatController::sendImage(const QString &imagePath, const QString &caption)
 {
     qDebug() << "[ChatController] sendImage called, path:" << imagePath << "caption_len:" << caption.size();
-    // v1: stub — actual image_id generation + FileSendMgr start happens in P3-T5+ client-side flow
-    // TODO(P3-T5-client-flow): generate image_id, build ChatImageStruct with all fields, emit sigSendImageMsg
+
+    if (_target_uid <= 0)
+    {
+        emit sigError(QStringLiteral("请先指定目标用户"));
+        return;
+    }
+
+    // URL 前缀清理
+    QString cleanPath = imagePath;
+    if (cleanPath.startsWith("file:///")) {
+        cleanPath = cleanPath.mid(8);
+    } else if (cleanPath.startsWith("file://")) {
+        cleanPath = cleanPath.mid(7);
+    }
+    if (cleanPath.startsWith("/") && cleanPath.length() >= 3 && cleanPath[2] == ':') {
+        cleanPath = cleanPath.mid(1);
+    }
+
+    QFileInfo fileInfo(cleanPath);
+    if (!fileInfo.exists() || !fileInfo.isFile())
+    {
+        emit sigError(QStringLiteral("图片不存在或路径无效"));
+        return;
+    }
+
+    // 图片元数据
+    QImage img(cleanPath);
+    if (img.isNull())
+    {
+        emit sigError(QStringLiteral("无法读取图片"));
+        return;
+    }
+    QString ext = fileInfo.suffix().toLower();
+    int64_t total_size = fileInfo.size();
+
+    // 标识符
+    QString image_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    int64_t task_id = QDateTime::currentMSecsSinceEpoch();
+    QString filename = image_id + "." + ext;  // 服务端靠此检测图片模式
+
+    // 1. 发送 FileReq
+    FileReqStruct req;
+    req.task_id = task_id;
+    req.from_uid = _current_uid;
+    req.to_uid = _target_uid;
+    req.filename = filename;
+    req.total_size = total_size;
+    req.md5 = "";
+    TcpMgr::Instance()->slot_send_file_req(req);
+
+    // 2. 启动文件发送队列
+    FileSendMgr::Instance().StartSend(task_id, _target_uid, cleanPath);
+
+    // 3. 构造 ImageMsg 元数据并发送
+    ChatImageStruct imgMsg;
+    imgMsg.from_uid = _current_uid;
+    imgMsg.to_uid = _target_uid;
+    imgMsg.image_id = image_id;
+    imgMsg.caption = caption;
+    imgMsg.timestamp = qMax(QDateTime::currentMSecsSinceEpoch(), _max_received_timestamp + 1);
+    imgMsg.width = img.width();
+    imgMsg.height = img.height();
+    imgMsg.ext = ext;
+    imgMsg.size = total_size;
+    imgMsg.md5 = "";
+    emit sigSendImageMsg(imgMsg);
+
+    // 4. 本地模型预插入
+    if (_chat_model)
+    {
+        ChatMessage m;
+        m.from_uid = _current_uid;
+        m.to_uid = _target_uid;
+        m.type = 1;
+        m.image_id = image_id;
+        m.image_width = img.width();
+        m.image_height = img.height();
+        m.image_ext = ext;
+        m.content = caption;
+        m.timestamp = imgMsg.timestamp;
+        m.image_path = cleanPath;  // 发送方本地路径
+        m.client_msg_id = image_id;
+        _chat_model->AddMessage(m);
+    }
+
+    // 5. 通知 QML
+    emit sigFileSendStarted(task_id, filename, total_size);
 }
 
 void ChatController::slotOnChatImage(const ChatImageStruct &msg)
 {
-    if (!_chat_model) return;
     ChatMessage m;
     m.from_uid = msg.from_uid;
     m.to_uid = msg.to_uid;
@@ -306,16 +426,40 @@ void ChatController::slotOnChatImage(const ChatImageStruct &msg)
     m.image_width = msg.width;
     m.image_height = msg.height;
     m.image_ext = msg.ext;
-    m.content = msg.caption;  // caption also stored in content
+    m.content = msg.caption;
     m.timestamp = msg.timestamp;
-    _chat_model->AddMessage(m);
+    _max_received_timestamp = qMax(_max_received_timestamp, msg.timestamp);
+    m.status = 1;
+    m.client_msg_id = msg.image_id;
+    // 竞态防护：如果文件已先于 ImageMsg 到达并缓存
+    if (ImageDownloadMgr::Instance().IsCached(msg.image_id))
+    {
+        m.image_path = ImageDownloadMgr::Instance().GetCachePath(msg.image_id, msg.ext);
+    }
+
+    // 1. DB 层持久化（始终保存，与 slotOnChatTextMsg 对齐）
+    DbThreadManager::Instance().SaveMessage(m);
+
+    // 2. UI 层渲染更新（仅当前目标会话匹配时才显示）
+    if (_chat_model != nullptr &&
+       ((m.from_uid == _target_uid && m.to_uid == _current_uid) ||
+        (m.from_uid == _current_uid && m.to_uid == _target_uid)))
+    {
+        _chat_model->AddMessage(m);
+    }
+
+    // 3. 如果本地没有缓存，自动触发图片下载
+    if (m.image_path.isEmpty())
+    {
+        ImageDownloadMgr::Instance().Request(msg.image_id, 0, msg.ext);
+    }
 }
 
 void ChatController::slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp)
 {
     if (!_chat_model) return;
-    // Find the image message by image_id, set recalled or error state if needed
-    // v1: this is handled in Phase 4 (ImageDownloadMgr); for now, just log
+    // Phase D — 转发给 ImageDownloadMgr 处理
+    ImageDownloadMgr::Instance().OnDownloadRsp(rsp.error, rsp.image_id, rsp.offset);
     if (rsp.error != 0) {
         qWarning() << "[ChatController] image download failed: id=" << rsp.image_id << "error=" << rsp.error;
     }
@@ -559,6 +703,27 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
     }
     _has_more_history = (messages.size() >= HISTORY_PAGE_SIZE);
     emit sigHasMoreHistoryChanged();
+
+    // 对加载的历史图片消息，检查本地缓存状态
+    for (const auto &msg : messages)
+    {
+        if (msg.type == 1 && msg.image_path.isEmpty() && !msg.image_id.isEmpty())
+        {
+            if (ImageDownloadMgr::Instance().IsCached(msg.image_id))
+            {
+                // 已缓存：直接用本地路径更新模型（DB 中 image_path 可能为空）
+                QString cachePath = ImageDownloadMgr::Instance().GetCachePath(msg.image_id, msg.image_ext);
+                if (_chat_model)
+                {
+                    _chat_model->UpdateImagePath(msg.image_id, cachePath);
+                }
+            }
+            else
+            {
+                ImageDownloadMgr::Instance().Request(msg.image_id, 0, msg.image_ext);
+            }
+        }
+    }
 }
 
 /**

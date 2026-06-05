@@ -1,4 +1,5 @@
 #include "MessageDispatcher.h"
+#include "Base64.h"
 #include "CServer.h"
 #include "CSession.h"
 #include "FileTransfer.h"
@@ -11,7 +12,9 @@
 #include "TokenManager.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <ctime>
+#include <functional>
 #include <string_view>
 
 namespace
@@ -627,17 +630,41 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
             bool delivered = server->ForwardRawMessage(to_uid, MSG_FILE_REQ, body_data);
             if (!delivered)
             {
-                qmsrchat::FileAck response;
-                response.set_task_id(task_id);
-                response.set_error(1);
-                response.set_message("target user offline");
-
-                std::string serialized;
-                if (response.SerializeToString(&serialized))
+                auto task_ptr = FileTransfer::Instance().GetTask(task_id);
+                if (task_ptr && task_ptr->IsImage())
                 {
-                    session.Send(serialized, MSG_FILE_ACK);
+                    // 目标离线 + 图片模式：服务端代回 FileRsp，让发送方继续上传到 ImageStorage
+                    task_ptr->SetTargetOffline(true);
+                    spdlog::info("[MessageDispatcher] HandleFileReq: target uid={} offline, "
+                                 "server acks for image upload, task_id={}", to_uid, task_id);
+
+                    qmsrchat::FileRsp rsp;
+                    rsp.set_task_id(task_id);
+                    rsp.set_error(0);
+                    rsp.set_offset(0);
+                    rsp.set_message("server: target offline, uploading to storage");
+
+                    std::string rsp_ser;
+                    if (rsp.SerializeToString(&rsp_ser))
+                    {
+                        session.Send(rsp_ser, MSG_FILE_RSP);
+                    }
                 }
-                FileTransfer::Instance().RemoveTask(task_id);
+                else
+                {
+                    // 非图片模式：保持原有逻辑，报告目标离线
+                    qmsrchat::FileAck response;
+                    response.set_task_id(task_id);
+                    response.set_error(1);
+                    response.set_message("target user offline");
+
+                    std::string serialized;
+                    if (response.SerializeToString(&serialized))
+                    {
+                        session.Send(serialized, MSG_FILE_ACK);
+                    }
+                    FileTransfer::Instance().RemoveTask(task_id);
+                }
             }
         }
 
@@ -685,15 +712,17 @@ bool HandleFileRsp(CSession &session, const std::string &body_data)
             return true;
         }
 
-        // 转发给发送方 A
-        int from_uid = task->GetFromUid();
-        auto server = session.GetServer();
-        if (server)
+        // 转发给发送方 A（服务端推送任务不需要转发）
+        if (!task->IsTargetOffline())
         {
-            server->ForwardRawMessage(from_uid, MSG_FILE_RSP, body_data);
+            int from_uid = task->GetFromUid();
+            auto server = session.GetServer();
+            if (server)
+            {
+                server->ForwardRawMessage(from_uid, MSG_FILE_RSP, body_data);
+            }
+            spdlog::info("[MessageDispatcher] FileRsp forwarded: task_id={}, from_uid={}", task_id, from_uid);
         }
-
-        spdlog::info("[MessageDispatcher] FileRsp forwarded: task_id={}, from_uid={}", task_id, from_uid);
         session.ContinueReading();
     }
     catch (const std::exception &e)
@@ -764,6 +793,35 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
                     reinterpret_cast<const uint8_t *>(data.data()),
                     data.size());
             }
+
+            // 目标离线时，服务端代回 FileAck 给发送方，让发送方继续发下一个 chunk
+            if (task->IsTargetOffline())
+            {
+                int64_t chunk_end = chunk.offset() + static_cast<int64_t>(chunk.data().size());
+                int from_uid = task->GetFromUid();
+                auto srv = session.GetServer();
+                if (srv)
+                {
+                    qmsrchat::FileAck ack;
+                    ack.set_task_id(task_id);
+                    ack.set_error(0);
+                    ack.set_received(chunk_end);
+
+                    if (chunk_end >= task->GetTotalSize())
+                    {
+                        ack.set_message("transfer complete");
+                        ImageStorage::Instance().MarkCompleted(task->GetImageId());
+                        spdlog::info("[MessageDispatcher] image upload complete (offline target): {}", task->GetImageId());
+                        FileTransfer::Instance().RemoveTask(task_id);
+                    }
+
+                    std::string ack_ser;
+                    if (ack.SerializeToString(&ack_ser))
+                    {
+                        srv->ForwardRawMessage(from_uid, MSG_FILE_ACK, ack_ser);
+                    }
+                }
+            }
         }
 
         spdlog::debug("[MessageDispatcher] FileChunk forwarded: task_id={}, to_uid={}", task_id, to_uid);
@@ -814,12 +872,15 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
             return true;
         }
 
-        // 转发给发送方 A
-        int from_uid = task->GetFromUid();
-        auto server = session.GetServer();
-        if (server)
+        // 转发给发送方 A（服务端推送任务不需要转发）
+        if (!task->IsTargetOffline())
         {
-            server->ForwardRawMessage(from_uid, MSG_FILE_ACK, body_data);
+            int from_uid = task->GetFromUid();
+            auto server = session.GetServer();
+            if (server)
+            {
+                server->ForwardRawMessage(from_uid, MSG_FILE_ACK, body_data);
+            }
         }
 
         if (fileAck.received() >= task->GetTotalSize())
@@ -888,6 +949,8 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     }
 
     auto target_session = SessionManager::Instance().GetSession(msg.to_uid());
+    bool delivered = false;
+    bool stored = false;
     if (target_session)
     {
         // 在线：直接发送 ImageMsg 给对方
@@ -895,19 +958,50 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
         msg.SerializeToString(&serialized);
         MessageRouter::Instance().SendToSession(target_session, serialized, MSG_CHAT_IMAGE);
         spdlog::info("[MessageDispatcher] HandleChatImage: forwarded to uid={}", msg.to_uid());
+        delivered = true;
     }
     else
     {
-        // 离线：入队（仅元数据，binary 已由 Task 2.2-2.4 写入 image_storage）
-        OfflineStorage::Instance().StoreMessage(msg.to_uid(), body_data);
-        spdlog::info("[MessageDispatcher] HandleChatImage: offline, queued for uid={}", msg.to_uid());
+        // 离线：存入 SQLite（内容用 blob 存 protobuf binary）
+        auto server = session.GetServer();
+        if (server)
+        {
+            ChatMessage offline_msg;
+            offline_msg.from_uid = from;
+            offline_msg.to_uid = msg.to_uid();
+            offline_msg.type = 1;  // image
+            offline_msg.image_id = msg.image_id();
+            offline_msg.content = body_data;  // raw protobuf binary，用 blob 存储
+            offline_msg.timestamp = msg.timestamp() > 0
+                ? msg.timestamp()
+                : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+            offline_msg.status = 2;  // offline stored
+            offline_msg.client_msg_id = msg.image_id();
+            stored = server->StoreOfflineMessage(offline_msg);
+            spdlog::info("[MessageDispatcher] HandleChatImage: offline, stored in SQLite for uid={} (ok={})",
+                         msg.to_uid(), stored);
+        }
     }
+
+    // 持久化到 messages 表（撤回/编辑/历史记录依赖）
+    ChatMessage db_msg;
+    db_msg.from_uid = from;
+    db_msg.to_uid = msg.to_uid();
+    db_msg.type = 1;
+    db_msg.image_id = msg.image_id();
+    db_msg.content = msg.caption();
+    db_msg.timestamp = msg.timestamp() > 0
+        ? msg.timestamp()
+        : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+    db_msg.status = delivered ? 1 : (stored ? 2 : 0);
+    db_msg.client_msg_id = msg.image_id();
+    SQLiteMgr::Instance().SaveMessage(db_msg);
 
     // 回复 ACK
     qmsrchat::ChatAck ack;
     ack.set_error(0);
-    ack.set_message("ok");
-    ack.set_client_msg_id(msg.image_id());  // 用 image_id 作关联 key
+    ack.set_message(delivered ? "delivered" : (stored ? "stored" : "failed"));
+    ack.set_client_msg_id(msg.image_id());
     std::string ack_data;
     ack.SerializeToString(&ack_data);
     session.Send(ack_data, MSG_CHAT_ACK);
@@ -931,33 +1025,127 @@ bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
     auto rec = ImageStorage::Instance().Get(req.image_id());
     if (!rec.has_value())
     {
-        // 图片不存在（可能从未上传 或 已过期被清理）
         rsp.set_error(ERR_IMAGE_EXPIRED);
         rsp.set_offset(0);
         spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} not found / expired",
                      req.image_id());
+
+        std::string data;
+        rsp.SerializeToString(&data);
+        session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
+        session.ContinueReading();
+        return true;
     }
-    else if (rec->recalled)
+    if (rec->recalled)
     {
-        // 图片被发送方撤回
         rsp.set_error(ERR_IMAGE_EXPIRED);
         rsp.set_offset(0);
         spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} recalled",
                      req.image_id());
-    }
-    else
-    {
-        rsp.set_error(0);
-        rsp.set_offset(0);
-        // 客户端在收到 error=0 后，使用现有 FileReq 通道（task_id=image_id）拉取二进制
-        // 这里不直接 push 二进制 — 走 FileReq 路径复用 64KB chunk 协议
-        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} authorized, size={} ext={}",
-                     req.image_id(), rec->size, rec->ext);
+
+        std::string data;
+        rsp.SerializeToString(&data);
+        session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
+        session.ContinueReading();
+        return true;
     }
 
-    std::string data;
-    rsp.SerializeToString(&data);
-    session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
+    // 预读取 blob 数据（在授权前验证数据可用性，避免空 blob 导致推送失败）
+    std::vector<uint8_t> image_data;
+    bool data_ok = (rec->size > 0) &&
+                   ImageStorage::Instance().ReadRange(req.image_id(), 0, rec->size, image_data);
+
+    if (!data_ok)
+    {
+        rsp.set_error(ERR_IMAGE_EXPIRED);
+        rsp.set_offset(0);
+        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} blob unavailable (size={})",
+                     req.image_id(), rec->size);
+
+        std::string data;
+        rsp.SerializeToString(&data);
+        session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 授权成功
+    rsp.set_error(0);
+    rsp.set_offset(0);
+
+    std::string rsp_data;
+    rsp.SerializeToString(&rsp_data);
+    session.Send(rsp_data, MSG_IMAGE_DOWNLOAD_RSP);
+    spdlog::info("[MessageDispatcher] HandleImageDownloadReq: {} authorized, size={} ext={}",
+                 req.image_id(), rec->size, rec->ext);
+
+    // === 服务端主动推送文件（FileReq + FileChunk + FileAck）===
+    int64_t task_id = static_cast<int64_t>(std::hash<std::string>{}(req.image_id()) & 0x7FFFFFFFFFFFFFFFLL);
+    std::string filename = req.image_id() + "." + rec->ext;
+    int requester_uid = session.GetUserUid();
+
+    // 注册 FileTransfer 任务，使 HandleFileRsp/HandleFileAck 能找到该任务
+    // _target_offline=true 标记这是服务端推送（非 P2P 转发）
+    FileTransfer::Instance().AddTask(task_id, rec->from_uid, requester_uid, filename, rec->size);
+    {
+        auto task = FileTransfer::Instance().GetTask(task_id);
+        if (task)
+        {
+            task->SetIsImage(true);
+            task->SetImageId(req.image_id());
+            task->SetTargetOffline(true);
+        }
+    }
+
+    // 1. 发送 FileReq（触发客户端 FileRecvMgr::StartRecv）
+    qmsrchat::FileReq fileReq;
+    fileReq.set_task_id(task_id);
+    fileReq.set_from_uid(rec->from_uid);
+    fileReq.set_to_uid(requester_uid);
+    fileReq.set_filename(filename);
+    fileReq.set_total_size(rec->size);
+    {
+        std::string req_ser;
+        fileReq.SerializeToString(&req_ser);
+        session.Send(req_ser, MSG_FILE_REQ);
+    }
+
+    // 2. 分块发送 FileChunk（数据已在上方预读取）
+    {
+        constexpr int64_t kChunkSize = 4 * 1024;
+        int64_t offset = 0;
+        int64_t remaining = static_cast<int64_t>(image_data.size());
+        while (remaining > 0)
+        {
+            int64_t this_chunk = std::min(kChunkSize, remaining);
+            qmsrchat::FileChunk chunk;
+            chunk.set_task_id(task_id);
+            chunk.set_offset(offset);
+            chunk.set_size(this_chunk);
+            chunk.set_data(image_data.data() + offset, this_chunk);
+
+            std::string chunk_ser;
+            chunk.SerializeToString(&chunk_ser);
+            session.Send(chunk_ser, MSG_FILE_CHUNK);
+
+            offset += this_chunk;
+            remaining -= this_chunk;
+        }
+        spdlog::info("[MessageDispatcher] HandleImageDownloadReq: pushed {} bytes in {} chunks",
+                     image_data.size(), (image_data.size() + kChunkSize - 1) / kChunkSize);
+    }
+
+    // 3. 发送 FileAck（完成通知）
+    qmsrchat::FileAck fileAck;
+    fileAck.set_task_id(task_id);
+    fileAck.set_error(0);
+    fileAck.set_message("complete");
+    {
+        std::string ack_ser;
+        fileAck.SerializeToString(&ack_ser);
+        session.Send(ack_ser, MSG_FILE_ACK);
+    }
+
     session.ContinueReading();
     return true;
 }

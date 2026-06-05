@@ -58,7 +58,7 @@ bool ImageStorage::Insert(const ImageRecord &rec)
         INSERT OR REPLACE INTO image_storage
             (image_id, from_uid, to_uid, ext, size, md5, width, height,
              created_at, expires_at, recalled, blob)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '');
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, X'');
     )SQL";
     sqlite3_stmt *stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
@@ -84,23 +84,52 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
     SQLiteConnectionGuard guard(_pool);
     if (!guard) return false;
     sqlite3 *db = guard.Get();
-    // SQLite 没有直接的 BLOB 区间替换；用 SUBSTR 拼接
-    //   blob = prefix || chunk || suffix
-    //   其中 prefix = SUBSTR(blob, 1, offset)（offset 从 0 开始 → prefix 长度 = offset）
-    //   其中 suffix = SUBSTR(blob, offset + len + 1)（1-indexed，offset 后的剩余部分）
-    const char *sql =
-        "UPDATE image_storage "
-        "SET blob = SUBSTR(blob, 1, ?) || ? || SUBSTR(blob, ?) "
-        "WHERE image_id = ?;";
+
+    // 1. 读取当前 blob
+    const char *select_sql = "SELECT blob FROM image_storage WHERE image_id = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
-    sqlite3_bind_int64(stmt, 1, offset);  // prefix length
-    sqlite3_bind_blob(stmt, 2, data, (int)len, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 3, offset + (int64_t)len + 1);  // suffix start (1-indexed)
-    sqlite3_bind_text(stmt, 4, image_id.c_str(), -1, SQLITE_TRANSIENT);
-    int rc = sqlite3_step(stmt);
+    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
+
+    std::vector<uint8_t> full_blob;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const void *blob = sqlite3_column_blob(stmt, 0);
+        int blob_size = sqlite3_column_bytes(stmt, 0);
+        if (blob && blob_size > 0)
+        {
+            full_blob.assign(static_cast<const uint8_t *>(blob),
+                             static_cast<const uint8_t *>(blob) + blob_size);
+        }
+    }
     sqlite3_finalize(stmt);
-    return rc == SQLITE_DONE;
+
+    // 2. 在内存中追加数据
+    if (static_cast<int64_t>(full_blob.size()) < offset)
+    {
+        full_blob.resize(static_cast<size_t>(offset), 0);  // zero-fill gap
+    }
+    full_blob.insert(full_blob.begin() + offset, data, data + len);
+
+    // 3. 写回完整 blob
+    const char *update_sql = "UPDATE image_storage SET blob = ? WHERE image_id = ?;";
+    if (sqlite3_prepare_v2(db, update_sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_blob(stmt, 1, full_blob.data(), static_cast<int>(full_blob.size()), SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, image_id.c_str(), -1, SQLITE_TRANSIENT);
+
+    int rc = sqlite3_step(stmt);
+    int changes = sqlite3_changes(db);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE || changes == 0)
+    {
+        spdlog::error("[ImageStorage] AppendChunk: write-back failed rc={} changes={} image_id={}",
+                      rc, changes, image_id);
+        return false;
+    }
+    spdlog::info("[ImageStorage] AppendChunk: ok image_id={} offset={} len={} blob_total={}",
+                 image_id, offset, len, full_blob.size());
+    return true;
 }
 
 bool ImageStorage::MarkCompleted(const std::string &image_id)
@@ -149,7 +178,43 @@ std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
     return result;
 }
 
-bool ImageStorage::ReadRange(const std::string &, int64_t, int64_t, std::vector<uint8_t> &) { return false; }
+bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_t size,
+                              std::vector<uint8_t> &out)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+    const char *sql = "SELECT blob FROM image_storage WHERE image_id = ?;";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
+
+    bool ok = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        const void *blob = sqlite3_column_blob(stmt, 0);
+        int blob_size = sqlite3_column_bytes(stmt, 0);
+        spdlog::info("[ImageStorage] ReadRange: image_id={}, offset={}, size={}, blob_size={}",
+                     image_id, offset, size, blob_size);
+        if (blob && blob_size > 0 && offset >= 0 && offset + size <= blob_size)
+        {
+            const auto *base = static_cast<const uint8_t *>(blob);
+            out.assign(base + offset, base + offset + size);
+            ok = true;
+        }
+        else
+        {
+            spdlog::error("[ImageStorage] ReadRange: invalid range blob_size={} offset={} size={}",
+                          blob_size, offset, size);
+        }
+    }
+    else
+    {
+        spdlog::error("[ImageStorage] ReadRange: no row found for {}", image_id);
+    }
+    sqlite3_finalize(stmt);
+    return ok;
+}
 
 bool ImageStorage::MarkRecalled(const std::string &image_id)
 {

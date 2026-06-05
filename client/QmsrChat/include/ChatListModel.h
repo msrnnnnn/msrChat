@@ -63,6 +63,7 @@ public:
     void RemoveMessageByTimestamp(qint64 ts);
     bool GetMessageByTimestamp(qint64 ts, ChatMessage &out) const;
     Q_INVOKABLE QString GetContentByTimestamp(qint64 ts) const;
+    void UpdateImagePath(const QString &image_id, const QString &local_path);
 
 signals:
     void messageAdded(const ChatMessage &msg);

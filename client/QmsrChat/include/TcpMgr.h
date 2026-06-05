@@ -44,6 +44,10 @@ public:
     void slot_send_chat_recall(const ChatRecallMsgStruct &req);
     void slot_send_chat_edit(const ChatEditMsgStruct &req);
 
+    // Phase D — 图片消息
+    void slot_send_chat_image(const ChatImageStruct &msg);
+    void slot_send_image_download_req(const QString &image_id);
+
 signals:
     void sig_con_success(bool bsuccess);
     void sig_reconnected();

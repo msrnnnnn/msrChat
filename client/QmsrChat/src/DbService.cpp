@@ -403,6 +403,33 @@ bool DbService::UpdateMessageStatus(const QString &client_msg_id, int status)
     return query.numRowsAffected() > 0;
 }
 
+bool DbService::UpdateImagePath(const QString &image_id, const QString &local_path)
+{
+    if (image_id.isEmpty())
+    {
+        return false;
+    }
+
+    QSqlDatabase &db = GetOrCreateThreadConnection();
+    if (!db.isOpen())
+    {
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare("UPDATE messages SET image_path = ? WHERE image_id = ?");
+    query.bindValue(0, local_path);
+    query.bindValue(1, image_id);
+
+    if (!query.exec())
+    {
+        qDebug() << "Failed to update image path:" << query.lastError().text();
+        return false;
+    }
+
+    return query.numRowsAffected() > 0;
+}
+
 /**
  * @brief 获取两个用户之间的聊天历史
  * @param uid1 用户 A

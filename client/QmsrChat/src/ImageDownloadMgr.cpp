@@ -27,14 +27,20 @@ bool ImageDownloadMgr::IsCached(const QString &image_id) const
     return _cache_index.contains(image_id);
 }
 
-void ImageDownloadMgr::Request(const QString &image_id, int retry_count)
+bool ImageDownloadMgr::IsFailed(const QString &image_id) const
 {
     QMutexLocker lock(&_mutex);
-    if (_pending.contains(image_id) || _cache_index.contains(image_id)) return;
-    _pending[image_id] = {retry_count, ""};
-    qDebug() << "ImageDownloadMgr::Request" << image_id;
-    // 实际：emit sigRequestImageDownload(image_id); 由 ChatController 转发给 TcpMgr
-    // 当前 Phase 4 范围：仅 placeholder，待 P4-T2 + TcpMgr 信号集成后填充
+    return _failed_index.contains(image_id);
+}
+
+void ImageDownloadMgr::Request(const QString &image_id, int retry_count, const QString &ext)
+{
+    QMutexLocker lock(&_mutex);
+    if (_pending.contains(image_id) || _cache_index.contains(image_id) || _failed_index.contains(image_id)) return;
+    _pending[image_id] = {retry_count, ext};
+    qDebug() << "ImageDownloadMgr::Request" << image_id << "ext:" << ext;
+    lock.unlock();
+    emit sigRequestDownload(image_id);
 }
 
 void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t /*offset*/)
@@ -43,6 +49,7 @@ void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t
     if (error == 4040)  // ERR_IMAGE_EXPIRED
     {
         qWarning() << "image expired:" << image_id;
+        _failed_index.insert(image_id);
         _pending.remove(image_id);
         emit sigImageFailed(image_id, 4040);
         return;

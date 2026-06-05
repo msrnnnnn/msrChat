@@ -412,6 +412,22 @@ void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
     }
 }
 
+void ChatListModel::UpdateImagePath(const QString &image_id, const QString &local_path)
+{
+    QMutexLocker lock(&_mutex);
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].image_id == image_id)
+        {
+            _messages[i].image_path = local_path;
+            lock.unlock();
+            beginResetModel();
+            endResetModel();
+            return;
+        }
+    }
+}
+
 void ChatListModel::MarkRecalled(qint64 ts)
 {
     UpdateMessageByTimestamp(ts, [](ChatMessage &m) {

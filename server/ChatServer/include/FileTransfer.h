@@ -69,6 +69,7 @@ public:
         _status.store(Status::PENDING, std::memory_order_relaxed);
         _is_image = false;
         _image_id.clear();
+        _target_offline = false;
     }
 
     void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size) noexcept
@@ -82,6 +83,7 @@ public:
         _status.store(Status::PENDING, std::memory_order_relaxed);
         _is_image = false;
         _image_id.clear();
+        _target_offline = false;
     }
 
     int64_t GetTaskId() const
@@ -122,6 +124,9 @@ public:
     const std::string &GetImageId() const { return _image_id; }
     void SetImageId(const std::string &id) { _image_id = id; }
 
+    void SetTargetOffline(bool offline) { _target_offline = offline; }
+    bool IsTargetOffline() const { return _target_offline; }
+
 private:
     int64_t _task_id = 0;
     int _from_uid = 0;
@@ -133,6 +138,7 @@ private:
     ObjectPool<FileTransferTask> *_pool = nullptr;
     bool _is_image = false;
     std::string _image_id;
+    bool _target_offline = false;
 };
 
 class FileTransfer

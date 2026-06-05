@@ -100,6 +100,16 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
     }
 }
 
+void DbWorker::slot_update_image_path(const QString &image_id, const QString &local_path)
+{
+    if (_stop_flag.load() || !_dbInitialized)
+    {
+        return;
+    }
+
+    DbService::Instance().UpdateImagePath(image_id, local_path);
+}
+
 void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int limit)
 {
 
@@ -267,6 +277,7 @@ bool DbThreadManager::Init(const QString &db_path)
     connect(this, &DbThreadManager::sig_destroy_db, _worker, &DbWorker::slot_db_destroy, Qt::BlockingQueuedConnection);
     connect(this, &DbThreadManager::sig_save_msg, _worker, &DbWorker::slot_save_message, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_update_msg_status, _worker, &DbWorker::slot_update_message_status, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_update_image_path, _worker, &DbWorker::slot_update_image_path, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_get_msgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_search_msgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_delete_msgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
@@ -312,6 +323,17 @@ void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int stat
     }
 
     emit sig_update_msg_status(client_msg_id, status);
+}
+
+void DbThreadManager::UpdateImagePath(const QString &image_id, const QString &local_path)
+{
+    if (_worker == nullptr)
+    {
+        qWarning() << "DbThreadManager not initialized";
+        return;
+    }
+
+    emit sig_update_image_path(image_id, local_path);
 }
 
 void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int limit)

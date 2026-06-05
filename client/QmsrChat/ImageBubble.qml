@@ -18,7 +18,8 @@ Item {
     property string caption: ""
     property int imageWidth: 0
     property int imageHeight: 0
-    property bool loaded: imagePath !== ""
+    property bool loaded: imagePath !== "" && imagePath !== "error"
+    property bool failed: imagePath === "error"
     property bool edited: false
     property bool recalled: false
     property var timestamp: 0
@@ -78,8 +79,7 @@ Item {
         id: imageColumn
         anchors.top: bubbleRect.top
         anchors.topMargin: 8
-        anchors.horizontalCenter: imageBubble.isSelf ? bubbleRect.right : bubbleRect.left
-        anchors.horizontalCenterOffset: imageBubble.isSelf ? -8 : 8
+        anchors.horizontalCenter: bubbleRect.horizontalCenter
         spacing: 4
 
         // 缩略图 / 加载中
@@ -98,13 +98,29 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 color: "#d8dde3"
-                visible: !imageBubble.loaded
+                visible: !imageBubble.loaded && !imageBubble.failed
                 radius: 6
 
                 Text {
                     anchors.centerIn: parent
                     text: qsTr("加载中…")
                     color: "#888888"
+                    font.pixelSize: 13
+                    font.family: "Microsoft YaHei"
+                }
+            }
+
+            // 加载失败占位
+            Rectangle {
+                anchors.fill: parent
+                color: "#e8e0e0"
+                visible: imageBubble.failed
+                radius: 6
+
+                Text {
+                    anchors.centerIn: parent
+                    text: qsTr("图片加载失败")
+                    color: "#cc4444"
                     font.pixelSize: 13
                     font.family: "Microsoft YaHei"
                 }
@@ -149,7 +165,7 @@ Item {
 
             Text {
                 text: imageBubble.displayTime
-                color: "#999999"
+                color: imageBubble.isSelf ? "#CCDDEE" : "#666666"
                 font.pixelSize: 11
                 font.family: "Microsoft YaHei"
             }
