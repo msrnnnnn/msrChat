@@ -103,7 +103,17 @@ Item {
         z: 1
         onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
-                messageBubble.rightClicked(mouse.x, mouse.y, messageBubble.timestamp)
+                // Phase B — 用 mapToItem 把局部坐标映射到 chatViewRoot 坐标系
+                var root = messageBubble
+                while (root && root.objectName !== "chatViewRoot") {
+                    root = root.parent
+                }
+                if (!root) {
+                    console.warn("[MessageBubble] cannot find chatViewRoot")
+                    return
+                }
+                var pt = bubbleRect.mapToItem(root, mouse.x, mouse.y)
+                messageBubble.rightClicked(pt.x, pt.y, messageBubble.timestamp)
             }
         }
     }

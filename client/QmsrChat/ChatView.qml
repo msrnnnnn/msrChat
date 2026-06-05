@@ -11,6 +11,7 @@ import QtQml
 
 Rectangle {
     id: chatViewRoot
+    objectName: "chatViewRoot"   // Phase B — MessageBubble.mapToItem 上溯查找
     color: "#F5F5F5"
 
     property var chatModel: null
@@ -516,12 +517,17 @@ Rectangle {
         property bool menuHasCaption: true
     }
 
-    // 在 chatViewRoot 上暴露 showActionMenu 函数（bubble 的 onRightClicked 调用）
-    function showActionMenu(localX, localY, ts, isImage, isOwn, content) {
-        // 防御性:接收 string 也兼容(老代码万一遗漏)
+ // 在 chatViewRoot 上暴露 showActionMenu(bubble 的 onRightClicked 调用)
+    // Phase B — globalX/Y 来自 bubble.mapToItem(chatViewRoot, ...),菜单不会跑屏幕外
+    function showActionMenu(globalX, globalY, ts, isImage, isOwn, content) {
+        // globalX/Y 已是 chatViewRoot 坐标(bubble 用 mapToItem 转好),无需再加 contentX/Y
         var realTs = (typeof ts === "string") ? Number(ts) : ts
-        actionMenuLoader.menuX = Math.max(0, messageListView.contentX + localX)
-        actionMenuLoader.menuY = Math.max(0, messageListView.contentY + localY)
+        var menuW = 180
+        var menuH = 250
+        var maxX = chatViewRoot.width  - menuW - 4
+        var maxY = chatViewRoot.height - menuH - 4
+        actionMenuLoader.menuX = Math.min(Math.max(0, globalX), Math.max(0, maxX))
+        actionMenuLoader.menuY = Math.min(Math.max(0, globalY), Math.max(0, maxY))
         actionMenuLoader.menuTimestamp = realTs
         actionMenuLoader.menuIsImage = isImage
         actionMenuLoader.menuIsOwn = isOwn

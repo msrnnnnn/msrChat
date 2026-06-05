@@ -176,7 +176,17 @@ Item {
         z: 1
         onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
-                imageBubble.rightClicked(mouse.x, mouse.y, imageBubble.timestamp)
+                // Phase B — 用 mapToItem 把局部坐标映射到 chatViewRoot 坐标系
+                var root = imageBubble
+                while (root && root.objectName !== "chatViewRoot") {
+                    root = root.parent
+                }
+                if (!root) {
+                    console.warn("[ImageBubble] cannot find chatViewRoot")
+                    return
+                }
+                var pt = bubbleRect.mapToItem(root, mouse.x, mouse.y)
+                imageBubble.rightClicked(pt.x, pt.y, imageBubble.timestamp)
             }
         }
     }
