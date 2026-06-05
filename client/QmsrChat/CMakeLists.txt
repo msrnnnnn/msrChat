@@ -129,6 +129,7 @@ set(PROJECT_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageBubble.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
 
         # 实现文件
         src/MainWindow.cpp

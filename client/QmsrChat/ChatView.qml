@@ -481,6 +481,25 @@ Rectangle {
         }
     }
 
+    // === Phase C — 编辑消息 modal ===
+    Loader {
+        id: editDialogLoader
+        anchors.fill: parent
+        active: false
+        z: 1001  // 在 menu loader (z:1000) 之上
+        sourceComponent: EditMessageDialog {
+            messageTimestamp: editDialogLoader.editTs
+            originalContent: editDialogLoader.editOrig
+            onAccepted: function(ts, newContent) {
+                chatController.actionEdit(ts, newContent)
+                editDialogLoader.active = false
+            }
+            onCancelled: editDialogLoader.active = false
+        }
+        property var editTs: 0
+        property string editOrig: ""
+    }
+
     // === Phase 6 — 右键消息气泡弹操作菜单 ===
 
     // 菜单外区透明 MouseArea — 仅 active 时显示，z 999（低于 menuLoader z:1000，避免盖住菜单）
@@ -505,7 +524,13 @@ Rectangle {
             onReplyRequested: { chatController.actionReply(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
             onCopyTextRequested: { chatController.actionCopyText(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
             onRecallRequested: { chatController.actionRecall(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
-            onEditRequested: { actionMenuLoader.active = false /* v1 stub */ }
+            onEditRequested: {
+                var ts = actionMenuLoader.menuTimestamp
+                editDialogLoader.editTs = ts
+                editDialogLoader.editOrig = chatModel.GetContentByTimestamp(ts)
+                editDialogLoader.active = true
+                actionMenuLoader.active = false
+            }
             onSaveAsRequested: { chatController.actionSaveAs(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
             onDeleteRequested: { chatController.actionDelete(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
         }

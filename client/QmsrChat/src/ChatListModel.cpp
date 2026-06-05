@@ -466,3 +466,10 @@ bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
     }
     return false;
 }
+
+QString ChatListModel::GetContentByTimestamp(qint64 ts) const
+{
+    ChatMessage m;
+    if (GetMessageByTimestamp(ts, m)) return m.content;
+    return QString();
+}

@@ -62,6 +62,7 @@ public:
     // Phase 6 — 单条删除 / 查询
     void RemoveMessageByTimestamp(qint64 ts);
     bool GetMessageByTimestamp(qint64 ts, ChatMessage &out) const;
+    Q_INVOKABLE QString GetContentByTimestamp(qint64 ts) const;
 
 signals:
     void messageAdded(const ChatMessage &msg);

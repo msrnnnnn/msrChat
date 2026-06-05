@@ -107,9 +107,11 @@ void ChatController::ConnectSignals()
     connect(TcpMgr::Instance(), &TcpMgr::sigChatRecallNotify, this, &ChatController::slotOnChatRecallNotify, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sigChatEditNotify, this, &ChatController::slotOnChatEditNotify, Qt::QueuedConnection);
 
-    // Phase 6 — 把 sigSendRecallMsg 桥接到 TcpMgr 发送（sigSendEditMsg 已在 P3 用同样模式）
+    // Phase 6/C — 把 sigSendRecallMsg / sigSendEditMsg 桥接到 TcpMgr 发送
     connect(this, &ChatController::sigSendRecallMsg,
             TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall, Qt::QueuedConnection);
+    connect(this, &ChatController::sigSendEditMsg,
+            TcpMgr::Instance(), &TcpMgr::slot_send_chat_edit, Qt::QueuedConnection);
 }
 
 /**
@@ -127,6 +129,8 @@ void ChatController::DisconnectSignals()
     disconnect(
         &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
     disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
+    disconnect(this, &ChatController::sigSendRecallMsg, TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall);
+    disconnect(this, &ChatController::sigSendEditMsg,   TcpMgr::Instance(), &TcpMgr::slot_send_chat_edit);
     disconnect(&FileSendMgr::Instance(), nullptr, this, nullptr);
     disconnect(&FileRecvMgr::Instance(), nullptr, this, nullptr);
 }

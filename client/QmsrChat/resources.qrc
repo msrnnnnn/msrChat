@@ -9,5 +9,6 @@
         <file>ImageBubble.qml</file>
         <file>ImageViewer.qml</file>
         <file>MessageActionMenu.qml</file>
+        <file>EditMessageDialog.qml</file>
     </qresource>
 </RCC>
