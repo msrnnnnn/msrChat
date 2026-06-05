@@ -27,7 +27,6 @@ bool ImageDownloadMgr::IsCached(const QString &image_id) const
     return _cache_index.contains(image_id);
 }
 
-
 void ImageDownloadMgr::Request(const QString &image_id, int retry_count, const QString &ext)
 {
     QMutexLocker lock(&_mutex);

@@ -20,7 +20,7 @@ public:
     bool ForwardMessage(int target_uid, const std::string &msg_data);
     bool BroadcastMessage(const std::string &msg_data, int exclude_uid = 0);
 
-    bool SendToSession(std::shared_ptr<CSession> session, const std::string &msg_data, short msg_id);
+    bool SendToSession(const std::shared_ptr<CSession> &session, const std::string &msg_data, short msg_id);
 
 private:
     MessageRouter() = default;

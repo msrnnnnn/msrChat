@@ -70,7 +70,7 @@ elseif(APPLE)
 endif()
 
 # =============================================================
-# 2. 依赖查找 (Dependencies)
+# 3. 依赖查找 (Dependencies)
 # =============================================================
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Threads REQUIRED)
@@ -160,8 +160,8 @@ if(BUILD_TESTS)
         tests/test_ShardedMap.cpp
         tests/test_ThreadPool.cpp
         tests/test_ImageStorage.cpp
-                    src/ThreadPool.cpp
-            src/ImageStorage.cpp
+        src/ThreadPool.cpp
+        src/ImageStorage.cpp
         src/SQLiteMgr.cpp
     )
 

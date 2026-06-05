@@ -151,10 +151,6 @@ public:
         AppendFileChunk(task_id, chunk_view.data(), chunk_view.size());
     }
 
-        return 0;
-    }
-
-
     void FinishFileReceive(int64_t task_id)
     {
         std::lock_guard<std::mutex> lock(_file_mutex);
@@ -163,9 +159,6 @@ public:
             _file_recv_state.transfer_ready = false;
             _file_recv_state.data.clear();
         }
-    }
-
-        return 0;
     }
 
 private:

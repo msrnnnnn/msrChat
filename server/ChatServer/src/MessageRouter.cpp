@@ -79,7 +79,7 @@ bool MessageRouter::BroadcastMessage(const std::string &msg_data, int exclude_ui
     }
 
     bool all_sent = true;
-    SessionManager::Instance().ForEachSession([&](int uid, std::shared_ptr<CSession> session) {
+    SessionManager::Instance().ForEachSession([&](int uid, const std::shared_ptr<CSession> &session) {
         if (uid != exclude_uid)
         {
             try
@@ -95,7 +95,7 @@ bool MessageRouter::BroadcastMessage(const std::string &msg_data, int exclude_ui
     return all_sent;
 }
 
-bool MessageRouter::SendToSession(std::shared_ptr<CSession> session, const std::string &msg_data, short msg_id)
+bool MessageRouter::SendToSession(const std::shared_ptr<CSession> &session, const std::string &msg_data, short msg_id)
 {
     if (!session)
     {

@@ -184,8 +184,6 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
     emit scrollToBottomRequested();
 }
 
-
-
 void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
 {
     if (messages.isEmpty())
@@ -210,7 +208,6 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
 
     endInsertRows();
 }
-
 
 void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status)
 {

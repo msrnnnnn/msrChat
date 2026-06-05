@@ -133,7 +133,7 @@ bool CServer::StoreOfflineMessage(const ChatMessage &msg)
  * @param session 目标会话
  * @details 分页拉取离线消息并发送，发送完成后清空离线记录
  */
-void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
+void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &session)
 {
     auto self = shared_from_this();
 
@@ -183,7 +183,7 @@ void CServer::Stop()
         spdlog::info("[CServer] Acceptor closed successfully");
     }
 
-    SessionManager::Instance().ForEachSession([](int /*uid*/, std::shared_ptr<CSession> session) {
+    SessionManager::Instance().ForEachSession([](int /*uid*/, const std::shared_ptr<CSession> &session) {
         session->Close();
     });
     SessionManager::Instance().ClearAll();

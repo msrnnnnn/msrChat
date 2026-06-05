@@ -48,10 +48,6 @@ public:
         return info.handler(session, body_data);
     }
 
-
-
-
-
 private:
     MessageDispatcher()
     {

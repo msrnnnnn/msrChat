@@ -30,7 +30,6 @@ public:
     void SetUid(int uid);
     int GetUid() const;
 
-
     void SetToken(const QString &token);
     QString GetToken() const;
 
