@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -35,28 +36,28 @@ public:
         shard.data[key] = value;
     }
 
-    Value *Find(const Key &key)
+    std::optional<Value> Find(const Key &key)
     {
         auto &shard = _shards[GetShardIndex(key)];
         std::lock_guard<std::mutex> lock(shard.mutex);
         auto it = shard.data.find(key);
         if (it != shard.data.end())
         {
-            return &it->second;
+            return it->second;
         }
-        return nullptr;
+        return std::nullopt;
     }
 
-    const Value *Find(const Key &key) const
+    std::optional<Value> Find(const Key &key) const
     {
         auto &shard = _shards[GetShardIndex(key)];
         std::lock_guard<std::mutex> lock(shard.mutex);
         auto it = shard.data.find(key);
         if (it != shard.data.end())
         {
-            return &it->second;
+            return it->second;
         }
-        return nullptr;
+        return std::nullopt;
     }
 
     void Erase(const Key &key)

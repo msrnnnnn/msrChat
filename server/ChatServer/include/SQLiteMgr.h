@@ -2,6 +2,7 @@
 #define SQLITE_MGR_H
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>

@@ -186,6 +186,7 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
         UserMgr::Instance()->SetToken("");
         QString message = rsp.message.isEmpty() ? tr("聊天登录失败") : rsp.message;
         qWarning() << "Chat login failed:" << message;
+        _chat_login_ready = false;
         showTip(message, false);
         emit sig_token_invalid();
         return;

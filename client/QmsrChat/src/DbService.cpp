@@ -531,9 +531,13 @@ QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString
     QSqlQuery query(db);
 
     QString sql = R"(
-        SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
+        SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
+               type, image_id, image_path, image_width, image_height, image_ext,
+               edited, edited_at, recalled, recalled_at
         FROM (
-            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status
+            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
+                   type, image_id, image_path, image_width, image_height, image_ext,
+                   edited, edited_at, recalled, recalled_at
             FROM messages 
             WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
             AND content LIKE ?

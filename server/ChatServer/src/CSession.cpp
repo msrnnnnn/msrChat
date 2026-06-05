@@ -133,6 +133,11 @@ void CSession::ScheduleReadDeadlineCheck()
  */
 void CSession::AsyncReadHead()
 {
+    if (_closed.load())
+    {
+        _read_active.store(false);
+        return;
+    }
     auto self = shared_from_this();
     auto head_node = _recv_head_node;
     boost::asio::async_read(

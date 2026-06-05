@@ -190,6 +190,10 @@ std::string FileTransfer::CalculateMD5(const std::string &filepath)
     }
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx)
+    {
+        return "";
+    }
     EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
 
     char buffer[CHUNK_SIZE];
@@ -225,6 +229,10 @@ std::string FileTransfer::CalculateMD5(const std::string &filepath)
 std::string FileTransfer::CalculateChunkMD5(const char *data, size_t len)
 {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx)
+    {
+        return "";
+    }
     EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
     EVP_DigestUpdate(ctx, data, len);
 

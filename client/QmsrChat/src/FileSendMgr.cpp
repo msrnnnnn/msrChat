@@ -43,9 +43,9 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     newTask.total_size = newTask.file->size();
     newTask.sent_size = 0;
     newTask.active = true;
-    _tasks.insert_or_assign(task_id, std::move(newTask));
 
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
+    _tasks.insert_or_assign(task_id, std::move(newTask));
 }
 
 /**

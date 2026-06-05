@@ -108,7 +108,12 @@ std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
 {
     std::unique_lock<std::mutex> lock(_mutex);
 
-    _cv.wait(lock, [this] { return !_available_connections.empty() || _shutdown.load(); });
+    if (!_cv.wait_for(lock, std::chrono::seconds(30),
+                      [this] { return !_available_connections.empty() || _shutdown.load(); }))
+    {
+        spdlog::error("[SQLiteConnectionPool] Acquire timed out after 30s");
+        return nullptr;
+    }
 
     if (_shutdown.load())
     {
@@ -678,7 +683,7 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
         return dist(rng);
     }();
 
-    spdlog::info("[SQLiteMgr] Generated verify code for {}: {}", email, code);
+    spdlog::debug("[SQLiteMgr] Generated verify code for {}: {}", email, code);
     out_code = code;
 
     ScopedStmt del_stmt(db, "DELETE FROM verify_codes WHERE email = ?");
@@ -703,7 +708,7 @@ bool SQLiteMgr::SendVerifyCode(const std::string &email, int &out_code)
     sqlite3_bind_int64(ins_stmt, 3, now);
     sqlite3_bind_int64(ins_stmt, 4, now + VERIFY_CODE_EXPIRY_SEC);
 
-    spdlog::info("[Auth] VerifyCode for {}: {}", email, code);
+    spdlog::debug("[Auth] VerifyCode for {}: {}", email, code);
 
     return sqlite3_step(ins_stmt) == SQLITE_DONE;
 }

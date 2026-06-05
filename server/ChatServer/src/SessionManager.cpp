@@ -73,8 +73,8 @@ void SessionManager::RemoveSessionByUuid(const std::string &uuid)
  */
 std::shared_ptr<CSession> SessionManager::GetSession(int uid) const
 {
-    auto *session = _uid_sessions.Find(uid);
-    return session ? *session : nullptr;
+    auto session = _uid_sessions.Find(uid);
+    return session.value_or(nullptr);
 }
 
 /**
@@ -84,8 +84,8 @@ std::shared_ptr<CSession> SessionManager::GetSession(int uid) const
  */
 std::shared_ptr<CSession> SessionManager::GetSessionByUuid(const std::string &uuid) const
 {
-    auto *session = _uuid_sessions.Find(uuid);
-    return session ? *session : nullptr;
+    auto session = _uuid_sessions.Find(uuid);
+    return session.value_or(nullptr);
 }
 
 /**

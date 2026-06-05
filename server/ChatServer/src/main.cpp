@@ -115,8 +115,10 @@ int main(int argc, char *argv[])
 
         TokenManager::Instance().LoadTokensFromDB();
 
+#ifndef NDEBUG
         TokenManager::Instance().SetToken(1001, "dev_token");
         spdlog::info("[Main] Dev mode token registered for uid 1001");
+#endif
 
         boost::asio::io_context io_context;
         LogicSystem::getInstance().SetIOContext(&io_context);
