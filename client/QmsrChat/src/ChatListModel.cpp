@@ -2,6 +2,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <climits>
+#include <cstdio>
 #include <ctime>
 
 ChatListModel::ChatListModel(QObject *parent)
@@ -401,8 +402,11 @@ void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
         if (_messages[i].timestamp == ts)
         {
             mutator(_messages[i]);
-            QModelIndex idx = index(i);
-            emit dataChanged(idx, idx);
+            // 使用 beginResetModel/endResetModel 强制 QML ListView 刷新
+            // （dataChanged 在 Qt Quick ListView + Loader delegate 组合下可能卡死）
+            lock.unlock();
+            beginResetModel();
+            endResetModel();
             return;
         }
     }

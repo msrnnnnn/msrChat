@@ -176,6 +176,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     chatMsg.set_to_uid(req.to_uid);
     chatMsg.set_content(req.content.toStdString());
     chatMsg.set_client_msg_id(req.client_msg_id.toStdString());
+    chatMsg.set_timestamp(req.timestamp);
 
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))

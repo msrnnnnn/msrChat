@@ -51,6 +51,8 @@ Rectangle {
                         timestamp: model.timestamp           // qint64 ms
                         displayTime: model.displayTime       // UI string
                         status: model.status
+                        recalled: model.recalled
+                        edited: model.edited
                         onRightClicked: function(localX, localY, ts) {
                             chatViewRoot.showActionMenu(localX, localY, ts,
                                 /*isImage*/ false, model.isSelf, model.content)

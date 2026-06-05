@@ -222,6 +222,7 @@ void ChatController::sendMessage(const QString &content)
     req.to_uid = msg.to_uid;
     req.content = msg.content;
     req.client_msg_id = msg.client_msg_id;
+    req.timestamp = msg.timestamp;
     TcpMgr::Instance()->slot_send_chat_text_req(req);
 }
 
@@ -325,6 +326,11 @@ void ChatController::slotOnChatRecallRsp(const ChatEditAckStruct &ack)
     if (ack.error != 0) {
         qWarning() << "[ChatController] recall failed: error=" << ack.error;
         emit sigError(QStringLiteral("Recall failed (error %1)").arg(ack.error));
+        return;
+    }
+    // 撤回成功：本地标记消息为已撤回
+    if (_chat_model) {
+        _chat_model->MarkRecalled(ack.msg_timestamp);
     }
 }
 
@@ -333,6 +339,11 @@ void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
     if (ack.error != 0) {
         qWarning() << "[ChatController] edit failed: error=" << ack.error;
         emit sigError(QStringLiteral("Edit failed (error %1)").arg(ack.error));
+        return;
+    }
+    // 编辑成功：本地更新消息内容
+    if (_chat_model && !ack.new_content.isEmpty()) {
+        _chat_model->MarkEdited(ack.msg_timestamp, ack.new_content, ack.edit_ts);
     }
 }
 

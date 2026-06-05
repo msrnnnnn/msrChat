@@ -28,6 +28,7 @@ struct ChatTextReqStruct
     int to_uid;
     QString content;
     QString client_msg_id;
+    qint64 timestamp;  // 客户端毫秒时间戳
 };
 
 struct LoginRspStruct
@@ -180,6 +181,7 @@ struct ChatEditAckStruct
     QString message;
     qint64 msg_timestamp = 0;
     qint64 edit_ts = 0;
+    QString new_content;  // 编辑成功时服务端回传的新内容
 };
 
 struct ChatEditNotifyStruct

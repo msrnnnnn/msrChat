@@ -29,6 +29,7 @@ message ChatTextMsg {
     int32 to_uid = 2;
     string content = 3;
     string client_msg_id = 4;
+    int64 timestamp = 5;  // 客户端毫秒时间戳，服务端存入DB用于撤回/编辑查找
 }
 
 message ChatAck {
@@ -150,4 +151,5 @@ message EditAck {
     string message       = 2;
     int64  msg_timestamp = 3;
     int64  edit_ts       = 4;
+    string new_content   = 5;  // 编辑成功时回传新内容，供发送方本地更新UI
 }

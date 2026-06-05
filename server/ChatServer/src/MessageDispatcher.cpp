@@ -473,6 +473,18 @@ bool HandleChatText(CSession &session, const std::string &body_data)
             }
         }
 
+        // 持久化到服务端 DB（撤回/编辑依赖 messages 表查询）
+        ChatMessage db_msg;
+        db_msg.from_uid = session.GetUserUid();
+        db_msg.to_uid = to_uid;
+        db_msg.content = content;
+        db_msg.timestamp = chatMsg.timestamp() > 0 ? chatMsg.timestamp()
+                                                    : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+        db_msg.status = delivered ? 1 : (stored ? 2 : 0);
+        db_msg.client_msg_id = client_msg_id;
+        db_msg.type = 0; // text
+        SQLiteMgr::Instance().SaveMessage(db_msg);
+
         qmsrchat::ChatAck ack;
         if (delivered) {
             ack.set_error(0);
@@ -973,12 +985,12 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     {
         spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}",
                      req.msg_timestamp(), from);
-        qmsrchat::ChatAck ack;
+        qmsrchat::EditAck ack;
         ack.set_error(ERR_RECALL_NOT_OWNER);
-        ack.set_client_msg_id(req.client_msg_id());
+        ack.set_msg_timestamp(req.msg_timestamp());
         std::string s;
         ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_ACK);
+        session.Send(s, MSG_CHAT_RECALL);
         session.ContinueReading();
         return true;
     }
@@ -987,12 +999,12 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     if (now_ms - req.msg_timestamp() > 2LL * 60 * 1000)
     {
         spdlog::warn("HandleChatRecall: timeout, age_ms={}", now_ms - req.msg_timestamp());
-        qmsrchat::ChatAck ack;
+        qmsrchat::EditAck ack;
         ack.set_error(ERR_RECALL_TIMEOUT);
-        ack.set_client_msg_id(req.client_msg_id());
+        ack.set_msg_timestamp(req.msg_timestamp());
         std::string s;
         ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_ACK);
+        session.Send(s, MSG_CHAT_RECALL);
         session.ContinueReading();
         return true;
     }
@@ -1001,12 +1013,12 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     if (orig->recalled)
     {
         spdlog::warn("HandleChatRecall: already recalled, ts={}", req.msg_timestamp());
-        qmsrchat::ChatAck ack;
+        qmsrchat::EditAck ack;
         ack.set_error(ERR_MSG_ALREADY_RECALLED);
-        ack.set_client_msg_id(req.client_msg_id());
+        ack.set_msg_timestamp(req.msg_timestamp());
         std::string s;
         ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_ACK);
+        session.Send(s, MSG_CHAT_RECALL);
         session.ContinueReading();
         return true;
     }
@@ -1024,12 +1036,12 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     if (!SQLiteMgr::Instance().MarkMessageRecalled(req.msg_timestamp(), from, now_ms))
     {
         spdlog::error("HandleChatRecall: DB mark failed, ts={}", req.msg_timestamp());
-        qmsrchat::ChatAck ack;
+        qmsrchat::EditAck ack;
         ack.set_error(1);  // 通用错误
-        ack.set_client_msg_id(req.client_msg_id());
+        ack.set_msg_timestamp(req.msg_timestamp());
         std::string s;
         ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_ACK);
+        session.Send(s, MSG_CHAT_RECALL);
         session.ContinueReading();
         return true;
     }
@@ -1056,14 +1068,15 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
                      orig->to_uid);
     }
 
-    // 7. 回 ACK 给发起方
-    qmsrchat::ChatAck ack;
+    // 7. 回 RecallAck 给发起方（用 EditAck 结构体，与 MSG_CHAT_RECALL 协议号配套）
+    qmsrchat::EditAck ack;
     ack.set_error(0);
     ack.set_message("ok");
-    ack.set_client_msg_id(req.client_msg_id());
+    ack.set_msg_timestamp(req.msg_timestamp());
+    ack.set_edit_ts(now_ms);
     std::string s;
     ack.SerializeToString(&s);
-    session.Send(s, MSG_CHAT_ACK);
+    session.Send(s, MSG_CHAT_RECALL);
     session.ContinueReading();
     return true;
 }
@@ -1163,11 +1176,12 @@ bool HandleChatEdit(CSession &session, const std::string &body_data)
                      orig->to_uid);
     }
 
-    // 6. 回 EditAck 给发起方
+    // 6. 回 EditAck 给发起方（包含 new_content 供客户端更新本地UI）
     qmsrchat::EditAck ack;
     ack.set_error(0);
     ack.set_msg_timestamp(req.msg_timestamp());
     ack.set_edit_ts(now_ms);
+    ack.set_new_content(req.new_content());
     std::string s;
     ack.SerializeToString(&s);
     session.Send(s, MSG_CHAT_EDIT);

@@ -191,6 +191,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         a.message = QString::fromStdString(ack.message());
         a.msg_timestamp = ack.msg_timestamp();
         a.edit_ts = ack.edit_ts();
+        a.new_content = QString::fromStdString(ack.new_content());
         emit _tcpMgr.sigChatEditAck(a);
         return;
     }
