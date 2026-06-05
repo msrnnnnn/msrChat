@@ -57,7 +57,6 @@ private:
     QString GetFinalPath(const QString &filename) const;
     QString BuildTempPath(int64_t task_id, const QString &fileName) const;
     QString BuildFinalPath(const QString &fileName) const;
-    QString CalcMd5(const QString &filepath) const;
 
     QHash<int64_t, FileRecvTask *> _tasks;
     QHash<int64_t, QString> _pendingMd5;

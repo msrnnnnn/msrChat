@@ -103,7 +103,6 @@ public slots:
 private:
     void ConnectSignals();
     void DisconnectSignals();
-    QVariantMap ChatMessageToVariant(const ChatMessage &msg);
 
     int _target_uid;
     int _current_uid;

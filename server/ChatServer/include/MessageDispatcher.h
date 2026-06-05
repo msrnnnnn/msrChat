@@ -48,25 +48,9 @@ public:
         return info.handler(session, body_data);
     }
 
-    bool HasHandler(uint16_t msg_id) const
-    {
-        return _handlers.find(msg_id) != _handlers.end();
-    }
 
-    void UnregisterHandler(uint16_t msg_id)
-    {
-        _handlers.erase(msg_id);
-    }
 
-    void Clear()
-    {
-        _handlers.clear();
-    }
 
-    size_t GetHandlerCount() const
-    {
-        return _handlers.size();
-    }
 
 private:
     MessageDispatcher()

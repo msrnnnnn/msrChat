@@ -30,8 +30,6 @@ public:
     void SetUid(int uid);
     int GetUid() const;
 
-    void SetName(const QString &name);
-    QString GetName() const;
 
     void SetToken(const QString &token);
     QString GetToken() const;
@@ -40,7 +38,6 @@ private:
     UserMgr() = default;
 
     int _uid = 0;
-    QString _name = "";
     QString _token = "";
 };
 

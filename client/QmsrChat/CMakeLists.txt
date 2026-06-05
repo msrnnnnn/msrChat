@@ -74,7 +74,6 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets QuickControls2 QuickLayouts)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts Test)
 
-find_package(spdlog CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
 
 set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
@@ -109,7 +108,6 @@ set(PROJECT_SOURCES
         include/FileRecvMgr.h
         include/FileSendMgr.h
         include/singleton.h
-        include/Logger.h
         include/DPIHelper.h
         include/Utils.h
         include/TimerBtn.h
@@ -137,7 +135,6 @@ set(PROJECT_SOURCES
         src/RegisterDialog.cpp
         src/ResetDialog.cpp
         src/ChatDialog.cpp
-        src/Logger.cpp
         src/UserMgr.cpp
         src/TcpMgr.cpp
         src/TcpProtocolParser.cpp
@@ -187,7 +184,6 @@ target_link_libraries(QmsrChat PRIVATE
     Qt${QT_VERSION_MAJOR}::QuickControls2
     Qt${QT_VERSION_MAJOR}::QuickLayouts
     protobuf::libprotobuf
-    spdlog::spdlog
 )
 
 target_include_directories(QmsrChat PRIVATE

@@ -54,21 +54,6 @@ ServerConfig LoadConfig()
     return config;
 }
 
-void ReloadConfig()
-{
-    spdlog::info("Reloading configuration from config.ini...");
-    try
-    {
-        auto config = LoadConfig();
-        spdlog::info("Configuration reloaded successfully");
-        spdlog::info("New port: {}, New db_path: {}", config.port, config.db_path);
-    }
-    catch (const std::exception &e)
-    {
-        spdlog::error("Failed to reload configuration: {}", e.what());
-    }
-}
-
 int main(int argc, char *argv[])
 {
     try
@@ -121,7 +106,6 @@ int main(int argc, char *argv[])
 #endif
 
         boost::asio::io_context io_context;
-        LogicSystem::getInstance().SetIOContext(&io_context);
         std::shared_ptr<CServer> server = nullptr;
 
         auto stop_server = [&server, &io_context](const std::string &signal_name)
@@ -147,18 +131,6 @@ int main(int argc, char *argv[])
             io_context.stop();
         };
 
-        auto handle_sighup = [](const boost::system::error_code &ec, int signal_number)
-        {
-            if (ec)
-            {
-                spdlog::error("SIGHUP handler error: {}", ec.message());
-                return;
-            }
-
-            spdlog::info("Signal {} captured", signal_number);
-            ReloadConfig();
-        };
-
         auto handle_sigint_sigterm = [stop_server](const boost::system::error_code &ec, int signal_number)
         {
             if (ec)
@@ -174,9 +146,6 @@ int main(int argc, char *argv[])
 
         boost::asio::signal_set shutdown_signals(io_context, SIGINT, SIGTERM);
         shutdown_signals.async_wait(handle_sigint_sigterm);
-
-        boost::asio::signal_set reload_signal(io_context, SIGHUP);
-        reload_signal.async_wait(handle_sighup);
 
         server = std::make_shared<CServer>(io_context, config.port);
         server->Start();

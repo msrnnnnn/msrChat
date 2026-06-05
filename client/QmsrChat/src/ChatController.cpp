@@ -767,21 +767,6 @@ void ChatController::slotCleanTimeoutMessages()
     }
 }
 
-QVariantMap ChatController::ChatMessageToVariant(const ChatMessage &msg)
-{
-    QVariantMap map;
-    map["id"] = msg.id;
-    map["clientMsgId"] = msg.client_msg_id;
-    map["serverMsgId"] = msg.server_msg_id;
-    map["fromUid"] = msg.from_uid;
-    map["toUid"] = msg.to_uid;
-    map["content"] = msg.content;
-    map["timestamp"] = msg.timestamp;
-    map["status"] = msg.status;
-    map["isSelf"] = msg.from_uid == _current_uid;
-    return map;
-}
-
 /**
  * @brief 打开图片查看器（Phase 5）
  * @param imageId 触发查看的图片 UUID

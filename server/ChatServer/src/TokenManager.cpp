@@ -29,18 +29,6 @@ bool TokenManager::CheckToken(int uid, const std::string &token)
     return matched;
 }
 
-void TokenManager::RemoveToken(int uid)
-{
-    _uid_tokens.Erase(uid);
-    SQLiteMgr::Instance().RemoveTokenFromDB(uid);
-}
-
-std::string TokenManager::GetToken(int uid) const
-{
-    auto token = _uid_tokens.Find(uid);
-    return token.value_or(std::string());
-}
-
 void TokenManager::LoadTokensFromDB()
 {
     auto tokens = SQLiteMgr::Instance().GetAllTokens();

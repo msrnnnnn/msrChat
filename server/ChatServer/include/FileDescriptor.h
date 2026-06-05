@@ -51,13 +51,6 @@ public:
         return _fd;
     }
 
-    int Release()
-    {
-        int fd = _fd;
-        _fd = -1;
-        return fd;
-    }
-
     FileDescriptor &operator=(int fd)
     {
         if (_fd >= 0)

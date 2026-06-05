@@ -26,20 +26,10 @@ int UserMgr::GetUid() const
  * @brief 设置用户名
  * @param name 用户名
  */
-void UserMgr::SetName(const QString &name)
-{
-    _name = name;
-}
-
 /**
  * @brief 获取用户名
  * @return QString 用户名
  */
-QString UserMgr::GetName() const
-{
-    return _name;
-}
-
 /**
  * @brief 设置登录令牌
  * @param token 登录令牌

@@ -10,7 +10,6 @@
 #include "MessageTask.h"
 #include "ThreadPool.h"
 #include <atomic>
-#include <boost/asio.hpp>
 #include <memory>
 
 class CSession;
@@ -22,12 +21,8 @@ class LogicSystem : public CSingleton<LogicSystem>
 public:
     void PostTask(MessageTask task);
 
-    void SetIOContext(boost::asio::io_context *ioc);
-
     void Shutdown();
     bool IsShuttingDown() const;
-
-    size_t GetQueueSize() const;
 
 private:
     LogicSystem();
@@ -38,7 +33,6 @@ private:
 
     void ProcessTask(MessageTask task);
 
-    boost::asio::io_context *_ioc = nullptr;
     ThreadPool _thread_pool;
 
     std::atomic<bool> _shutting_down{false};

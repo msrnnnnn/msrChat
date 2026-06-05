@@ -26,7 +26,6 @@ public slots:
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
     void slot_delete_message_by_timestamp(qint64 ts);  // Phase 6
-    void slot_stop();
     void slot_db_destroy();
     void stopAsync();
 

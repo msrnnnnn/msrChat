@@ -151,21 +151,9 @@ public:
         AppendFileChunk(task_id, chunk_view.data(), chunk_view.size());
     }
 
-    int GetFileTransferProgress(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_recv_state.task_id == task_id && _file_recv_state.total_size > 0)
-        {
-            return static_cast<int>((_file_recv_state.received_size * 100) / _file_recv_state.total_size);
-        }
         return 0;
     }
 
-    bool IsFileTransferComplete(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        return _file_recv_state.task_id == task_id && _file_recv_state.received_size >= _file_recv_state.total_size;
-    }
 
     void FinishFileReceive(int64_t task_id)
     {
@@ -177,13 +165,6 @@ public:
         }
     }
 
-    int64_t GetReceivedFileSize(int64_t task_id)
-    {
-        std::lock_guard<std::mutex> lock(_file_mutex);
-        if (_file_recv_state.task_id == task_id)
-        {
-            return _file_recv_state.received_size;
-        }
         return 0;
     }
 

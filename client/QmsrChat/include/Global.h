@@ -46,8 +46,6 @@ struct ServerInfo
 {
     QString Host;  ///< 主机地址
     QString Port;  ///< 端口号
-    QString Token; ///< 认证令牌
-    int Uid;       ///< 用户 ID
 };
 
 Q_DECLARE_METATYPE(ServerInfo)
@@ -58,8 +56,6 @@ Q_DECLARE_METATYPE(ServerInfo)
 enum class ERRORCODES
 {
     SUCCESS = 0,              ///< 操作成功
-    ERROR_JSON = 1001,        ///< JSON 解析失败
-    RPC_FAILED = 1002,        ///< RPC 调用失败
     VarifyCodeExpired = 1003, ///< 验证码已过期
     VarifyCodeErr = 1004,     ///< 验证码错误
     UserExist = 1005,         ///< 用户名已存在
@@ -68,7 +64,6 @@ enum class ERRORCODES
     EmailNotMatch = 1008,     ///< 邮箱不匹配
     PasswdUpFailed = 1009,    ///< 密码更新失败
     RPCGetFailed = 1010,      ///< 获取状态服务失败
-    ERROR_NETWORK = 2         ///< 网络通信错误
 };
 
 /**
@@ -76,7 +71,6 @@ enum class ERRORCODES
  */
 enum class TipErr
 {
-    TIP_SUCCESS = 0,
     TIP_EMAIL_ERR = 1,
     TIP_PWD_ERR = 2,
     TIP_CONFIRM_ERR = 3,

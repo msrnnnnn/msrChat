@@ -13,7 +13,6 @@
 #include <shared_mutex>
 #include <string>
 
-constexpr size_t LARGE_FILE_THRESHOLD = 1024 * 1024;
 
 class FileTransferTask
 {
@@ -22,9 +21,7 @@ public:
     {
         PENDING = 0,
         TRANSFERRING = 1,
-        COMPLETED = 2,
-        FAILED = 3,
-        PAUSED = 4
+        COMPLETED = 2
     };
 
     FileTransferTask()
@@ -152,7 +149,6 @@ public:
         return pool;
     }
 
-    int64_t CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
     // 由外部指定 task_id 创建路由记录（用于 P2P 转发）
     void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
     std::shared_ptr<FileTransferTask> GetTask(int64_t task_id);
@@ -161,8 +157,6 @@ public:
 
     bool SendFileChunked(int fd, std::function<bool(const char *, size_t)> send_callback, int64_t offset, int64_t size);
 
-    std::string CalculateMD5(const std::string &filepath);
-    std::string CalculateChunkMD5(const char *data, size_t len);
 
     FileTransfer(const FileTransfer &) = delete;
     FileTransfer &operator=(const FileTransfer &) = delete;

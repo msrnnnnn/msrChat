@@ -20,7 +20,6 @@ public:
 
     QString GetCachePath(const QString &image_id, const QString &ext) const;
     bool IsCached(const QString &image_id) const;
-    bool IsFailed(const QString &image_id) const;
 
 signals:
     void sigImageReady(const QString &image_id, const QString &local_path);

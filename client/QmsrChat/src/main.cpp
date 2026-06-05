@@ -79,8 +79,6 @@ int main(int argc, char *argv[])
     ServerInfo si;
     si.Host = chat_host;
     si.Port = chat_port;
-    si.Token = "";
-    si.Uid = 0;
 
     qDebug() << "Initializing UserMgr...";
     UserMgr::Init();

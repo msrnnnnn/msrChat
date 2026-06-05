@@ -73,15 +73,6 @@ void LogicSystem::ProcessTask(MessageTask task)
     }
 }
 
-/**
- * @brief 设置 ASIO io_context 指针
- * @param ioc io_context 指针
- */
-void LogicSystem::SetIOContext(boost::asio::io_context *ioc)
-{
-    _ioc = ioc;
-}
-
 void LogicSystem::Shutdown()
 {
     bool expected = false;
@@ -101,7 +92,3 @@ bool LogicSystem::IsShuttingDown() const
     return _shutting_down.load();
 }
 
-size_t LogicSystem::GetQueueSize() const
-{
-    return _thread_pool.GetTaskCount();
-}

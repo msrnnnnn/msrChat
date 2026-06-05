@@ -184,61 +184,7 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
     emit scrollToBottomRequested();
 }
 
-void ChatListModel::AddMessages(const QVector<ChatMessage> &messages)
-{
-    if (messages.isEmpty())
-    {
-        return;
-    }
 
-    int startRow = rowCount();
-    int endRow = startRow + messages.size() - 1;
-
-    beginInsertRows(QModelIndex(), startRow, endRow);
-
-    {
-        QMutexLocker locker(&_mutex);
-        for (const ChatMessage &msg : messages)
-        {
-            ChatMessage copy = msg;
-            _messages.append(copy);
-        }
-        RebuildIndex();
-    }
-
-    endInsertRows();
-
-    emit messagesLoaded(messages.size());
-    emit scrollToBottomRequested();
-}
-
-void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &messages)
-{
-    if (messages.isEmpty())
-    {
-        return;
-    }
-
-    int startRow = 0;
-    int endRow = messages.size() - 1;
-
-    beginInsertRows(QModelIndex(), startRow, endRow);
-
-    {
-        QMutexLocker locker(&_mutex);
-        for (int i = messages.size() - 1; i >= 0; --i)
-        {
-            ChatMessage copy = messages[i];
-            _messages.prepend(copy);
-        }
-        RebuildIndex();
-    }
-
-    endInsertRows();
-
-    emit messagesLoaded(messages.size());
-    emit scrollToTopRequested();
-}
 
 void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
 {
@@ -265,17 +211,6 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     endInsertRows();
 }
 
-void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
-{
-    beginResetModel();
-    {
-        QMutexLocker locker(&_mutex);
-        _messages = messages;
-        RebuildIndex();
-    }
-    endResetModel();
-    emit scrollToBottomRequested();
-}
 
 void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status)
 {

@@ -100,14 +100,9 @@ set(SERVER_SOURCES
     src/SessionManager.cpp
     src/MessageRouter.cpp
     src/TokenManager.cpp
-    src/Protocol/BaseProtocol.cpp
-    src/Protocol/TLVProtocol.cpp
-    src/Protocol/BinaryPacketProtocol.cpp
     src/ThreadPool.cpp
     src/FileTransfer.cpp
     src/SQLiteMgr.cpp
-    src/UserData.cpp
-    src/OfflineStorage.cpp
     src/ImageStorage.cpp
 )
 
@@ -118,7 +113,6 @@ add_executable(ChatServer ${SERVER_SOURCES})
 
 target_include_directories(ChatServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Boost_INCLUDE_DIRS}
 )
@@ -164,23 +158,16 @@ if(BUILD_TESTS)
 
     add_executable(ChatServerTests
         tests/test_ShardedMap.cpp
-        tests/test_TLVProtocol.cpp
         tests/test_ThreadPool.cpp
-        tests/test_UserData.cpp
         tests/test_ImageStorage.cpp
-        src/Protocol/TLVProtocol.cpp
-        src/Protocol/BinaryPacketProtocol.cpp
-        src/Protocol/BaseProtocol.cpp
-        src/ThreadPool.cpp
-        src/UserData.cpp
-        src/ImageStorage.cpp
+                    src/ThreadPool.cpp
+            src/ImageStorage.cpp
         src/SQLiteMgr.cpp
     )
 
     target_include_directories(ChatServerTests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/Protocol
-        ${CMAKE_CURRENT_BINARY_DIR}
+            ${CMAKE_CURRENT_BINARY_DIR}
         ${Boost_INCLUDE_DIRS}
     )
 

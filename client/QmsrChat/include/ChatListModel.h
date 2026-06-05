@@ -43,10 +43,7 @@ public:
     void AddMessage(const ChatMessage &msg);
     void UpsertMessage(const ChatMessage &msg);
     void InsertMessageSorted(const ChatMessage &msg);
-    void AddMessages(const QVector<ChatMessage> &messages);
-    void InsertHistoricalMessages(const QVector<ChatMessage> &messages);
     void PrependMessages(const QVector<ChatMessage> &messages);
-    void SetMessages(const QVector<ChatMessage> &messages);
     void UpdateMessageStatus(const QString &client_msg_id, int status);
     void ClearMessages();
     void SetCurrentUid(int uid);

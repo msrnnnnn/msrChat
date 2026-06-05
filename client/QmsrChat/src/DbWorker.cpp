@@ -12,12 +12,6 @@ DbWorker::~DbWorker()
 {
 }
 
-void DbWorker::slot_stop()
-{
-    _stop_flag.store(true);
-    qDebug() << "DbWorker stop flag set in thread" << QThread::currentThreadId();
-}
-
 void DbWorker::stopAsync()
 {
     _stop_flag.store(true);
@@ -296,11 +290,6 @@ bool DbThreadManager::Init(const QString &db_path)
 
     qDebug() << "DbThreadManager initialized successfully";
     return true;
-}
-
-void DbThreadManager::Shutdown()
-{
-    cleanup();
 }
 
 void DbThreadManager::SaveMessage(const ChatMessage &msg)

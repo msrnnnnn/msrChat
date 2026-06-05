@@ -27,11 +27,6 @@ bool ImageDownloadMgr::IsCached(const QString &image_id) const
     return _cache_index.contains(image_id);
 }
 
-bool ImageDownloadMgr::IsFailed(const QString &image_id) const
-{
-    QMutexLocker lock(&_mutex);
-    return _failed_index.contains(image_id);
-}
 
 void ImageDownloadMgr::Request(const QString &image_id, int retry_count, const QString &ext)
 {

@@ -236,8 +236,6 @@ public:
 
     bool SaveUser(const User &user);
     std::optional<User> GetUserByUsername(const std::string &username);
-    std::optional<User> GetUserByUid(int uid);
-    bool UpdateUserAvatar(int uid, const std::string &avatar_path);
 
     bool SaveOfflineMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);

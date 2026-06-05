@@ -6,7 +6,6 @@
 #include "ImageStorage.h"
 #include "Message.pb.h"
 #include "MessageRouter.h"
-#include "OfflineStorage.h"
 #include "SessionManager.h"
 #include "SQLiteMgr.h"
 #include "TokenManager.h"

@@ -427,15 +427,6 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
         }
     }
 
-    if (sqlite3_exec(db, sql, nullptr, nullptr, &err_msg) != SQLITE_OK)
-    {
-        if (err_msg)
-        {
-            sqlite3_free(err_msg);
-        }
-        return false;
-    }
-
     return true;
 }
 
