@@ -11,7 +11,8 @@ Item {
 
     property bool isSelf: false
     property string content: ""
-    property string timestamp: ""
+    property var timestamp: 0          // qint64 ms epoch via QML var (JS Number 53-bit OK for ms)
+    property string displayTime: ""    // HH:mm:ss for UI display only
     property int status: 0
 
     property real viewWidth: 400
@@ -55,7 +56,7 @@ Item {
 
                 Text {
                     id: timeText
-                    text: timestamp
+                    text: displayTime
                     color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.7) : Qt.rgba(0.0, 0.0, 0.0, 0.5)
                     font.pixelSize: 10
                     font.family: "Microsoft YaHei"
@@ -131,5 +132,5 @@ Item {
         appearAnimation.running = true
     }
 
-    signal rightClicked(real x, real y, string timestamp)
+    signal rightClicked(real x, real y, var timestamp)
 }

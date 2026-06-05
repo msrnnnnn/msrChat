@@ -47,7 +47,8 @@ Rectangle {
                         viewWidth: chatViewRoot.width
                         isSelf: model.isSelf
                         content: model.content
-                        timestamp: model.displayTime
+                        timestamp: model.timestamp           // qint64 ms
+                        displayTime: model.displayTime       // UI string
                         status: model.status
                         onRightClicked: function(localX, localY, ts) {
                             chatViewRoot.showActionMenu(localX, localY, ts,
@@ -66,7 +67,8 @@ Rectangle {
                         imageHeight: model.imageHeight
                         edited: model.edited
                         recalled: model.recalled
-                        timestamp: model.displayTime
+                        timestamp: model.timestamp           // qint64 ms
+                        displayTime: model.displayTime       // UI string
                         onClicked: chatController.openImageViewer(model.imageId)
                         onRightClicked: function(localX, localY, ts) {
                             chatViewRoot.showActionMenu(localX, localY, ts,
@@ -508,7 +510,7 @@ Rectangle {
         }
         property real menuX: 0
         property real menuY: 0
-        property int menuTimestamp: 0
+        property var menuTimestamp: 0
         property bool menuIsImage: false
         property bool menuIsOwn: false
         property bool menuHasCaption: true
@@ -516,11 +518,11 @@ Rectangle {
 
     // 在 chatViewRoot 上暴露 showActionMenu 函数（bubble 的 onRightClicked 调用）
     function showActionMenu(localX, localY, ts, isImage, isOwn, content) {
-        // 简化坐标：bubbleRect 锚定在 messageListView.contentItem 顶部，x 与 delegate x 一致
-        // localX/Y 来自 bubbleRect 局部坐标，加 messageListView.contentX/Y 转 chatViewRoot 坐标
+        // 防御性:接收 string 也兼容(老代码万一遗漏)
+        var realTs = (typeof ts === "string") ? Number(ts) : ts
         actionMenuLoader.menuX = Math.max(0, messageListView.contentX + localX)
         actionMenuLoader.menuY = Math.max(0, messageListView.contentY + localY)
-        actionMenuLoader.menuTimestamp = ts
+        actionMenuLoader.menuTimestamp = realTs
         actionMenuLoader.menuIsImage = isImage
         actionMenuLoader.menuIsOwn = isOwn
         actionMenuLoader.menuHasCaption = (content && content.length > 0)

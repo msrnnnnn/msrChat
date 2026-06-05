@@ -21,7 +21,8 @@ Item {
     property bool loaded: imagePath !== ""
     property bool edited: false
     property bool recalled: false
-    property string timestamp: ""
+    property var timestamp: 0
+    property string displayTime: ""
 
     width: parent ? parent.width : 0
     height: recalled ? recalledRow.height + 8 : bubbleRect.height + 8
@@ -147,7 +148,7 @@ Item {
             layoutDirection: imageBubble.isSelf ? Qt.RightToLeft : Qt.LeftToRight
 
             Text {
-                text: imageBubble.timestamp
+                text: imageBubble.displayTime
                 color: "#999999"
                 font.pixelSize: 11
                 font.family: "Microsoft YaHei"
@@ -181,5 +182,5 @@ Item {
     }
 
     signal clicked()
-    signal rightClicked(real x, real y, string timestamp)
+    signal rightClicked(real x, real y, var timestamp)
 }
