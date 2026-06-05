@@ -945,7 +945,7 @@ bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
 
     std::string data;
     rsp.SerializeToString(&data);
-    session.Send(data, MSG_IMAGE_DOWNLOAD_REQ);
+    session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
     session.ContinueReading();
     return true;
 }
