@@ -6,5 +6,8 @@
         <file>style/stylesheet.qss</file>
         <file>ChatView.qml</file>
         <file>MessageBubble.qml</file>
+        <file>ImageBubble.qml</file>
+        <file>ImageViewer.qml</file>
+        <file>MessageActionMenu.qml</file>
     </qresource>
 </RCC>

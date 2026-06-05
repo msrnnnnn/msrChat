@@ -56,7 +56,7 @@ Item {
                 Text {
                     id: timeText
                     text: timestamp
-                    color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
+                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.7) : Qt.rgba(0.0, 0.0, 0.0, 0.5)
                     font.pixelSize: 10
                     font.family: "Microsoft YaHei"
                 }
@@ -65,7 +65,7 @@ Item {
                     id: statusIcon
                     visible: isSelf
                     font.pixelSize: 10
-                    color: isSelf ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)"
+                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.7) : Qt.rgba(0.0, 0.0, 0.0, 0.5)
 
                     text: {
                         switch (status) {

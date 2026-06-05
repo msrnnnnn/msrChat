@@ -14,13 +14,20 @@
 
 struct ChatMessage
 {
-    int64_t id;
-    int from_uid;
-    int to_uid;
+    int64_t id = 0;
+    int from_uid = 0;
+    int to_uid = 0;
     std::string content;
-    int64_t timestamp;
-    int status;
+    int64_t timestamp = 0;
+    int status = 0;
     std::string client_msg_id;
+    // === Phase 7 新增 ===
+    int     type        = 0;     ///< 0=text, 1=image
+    std::string image_id;        ///< UUID（type=1 时）
+    bool    recalled    = false;
+    int64_t recalled_at = 0;
+    bool    edited      = false;
+    int64_t edited_at   = 0;
 };
 
 struct User
@@ -220,6 +227,11 @@ public:
     bool SaveMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetMessages(int uid1, int uid2, int64_t before_time, int limit = 50);
     std::vector<ChatMessage> SearchMessages(int uid1, int uid2, const std::string &keyword, int limit = 50);
+
+    // Phase 7 — 撤回 / 编辑
+    bool MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts);
+    bool UpdateMessageContent(int64_t timestamp, int from_uid, const std::string &new_content, int64_t edit_ts);
+    std::optional<ChatMessage> GetMessageByTimestamp(int64_t timestamp, int from_uid);
 
     bool SaveUser(const User &user);
     std::optional<User> GetUserByUsername(const std::string &username);

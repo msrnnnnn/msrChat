@@ -182,7 +182,7 @@ Rectangle {
             var item = viewer.currentItem()
             return item && item.caption ? item.caption : ""
         }
-        color: "rgba(255,255,255,0.75)"
+        color: Qt.rgba(1.0, 1.0, 1.0, 0.75)
         font.pixelSize: 13
         font.family: "Microsoft YaHei"
         elide: Text.ElideRight
@@ -198,7 +198,7 @@ Rectangle {
         width: 36
         height: 36
         radius: 18
-        color: closeMouse.containsMouse ? "rgba(60,60,60,0.85)" : "rgba(40,40,40,0.7)"
+        color: closeMouse.containsMouse ? Qt.rgba(60/255, 60/255, 60/255, 0.85) : Qt.rgba(40/255, 40/255, 40/255, 0.7)
 
         Text {
             anchors.centerIn: parent
@@ -226,8 +226,8 @@ Rectangle {
         height: 44
         radius: 22
         color: viewer.currentIndex > 0
-               ? (prevMouse.containsMouse ? "rgba(60,60,60,0.85)" : "rgba(40,40,40,0.6)")
-               : "rgba(40,40,40,0.3)"
+               ? (prevMouse.containsMouse ? Qt.rgba(60/255, 60/255, 60/255, 0.85) : Qt.rgba(40/255, 40/255, 40/255, 0.6))
+               : Qt.rgba(40/255, 40/255, 40/255, 0.3)
 
         Text {
             anchors.centerIn: parent
@@ -256,8 +256,8 @@ Rectangle {
         height: 44
         radius: 22
         color: viewer.currentIndex < viewer.imageList.length - 1
-               ? (nextMouse.containsMouse ? "rgba(60,60,60,0.85)" : "rgba(40,40,40,0.6)")
-               : "rgba(40,40,40,0.3)"
+               ? (nextMouse.containsMouse ? Qt.rgba(60/255, 60/255, 60/255, 0.85) : Qt.rgba(40/255, 40/255, 40/255, 0.6))
+               : Qt.rgba(40/255, 40/255, 40/255, 0.3)
 
         Text {
             anchors.centerIn: parent
@@ -283,7 +283,7 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         z: 2
         text: qsTr("滚轮缩放 · 双击切换 · ← → 翻页 · Esc 关闭")
-        color: "rgba(255,255,255,0.45)"
+        color: Qt.rgba(1.0, 1.0, 1.0, 0.45)
         font.pixelSize: 11
         font.family: "Microsoft YaHei"
     }
@@ -298,7 +298,7 @@ Rectangle {
         height: 52
         width: toolbarRow.width + 16
         radius: 26
-        color: "rgba(40,40,40,0.85)"
+        color: Qt.rgba(40/255, 40/255, 40/255, 0.85)
 
         Row {
             id: toolbarRow
@@ -324,7 +324,7 @@ Rectangle {
                         Rectangle {
                             width: 1
                             height: 24
-                            color: "rgba(255,255,255,0.15)"
+                            color: Qt.rgba(1.0, 1.0, 1.0, 0.15)
                         }
                     }
                     Component {
@@ -334,7 +334,7 @@ Rectangle {
                             width: 44
                             height: 44
                             radius: 22
-                            color: btnMouse.containsMouse ? "rgba(255,255,255,0.12)" : "transparent"
+                            color: btnMouse.containsMouse ? Qt.rgba(1.0, 1.0, 1.0, 0.12) : "transparent"
 
                             Text {
                                 anchors.centerIn: parent

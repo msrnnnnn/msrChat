@@ -950,16 +950,227 @@ bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
     return true;
 }
 
-bool HandleChatRecall(CSession &session, const std::string &)
+/**
+ * @brief 撤回消息（Phase 7 完整实现）
+ * @details 流程：parse → 校验所有权 → 校验 2min 窗口 → 校验未已撤回 →
+ *          标记 DB + 联动 ImageStorage（如图片）→ 推 RecallNotify → 回 ChatAck
+ */
+bool HandleChatRecall(CSession &session, const std::string &body_data)
 {
-    spdlog::warn("HandleChatRecall: stub (Phase 7 implements)");
+    qmsrchat::RecallMsg req;
+    if (!req.ParseFromString(body_data))
+    {
+        spdlog::warn("HandleChatRecall: parse failed");
+        session.ContinueReading();
+        return true;
+    }
+    const int from = session.GetUserUid();
+    const int64_t now_ms = static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+
+    // 1. 查原消息（用 timestamp + from_uid 精确查找）
+    auto orig = SQLiteMgr::Instance().GetMessageByTimestamp(req.msg_timestamp(), from);
+    if (!orig.has_value())
+    {
+        spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}",
+                     req.msg_timestamp(), from);
+        qmsrchat::ChatAck ack;
+        ack.set_error(ERR_RECALL_NOT_OWNER);
+        ack.set_client_msg_id(req.client_msg_id());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_ACK);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 2. 2 分钟窗口校验
+    if (now_ms - req.msg_timestamp() > 2LL * 60 * 1000)
+    {
+        spdlog::warn("HandleChatRecall: timeout, age_ms={}", now_ms - req.msg_timestamp());
+        qmsrchat::ChatAck ack;
+        ack.set_error(ERR_RECALL_TIMEOUT);
+        ack.set_client_msg_id(req.client_msg_id());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_ACK);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 3. 已撤回检查
+    if (orig->recalled)
+    {
+        spdlog::warn("HandleChatRecall: already recalled, ts={}", req.msg_timestamp());
+        qmsrchat::ChatAck ack;
+        ack.set_error(ERR_MSG_ALREADY_RECALLED);
+        ack.set_client_msg_id(req.client_msg_id());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_ACK);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 4. 联动 ImageStorage（如图片）— P7 v1 已知限制：HandleChatImage 当前不写 messages 表，
+    //    所以 type=1 的图片消息到这里 GetMessageByTimestamp 会返回 nullopt（被 NOT_OWNER 挡）。
+    //    未来 HandleChatImage 加 SaveMessage(type=1, image_id) 后，下面的联动会生效。
+    if (orig->type == 1 && !orig->image_id.empty())
+    {
+        ImageStorage::Instance().MarkRecalled(orig->image_id);
+        spdlog::info("HandleChatRecall: marked image_storage recalled, image_id={}", orig->image_id);
+    }
+
+    // 5. DB 标记 recalled
+    if (!SQLiteMgr::Instance().MarkMessageRecalled(req.msg_timestamp(), from, now_ms))
+    {
+        spdlog::error("HandleChatRecall: DB mark failed, ts={}", req.msg_timestamp());
+        qmsrchat::ChatAck ack;
+        ack.set_error(1);  // 通用错误
+        ack.set_client_msg_id(req.client_msg_id());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_ACK);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 6. 推 RecallNotify 给原接收方（v1: 在线才推，离线丢奔）
+    auto target_session = SessionManager::Instance().GetSession(orig->to_uid);
+    if (target_session)
+    {
+        qmsrchat::RecallNotify n;
+        n.set_msg_timestamp(req.msg_timestamp());
+        n.set_recall_uid(from);
+        n.set_recalled_to(orig->to_uid);
+        n.set_recall_ts(now_ms);
+        std::string s;
+        n.SerializeToString(&s);
+        if (!MessageRouter::Instance().SendToSession(target_session, s, MSG_CHAT_RECALL_NOTIFY))
+        {
+            spdlog::warn("HandleChatRecall: Notify send failed (target_session closed?)");
+        }
+    }
+    else
+    {
+        spdlog::info("HandleChatRecall: target uid={} offline, Notify dropped (P7 v1 limit)",
+                     orig->to_uid);
+    }
+
+    // 7. 回 ACK 给发起方
+    qmsrchat::ChatAck ack;
+    ack.set_error(0);
+    ack.set_message("ok");
+    ack.set_client_msg_id(req.client_msg_id());
+    std::string s;
+    ack.SerializeToString(&s);
+    session.Send(s, MSG_CHAT_ACK);
     session.ContinueReading();
     return true;
 }
 
-bool HandleChatEdit(CSession &session, const std::string &)
+/**
+ * @brief 编辑消息（Phase 7 完整实现）
+ * @details 流程：parse → 长度校验 → 校验所有权 → 校验 2min →
+ *          DB 更新 → 推 EditNotify → 回 EditAck
+ */
+bool HandleChatEdit(CSession &session, const std::string &body_data)
 {
-    spdlog::warn("HandleChatEdit: stub (Phase 7 implements)");
+    qmsrchat::EditMsg req;
+    if (!req.ParseFromString(body_data))
+    {
+        spdlog::warn("HandleChatEdit: parse failed");
+        session.ContinueReading();
+        return true;
+    }
+    const int from = session.GetUserUid();
+    const int64_t now_ms = static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+
+    // 1. 长度校验
+    if (req.new_content().size() > 2000)
+    {
+        qmsrchat::EditAck ack;
+        ack.set_error(ERR_EDIT_TOO_LONG);
+        ack.set_msg_timestamp(req.msg_timestamp());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_EDIT);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 2. 查原消息
+    auto orig = SQLiteMgr::Instance().GetMessageByTimestamp(req.msg_timestamp(), from);
+    if (!orig.has_value())
+    {
+        spdlog::warn("HandleChatEdit: msg not found or not owner, ts={}", req.msg_timestamp());
+        qmsrchat::EditAck ack;
+        ack.set_error(ERR_EDIT_NOT_OWNER);
+        ack.set_msg_timestamp(req.msg_timestamp());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_EDIT);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 3. 2 分钟窗口校验
+    if (now_ms - req.msg_timestamp() > 2LL * 60 * 1000)
+    {
+        qmsrchat::EditAck ack;
+        ack.set_error(ERR_EDIT_TIMEOUT);
+        ack.set_msg_timestamp(req.msg_timestamp());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_EDIT);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 4. DB 更新 content + edited + edited_at
+    if (!SQLiteMgr::Instance().UpdateMessageContent(req.msg_timestamp(), from,
+                                                     req.new_content(), now_ms))
+    {
+        spdlog::error("HandleChatEdit: DB update failed, ts={}", req.msg_timestamp());
+        qmsrchat::EditAck ack;
+        ack.set_error(1);
+        ack.set_msg_timestamp(req.msg_timestamp());
+        std::string s;
+        ack.SerializeToString(&s);
+        session.Send(s, MSG_CHAT_EDIT);
+        session.ContinueReading();
+        return true;
+    }
+
+    // 5. 推 EditNotify 给原接收方
+    auto target_session = SessionManager::Instance().GetSession(orig->to_uid);
+    if (target_session)
+    {
+        qmsrchat::EditNotify n;
+        n.set_msg_timestamp(req.msg_timestamp());
+        n.set_from_uid(from);
+        n.set_new_content(req.new_content());
+        n.set_edit_ts(now_ms);
+        std::string s;
+        n.SerializeToString(&s);
+        if (!MessageRouter::Instance().SendToSession(target_session, s, MSG_CHAT_EDIT_NOTIFY))
+        {
+            spdlog::warn("HandleChatEdit: Notify send failed");
+        }
+    }
+    else
+    {
+        spdlog::info("HandleChatEdit: target uid={} offline, Notify dropped (P7 v1 limit)",
+                     orig->to_uid);
+    }
+
+    // 6. 回 EditAck 给发起方
+    qmsrchat::EditAck ack;
+    ack.set_error(0);
+    ack.set_msg_timestamp(req.msg_timestamp());
+    ack.set_edit_ts(now_ms);
+    std::string s;
+    ack.SerializeToString(&s);
+    session.Send(s, MSG_CHAT_EDIT);
     session.ContinueReading();
     return true;
 }

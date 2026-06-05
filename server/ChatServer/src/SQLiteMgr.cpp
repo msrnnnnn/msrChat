@@ -373,6 +373,31 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
         }
     }
 
+    // === Phase 7 — messages 表增 6 列（recall/edit + type/image_id）===
+    const char *p7_migrations[] = {
+        "ALTER TABLE messages ADD COLUMN type INTEGER DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN image_id TEXT DEFAULT ''",
+        "ALTER TABLE messages ADD COLUMN recalled INTEGER DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN recalled_at INTEGER DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN edited INTEGER DEFAULT 0",
+        "ALTER TABLE messages ADD COLUMN edited_at INTEGER DEFAULT 0"
+    };
+    for (const char *p7_sql : p7_migrations)
+    {
+        char *p7_err = nullptr;
+        int p7_rc = sqlite3_exec(db, p7_sql, nullptr, nullptr, &p7_err);
+        if (p7_rc != SQLITE_OK && p7_err)
+        {
+            std::string p7_err_str(p7_err);
+            sqlite3_free(p7_err);
+            if (p7_err_str.find("duplicate column") == std::string::npos)
+            {
+                spdlog::warn("[SQLiteMgr] P7 migration failed: {} (err={})", p7_sql, p7_err_str);
+            }
+            // duplicate column 视为成功（旧库已有）
+        }
+    }
+
     if (sqlite3_exec(db, sql, nullptr, nullptr, &err_msg) != SQLITE_OK)
     {
         if (err_msg)
@@ -399,7 +424,11 @@ bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
     }
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db, "INSERT INTO messages (from_uid, to_uid, content, timestamp, status) VALUES (?, ?, ?, ?, ?)");
+    // Phase 7: 增 6 列 (type/image_id/recalled/recalled_at/edited/edited_at)
+    ScopedStmt stmt(db,
+        "INSERT INTO messages (from_uid, to_uid, content, timestamp, status, "
+        "type, image_id, recalled, recalled_at, edited, edited_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -410,6 +439,13 @@ bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
     sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 4, msg.timestamp);
     sqlite3_bind_int(stmt, 5, msg.status);
+    // Phase 7 — 6 个新字段
+    sqlite3_bind_int(stmt, 6, msg.type);
+    sqlite3_bind_text(stmt, 7, msg.image_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 8, msg.recalled ? 1 : 0);
+    sqlite3_bind_int64(stmt, 9, msg.recalled_at);
+    sqlite3_bind_int(stmt, 10, msg.edited ? 1 : 0);
+    sqlite3_bind_int64(stmt, 11, msg.edited_at);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
@@ -432,12 +468,14 @@ std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t befo
     sqlite3 *db = guard.Get();
 
     std::vector<ChatMessage> messages;
+    // Phase 7: 增 6 列 (type/image_id/recalled/recalled_at/edited/edited_at)
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status 
-        FROM messages 
+        SELECT id, from_uid, to_uid, content, timestamp, status,
+               type, image_id, recalled, recalled_at, edited, edited_at
+        FROM messages
         WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
         AND timestamp < ?
-        ORDER BY timestamp DESC 
+        ORDER BY timestamp DESC
         LIMIT ?
     )");
     if (!stmt)
@@ -461,6 +499,14 @@ std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t befo
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
+        // Phase 7 — 6 个新字段
+        msg.type = sqlite3_column_int(stmt, 6);
+        const unsigned char *iid = sqlite3_column_text(stmt, 7);
+        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+        msg.recalled = sqlite3_column_int(stmt, 8) != 0;
+        msg.recalled_at = sqlite3_column_int64(stmt, 9);
+        msg.edited = sqlite3_column_int(stmt, 10) != 0;
+        msg.edited_at = sqlite3_column_int64(stmt, 11);
         messages.push_back(msg);
     }
 
@@ -758,12 +804,14 @@ std::vector<ChatMessage> SQLiteMgr::SearchMessages(int uid1, int uid2, const std
     sqlite3 *db = guard.Get();
 
     std::vector<ChatMessage> messages;
+    // Phase 7: 增 6 列（与 GetMessages 一致）
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status 
-        FROM messages 
+        SELECT id, from_uid, to_uid, content, timestamp, status,
+               type, image_id, recalled, recalled_at, edited, edited_at
+        FROM messages
         WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
         AND content LIKE ?
-        ORDER BY timestamp DESC 
+        ORDER BY timestamp DESC
         LIMIT ?
     )");
     if (!stmt)
@@ -789,6 +837,14 @@ std::vector<ChatMessage> SQLiteMgr::SearchMessages(int uid1, int uid2, const std
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
+        // Phase 7 — 6 个新字段
+        msg.type = sqlite3_column_int(stmt, 6);
+        const unsigned char *iid = sqlite3_column_text(stmt, 7);
+        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+        msg.recalled = sqlite3_column_int(stmt, 8) != 0;
+        msg.recalled_at = sqlite3_column_int64(stmt, 9);
+        msg.edited = sqlite3_column_int(stmt, 10) != 0;
+        msg.edited_at = sqlite3_column_int64(stmt, 11);
         messages.push_back(msg);
     }
 
@@ -1134,4 +1190,95 @@ std::vector<std::pair<int, std::string>> SQLiteMgr::GetAllTokens()
         tokens.emplace_back(uid, token);
     }
     return tokens;
+}
+
+// === Phase 7 — 撤回 / 编辑 ===
+
+/**
+ * @brief 按 timestamp + from_uid 精确查找消息
+ * @details 用于 HandleChatRecall / HandleChatEdit 的存在性 + 所有权校验
+ */
+std::optional<ChatMessage> SQLiteMgr::GetMessageByTimestamp(int64_t timestamp, int from_uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return std::nullopt;
+    sqlite3 *db = guard.Get();
+
+    const char *sql = R"SQL(
+        SELECT id, from_uid, to_uid, content, timestamp, status,
+               type, image_id, recalled, recalled_at, edited, edited_at
+        FROM messages
+        WHERE timestamp = ? AND from_uid = ?
+        LIMIT 1
+    )SQL";
+
+    ScopedStmt stmt(db, sql);
+    if (!stmt) return std::nullopt;
+    sqlite3_bind_int64(stmt, 1, timestamp);
+    sqlite3_bind_int(stmt, 2, from_uid);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        ChatMessage msg;
+        msg.id = sqlite3_column_int64(stmt, 0);
+        msg.from_uid = sqlite3_column_int(stmt, 1);
+        msg.to_uid = sqlite3_column_int(stmt, 2);
+        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
+        msg.timestamp = sqlite3_column_int64(stmt, 4);
+        msg.status = sqlite3_column_int(stmt, 5);
+        msg.type = sqlite3_column_int(stmt, 6);
+        const unsigned char *iid = sqlite3_column_text(stmt, 7);
+        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+        msg.recalled = sqlite3_column_int(stmt, 8) != 0;
+        msg.recalled_at = sqlite3_column_int64(stmt, 9);
+        msg.edited = sqlite3_column_int(stmt, 10) != 0;
+        msg.edited_at = sqlite3_column_int64(stmt, 11);
+        return msg;
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief 标记消息为已撤回（Phase 7）
+ * @param timestamp 消息时间戳（毫秒）
+ * @param from_uid 消息发送方
+ * @param recall_ts 撤回时间戳（毫秒）
+ * @return UPDATE 成功
+ */
+bool SQLiteMgr::MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db,
+        "UPDATE messages SET recalled = 1, recalled_at = ? WHERE timestamp = ? AND from_uid = ?");
+    if (!stmt) return false;
+    sqlite3_bind_int64(stmt, 1, recall_ts);
+    sqlite3_bind_int64(stmt, 2, timestamp);
+    sqlite3_bind_int(stmt, 3, from_uid);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+/**
+ * @brief 更新消息内容（编辑，Phase 7）
+ */
+bool SQLiteMgr::UpdateMessageContent(int64_t timestamp, int from_uid,
+                                      const std::string &new_content, int64_t edit_ts)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db,
+        "UPDATE messages SET content = ?, edited = 1, edited_at = ? "
+        "WHERE timestamp = ? AND from_uid = ?");
+    if (!stmt) return false;
+    sqlite3_bind_text(stmt, 1, new_content.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 2, edit_ts);
+    sqlite3_bind_int64(stmt, 3, timestamp);
+    sqlite3_bind_int(stmt, 4, from_uid);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
 }
