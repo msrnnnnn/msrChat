@@ -90,6 +90,7 @@ public slots:
     void slotOnOfflineProgress(const OfflineAckStruct &ack);
     void slotOnReconnected();
     void slotOnChatLoginRsp(const ChatLoginRspStruct &rsp);
+    void FlushPendingRecalls();
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);
     void slotOnMessageSaved(bool success);
     void slotCleanTimeoutMessages();
@@ -110,6 +111,9 @@ private:
     ChatListModel *_chat_model = nullptr;
     QMutex _pending_mutex;
     QHash<QString, PendingMessageInfo> _pending_messages;
+    // 撤回 Notify 暂存：slotOnChatRecallNotify 收到时若当前 _chat_model 里没对应 timestamp
+    // （比如用户正在和别人聊天），先存这里，切回 A 会话时再 apply
+    QHash<qint64, qint64> _pending_recall;  // msg_timestamp → recall_ts
     qint64 _last_offline_received = -1;
     qint64 _max_received_timestamp = 0;
     bool _has_more_history = true;

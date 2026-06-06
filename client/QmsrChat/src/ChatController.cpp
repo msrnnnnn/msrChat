@@ -206,7 +206,9 @@ void ChatController::setTargetUid(int uid)
     {
         _chat_model->ClearMessages();
     }
+    // 切换会话后立即 flush pending recall（新 _chat_model 加载 DB 之后 MarkRecalled 才有效）
     loadHistory();
+    FlushPendingRecalls();
 }
 
 /**
@@ -493,8 +495,33 @@ void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
 
 void ChatController::slotOnChatRecallNotify(const ChatRecallNotifyStruct &n)
 {
-    if (!_chat_model) return;
-    _chat_model->MarkRecalled(n.msg_timestamp, _current_uid);
+    // 不管当前 _chat_model 是不是这个会话的，都先入 _pending_recall 兜底
+    // 然后尝试立即 mark（当前 _chat_model 如果是 A 会话就直接生效）
+    QMutexLocker lock(&_pending_mutex);
+    _pending_recall[n.msg_timestamp] = n.recall_ts;
+    lock.unlock();
+
+    if (_chat_model) {
+        _chat_model->MarkRecalled(n.msg_timestamp, _current_uid);
+    }
+}
+
+/**
+ * @brief 切会话/清 pending 时把 _pending_recall 里属于新会话的 timestamp 全部 apply
+ */
+void ChatController::FlushPendingRecalls()
+{
+    if (!_chat_model || _pending_recall.isEmpty()) return;
+    QMutexLocker lock(&_pending_mutex);
+    // 把 _pending_recall 的 timestamps 全部尝试 mark（model 内 _messages 找不到的就 no-op）
+    auto it = _pending_recall.begin();
+    while (it != _pending_recall.end()) {
+        qint64 ts = it.key();
+        _chat_model->MarkRecalled(ts, _current_uid);
+        ++it;
+    }
+    // 清空（已被 loadHistory 加载或 no-op 的都算处理完）
+    _pending_recall.clear();
 }
 
 void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
@@ -724,6 +751,11 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
             }
         }
     }
+
+    // 加载完成后 flush pending_recall — DB recalled=true 已被 PrependMessages 读入
+    // 这里再 mark 一次保证 consistency（PrependMessages 里的 recalled 已经设置，
+    // 但用户在加载期间收到 RecallNotify 的话需要 apply）
+    FlushPendingRecalls();
 }
 
 /**
