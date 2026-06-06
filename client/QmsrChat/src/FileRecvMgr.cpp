@@ -340,18 +340,6 @@ QString FileRecvMgr::BuildFinalPath(const QString &fileName) const
     return GetFinalPath(fileName);
 }
 
-QString FileRecvMgr::CalcMd5(const QString &filepath) const
-{
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        return {};
-    }
-    QCryptographicHash hash(QCryptographicHash::Md5);
-    hash.addData(&file);
-    return QString::fromLatin1(hash.result().toHex());
-}
-
 /**
  * @brief MD5 校验结果回调
  * @param task_id 任务 ID

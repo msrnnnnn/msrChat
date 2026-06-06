@@ -973,59 +973,6 @@ int SQLiteMgr::CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, c
     return ERR_VERIFY_WRONG;
 }
 
-std::optional<User> SQLiteMgr::GetUserByUid(int uid)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-    {
-        return std::nullopt;
-    }
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(db, "SELECT uid, username, password_hash, email, avatar_path, created_at FROM users WHERE uid = ?");
-    if (!stmt)
-    {
-        return std::nullopt;
-    }
-
-    sqlite3_bind_int(stmt, 1, uid);
-
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        User user;
-        user.uid = sqlite3_column_int(stmt, 0);
-        user.username = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
-        user.password_hash = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
-        user.email = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
-        user.avatar_path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)));
-        user.created_at = sqlite3_column_int64(stmt, 5);
-        return user;
-    }
-
-    return std::nullopt;
-}
-
-bool SQLiteMgr::UpdateUserAvatar(int uid, const std::string &avatar_path)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-    {
-        return false;
-    }
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(db, "UPDATE users SET avatar_path = ? WHERE uid = ?");
-    if (!stmt)
-    {
-        return false;
-    }
-
-    sqlite3_bind_text(stmt, 1, avatar_path.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, uid);
-
-    return sqlite3_step(stmt) == SQLITE_DONE;
-}
-
 /**
  * @brief 保存离线消息
  * @param msg 消息结构体
