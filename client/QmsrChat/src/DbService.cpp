@@ -1,5 +1,6 @@
 #include "DbService.h"
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <QSqlRecord>
 
@@ -640,6 +641,32 @@ bool DbService::DeleteMessageByTimestamp(qint64 ts)
     if (!query.exec())
     {
         qDebug() << "Failed to delete message by timestamp:" << query.lastError().text();
+        return false;
+    }
+
+    return true;
+}
+
+bool DbService::MarkMessageRecalled(qint64 ts, int current_uid)
+{
+    QSqlDatabase &db = GetOrCreateThreadConnection();
+    if (!db.isOpen())
+    {
+        qDebug() << "Database not open in MarkMessageRecalled";
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare("UPDATE messages SET recalled = 1, recalled_at = ? "
+                  "WHERE timestamp = ? AND (from_uid = ? OR to_uid = ?)");
+    query.bindValue(0, QDateTime::currentMSecsSinceEpoch());
+    query.bindValue(1, ts);
+    query.bindValue(2, current_uid);
+    query.bindValue(3, current_uid);
+
+    if (!query.exec())
+    {
+        qDebug() << "Failed to mark message recalled:" << query.lastError().text();
         return false;
     }
 

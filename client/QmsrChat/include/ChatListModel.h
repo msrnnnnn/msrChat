@@ -54,7 +54,7 @@ public:
     QVector<ChatMessage> GetMessagesAtomic(int start, int count) const;
     qint64 GetEarliestTimestamp() const;
     void UpdateMessageByTimestamp(qint64 ts, const std::function<void(ChatMessage &)> &mutator);
-    void MarkRecalled(qint64 ts);
+    void MarkRecalled(qint64 ts, int current_uid);
     void MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts);
     // Phase 6 — 单条删除 / 查询
     void RemoveMessageByTimestamp(qint64 ts);

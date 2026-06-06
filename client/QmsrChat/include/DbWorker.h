@@ -26,6 +26,7 @@ public slots:
     void slot_search_messages(int uid1, int uid2, const QString &keyword, int limit);
     void slot_delete_messages(int uid1, int uid2);
     void slot_delete_message_by_timestamp(qint64 ts);  // Phase 6
+    void slot_mark_message_recalled(qint64 ts, int current_uid);  // 撤回持久化
     void slot_db_destroy();
     void stopAsync();
 
@@ -58,6 +59,7 @@ public:
     void SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     void DeleteMessages(int uid1, int uid2);
     void DeleteMessageByTimestamp(qint64 ts);  // Phase 6
+    void MarkMessageRecalled(qint64 ts, int current_uid);  // 撤回持久化
 
 signals:
     void sig_messages_loaded(const QVector<ChatMessage> &messages);
@@ -74,6 +76,7 @@ signals:
     void sig_search_msgs(int uid1, int uid2, const QString &keyword, int limit);
     void sig_delete_msgs(int uid1, int uid2);
     void sig_delete_msg_by_ts(qint64 ts);  // Phase 6
+    void sig_mark_msg_recalled(qint64 ts, int current_uid);  // 撤回持久化
 
 private:
     DbThreadManager();

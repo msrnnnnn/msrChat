@@ -251,6 +251,10 @@ add_executable(QmsrChatTests
     include/ChatListModel.h
     src/ImageDownloadMgr.cpp
     include/ImageDownloadMgr.h
+    src/DbWorker.cpp
+    include/DbWorker.h
+    src/DbService.cpp
+    include/DbService.h
 )
 
 # AUTOMOC for the test target: ChatListModel.h has Q_OBJECT, so its moc file
@@ -270,4 +274,4 @@ target_link_libraries(QmsrChatTests PRIVATE
 )
 
 include(GoogleTest)
-gtest_discover_tests(QmsrChatTests)
+gtest_discover_tests(QmsrChatTests DISCOVERY_MODE PRE_TEST)

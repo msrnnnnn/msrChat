@@ -81,6 +81,7 @@ Item {
         anchors.topMargin: 8
         anchors.horizontalCenter: bubbleRect.horizontalCenter
         spacing: 4
+        visible: !imageBubble.recalled
 
         // 缩略图 / 加载中
         Item {

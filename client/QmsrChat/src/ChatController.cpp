@@ -472,9 +472,9 @@ void ChatController::slotOnChatRecallRsp(const ChatEditAckStruct &ack)
         emit sigError(QStringLiteral("Recall failed (error %1)").arg(ack.error));
         return;
     }
-    // 撤回成功：本地标记消息为已撤回
+    // 撤回成功：本地标记消息为已撤回（带 _current_uid 用于 DB 作用域）
     if (_chat_model) {
-        _chat_model->MarkRecalled(ack.msg_timestamp);
+        _chat_model->MarkRecalled(ack.msg_timestamp, _current_uid);
     }
 }
 
@@ -494,7 +494,7 @@ void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
 void ChatController::slotOnChatRecallNotify(const ChatRecallNotifyStruct &n)
 {
     if (!_chat_model) return;
-    _chat_model->MarkRecalled(n.msg_timestamp);
+    _chat_model->MarkRecalled(n.msg_timestamp, _current_uid);
 }
 
 void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)

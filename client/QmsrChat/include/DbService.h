@@ -52,6 +52,7 @@ public:
     QVector<ChatMessage> SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
     bool DeleteMessages(int uid1, int uid2);
     bool DeleteMessageByTimestamp(qint64 ts);  // Phase 6 — 单条删除
+    bool MarkMessageRecalled(qint64 ts, int current_uid);  // 撤回持久化
 
     DbService(const DbService &) = delete;
     DbService &operator=(const DbService &) = delete;

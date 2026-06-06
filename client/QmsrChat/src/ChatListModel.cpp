@@ -1,4 +1,5 @@
 #include "ChatListModel.h"
+#include "DbWorker.h"
 #include <QDateTime>
 #include <QDebug>
 #include <climits>
@@ -334,11 +335,12 @@ void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
         if (_messages[i].timestamp == ts)
         {
             mutator(_messages[i]);
-            // 使用 beginResetModel/endResetModel 强制 QML ListView 刷新
-            // （dataChanged 在 Qt Quick ListView + Loader delegate 组合下可能卡死）
+            // 局部刷新：dataChanged 而非 beginResetModel/endResetModel。
+            // beginResetModel 在 ListView + Loader delegate 组合下会破坏 Loader 内部状态
+            // （撤回后图片"藏在 ListView 下方、聊几句后冒出来" 的根因之一）。
             lock.unlock();
-            beginResetModel();
-            endResetModel();
+            QModelIndex idx = index(i);
+            emit dataChanged(idx, idx);
             return;
         }
     }
@@ -360,11 +362,13 @@ void ChatListModel::UpdateImagePath(const QString &image_id, const QString &loca
     }
 }
 
-void ChatListModel::MarkRecalled(qint64 ts)
+void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
 {
+    // 先写 DB（异步），再改内存。修复"假撤回"bug：刷新界面后 DB 仍是 recalled=0 导致图片复活
+    DbThreadManager::Instance().MarkMessageRecalled(ts, current_uid);
     UpdateMessageByTimestamp(ts, [](ChatMessage &m) {
         m.recalled = true;
-        m.recalled_at = std::time(nullptr);
+        m.recalled_at = QDateTime::currentMSecsSinceEpoch();
     });
 }
 

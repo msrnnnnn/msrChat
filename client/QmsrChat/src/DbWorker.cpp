@@ -199,6 +199,30 @@ void DbWorker::slot_delete_message_by_timestamp(qint64 ts)
     }
 }
 
+// 撤回持久化 — slot 入口
+void DbWorker::slot_mark_message_recalled(qint64 ts, int current_uid)
+{
+    if (_stop_flag.load())
+    {
+        emit sig_error("DbWorker is stopping, ignoring mark recalled");
+        return;
+    }
+
+    if (!_dbInitialized)
+    {
+        emit sig_error("Database not initialized");
+        return;
+    }
+
+    bool success = DbService::Instance().MarkMessageRecalled(ts, current_uid);
+    if (!success)
+    {
+        emit sig_error(QString("Failed to mark message recalled: ts=%1").arg(ts));
+    }
+    // 成功 / 失败都通过 sig_messages_saved 通道发（不阻塞调用方）
+    emit sig_messages_saved(success);
+}
+
 DbThreadManager &DbThreadManager::Instance()
 {
     static DbThreadManager instance;
@@ -276,6 +300,7 @@ bool DbThreadManager::Init(const QString &db_path)
     connect(this, &DbThreadManager::sig_search_msgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_delete_msgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sig_delete_msg_by_ts, _worker, &DbWorker::slot_delete_message_by_timestamp, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sig_mark_msg_recalled, _worker, &DbWorker::slot_mark_message_recalled, Qt::QueuedConnection);
 
     _thread->start();
 
@@ -367,4 +392,15 @@ void DbThreadManager::DeleteMessageByTimestamp(qint64 ts)
     }
 
     emit sig_delete_msg_by_ts(ts);
+}
+
+void DbThreadManager::MarkMessageRecalled(qint64 ts, int current_uid)
+{
+    if (_worker == nullptr)
+    {
+        qWarning() << "DbThreadManager not initialized";
+        return;
+    }
+
+    emit sig_mark_msg_recalled(ts, current_uid);
 }
