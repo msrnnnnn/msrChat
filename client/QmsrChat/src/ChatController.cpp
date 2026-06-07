@@ -754,11 +754,6 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
             }
         }
     }
-
-    // 加载完成后 flush pending_recall — DB recalled=true 已被 PrependMessages 读入
-    // 这里再 mark 一次保证 consistency（PrependMessages 里的 recalled 已经设置，
-    // 但用户在加载期间收到 RecallNotify 的话需要 apply）
-    FlushPendingRecalls();
 }
 
 /**
