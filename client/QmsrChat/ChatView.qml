@@ -294,80 +294,138 @@ Rectangle {
             }
         }
 
-        // 图片内嵌预览条 — 用户选择图片后显示缩略图、说明输入和发送/取消按钮
-        Rectangle {
-            id: imagePreviewBar
+        // 图片内嵌预览条 — 用户选择图片后显示缩略图、说明输入和发送/取消按钮（对齐 HTML .ipb）
+        ColumnLayout {
+            id: imagePreviewWrapper
             Layout.fillWidth: true
-            Layout.preferredHeight: pendingImagePath !== "" ? 72 : 0
-            color: "#EEF2FF"
+            Layout.preferredHeight: pendingImagePath !== "" ? 73 : 0
             visible: pendingImagePath !== ""
             clip: true
+            spacing: 0
 
             Behavior on Layout.preferredHeight {
                 NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
             }
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 8
+            // 顶部紫色分隔线
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: "#E0E7FF"
+            }
 
-                // 缩略图
-                Image {
-                    source: pendingImagePath
-                    Layout.preferredWidth: 56
-                    Layout.preferredHeight: 56
-                    fillMode: Image.PreserveAspectCrop
-                    clip: true
+            Rectangle {
+                id: imagePreviewBar
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#EEF2FF"
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 6
-                        color: "transparent"
-                        border.width: 1
-                        border.color: "#CCCCCC"
-                    }
-                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
 
-                // Caption 输入
-                TextField {
-                    id: inlineCaptionInput
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("添加图片说明（可选）")
-                    maximumLength: 200
-                    font.pixelSize: 13
-                    background: Rectangle {
-                        color: "#FFFFFF"
-                        radius: 6
-                        border.width: 1
-                        border.color: "#EAE9F2"
-                    }
-                }
+                    // 缩略图（48x48，圆角 8，紫色边框 — clip 裁切）
+                    Item {
+                        Layout.preferredWidth: 48
+                        Layout.preferredHeight: 48
 
-                // 发送图片按钮
-                Button {
-                    text: qsTr("发送")
-                    Layout.preferredWidth: 60
-                    Layout.preferredHeight: 36
-                    highlighted: true
-                    onClicked: {
-                        if (chatController) {
-                            chatController.sendImage(pendingImagePath, inlineCaptionInput.text)
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 8
+                            clip: true
+                            color: "#EEF2FF"
+
+                            Image {
+                                anchors.fill: parent
+                                source: pendingImagePath
+                                fillMode: Image.PreserveAspectCrop
+                            }
                         }
-                        pendingImagePath = ""
-                        inlineCaptionInput.text = ""
-                    }
-                }
 
-                // 取消按钮
-                Button {
-                    text: qsTr("✕")
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 36
-                    flat: true
-                    onClicked: {
-                        pendingImagePath = ""
-                        inlineCaptionInput.text = ""
+                        // 紫色边框 overlay
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 8
+                            color: "transparent"
+                            border.width: 1
+                            border.color: "#E0E7FF"
+                        }
+                    }
+
+                    // Caption 输入框（34px 高，圆角 8，紫色系边框）
+                    TextField {
+                        id: inlineCaptionInput
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 34
+                        placeholderText: qsTr("添加图片说明（可选）")
+                        maximumLength: 200
+                        font.pixelSize: 13
+                        font.family: "Microsoft YaHei"
+                        color: "#1A1A2E"
+                        background: Rectangle {
+                            color: "#FFFFFF"
+                            radius: 8
+                            border.width: 1
+                            border.color: inlineCaptionInput.activeFocus ? "#4F46E5" : "#E0E7FF"
+                        }
+                    }
+
+                    // 发送图片按钮（紫色，34px 高，白字）
+                    Button {
+                        id: imgPreviewSendBtn
+                        text: qsTr("发送")
+                        Layout.preferredWidth: 60
+                        Layout.preferredHeight: 34
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#FFFFFF"
+                            font.pixelSize: 12
+                            font.family: "Microsoft YaHei"
+                            font.weight: Font.DemiBold
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            color: imgPreviewSendBtn.hovered ? "#3730A3" : "#4F46E5"
+                            radius: 8
+                        }
+
+                        onClicked: {
+                            if (chatController) {
+                                chatController.sendImage(pendingImagePath, inlineCaptionInput.text)
+                            }
+                            pendingImagePath = ""
+                            inlineCaptionInput.text = ""
+                        }
+                    }
+
+                    // 取消按钮（透明背景，灰色文字，hover 变深色）
+                    Button {
+                        id: imgPreviewCancelBtn
+                        text: qsTr("✕")
+                        Layout.preferredWidth: 34
+                        Layout.preferredHeight: 34
+                        flat: true
+
+                        contentItem: Text {
+                            text: parent.text
+                            color: imgPreviewCancelBtn.hovered ? "#1A1A2E" : "#9C9AAA"
+                            font.pixelSize: 12
+                            font.family: "Microsoft YaHei"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            color: "transparent"
+                            radius: 8
+                        }
+
+                        onClicked: {
+                            pendingImagePath = ""
+                            inlineCaptionInput.text = ""
+                        }
                     }
                 }
             }
@@ -613,90 +671,151 @@ Rectangle {
         id: fileProgressModel
     }
 
-    // 文件传输进度面板 — 右上角浮层，有任务时显示
-    Rectangle {
+    // 文件传输进度面板 — 右上角浮层，对齐 HTML .fp-panel，自定义渐变进度条 + 入场动画
+    Item {
         id: fileProgressPanel
         anchors.top: parent.top
         anchors.right: parent.right
-        anchors.margins: 10
+        anchors.topMargin: 16
+        anchors.rightMargin: 16
         width: 240
-        height: fileProgressList.height + 10
+        height: Math.max(60, fileProgressList.contentHeight)
         visible: fileProgressModel.count > 0
-        color: "#FFFFFF"
-        border.width: 1
-        border.color: "#EAE9F2"
-        radius: 10
+        opacity: 0
+        z: 20
 
-        ListView {
-            id: fileProgressList
-            anchors.centerIn: parent
-            width: parent.width - 10
-            height: contentHeight
-            model: fileProgressModel
-            interactive: false
+        onVisibleChanged: {
+            if (visible) {
+                opacity = 0
+                entryAnim.restart()
+            }
+        }
 
-            delegate: Rectangle {
-                width: fileProgressList.width
-                height: 40
-                color: "transparent"
+        SequentialAnimation {
+            id: entryAnim
+            NumberAnimation { target: fileProgressPanel; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutCubic }
+        }
 
-                // 关闭按钮 — 点击移除该任务条目
-                Rectangle {
-                    id: closeBtn
-                    anchors.right: parent.right
-                    anchors.rightMargin: 4
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 16
-                    height: 16
-                    color: "transparent"
-                    Text {
-                        text: "×"
-                        font.pixelSize: 14
-                        font.bold: true
-                        anchors.centerIn: parent
-                        color: "#9C9AAA"
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onEntered: closeBtn.color = "#EAE9F2"
-                        onExited: closeBtn.color = "transparent"
-                        onClicked: {
-                            for (var i = 0; i < fileProgressModel.count; i++) {
-                                if (fileProgressModel.get(i).task_id === model.task_id) {
-                                    fileProgressModel.remove(i)
-                                    break
+        // 主体卡片
+        Rectangle {
+            anchors.fill: parent
+            color: "#FFFFFF"
+            border.width: 1
+            border.color: "#EAE9F2"
+            radius: 12
+            clip: true
+
+            ListView {
+                id: fileProgressList
+                anchors.fill: parent
+                model: fileProgressModel
+                interactive: false
+
+                delegate: Item {
+                    width: fileProgressList.width
+                    height: fpCol.height + 16
+
+                    Column {
+                        id: fpCol
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        anchors.topMargin: 8
+                        spacing: 4
+
+                        // 文件名行 + 关闭按钮
+                        Row {
+                            width: parent.width
+                            spacing: 8
+
+                            Text {
+                                text: filename
+                                font.pixelSize: 12
+                                font.family: "Microsoft YaHei"
+                                color: "#1A1A2E"
+                                width: parent.width - 26
+                                elide: Text.ElideMiddle
+                            }
+
+                            Rectangle {
+                                id: fpCloseBtn
+                                width: 18; height: 18; radius: 3
+                                color: fpCloseMouse.containsMouse ? "#F8F9FE" : "transparent"
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "×"
+                                    font.pixelSize: 14
+                                    color: "#9C9AAA"
+                                }
+
+                                MouseArea {
+                                    id: fpCloseMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        for (var i = 0; i < fileProgressModel.count; i++) {
+                                            if (fileProgressModel.get(i).task_id === model.task_id) {
+                                                fileProgressModel.remove(i)
+                                                break
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.right: closeBtn.left
-                    anchors.margins: 4
-                    spacing: 2
-                    Text {
-                        text: filename
-                        font.pixelSize: 12
-                        color: "#1A1A2E"
-                        elide: Text.ElideMiddle
+                        // 自定义 4px 渐变进度条
+                        Rectangle {
+                            width: parent.width
+                            height: 4
+                            radius: 2
+                            color: "#F8F9FE"
+
+                            Rectangle {
+                                width: model.progress >= 0
+                                    ? Math.max(0, parent.width * Math.min(model.progress, 100) / 100)
+                                    : parent.width * 0.23
+                                height: 4
+                                radius: 2
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop {
+                                        position: 0.0
+                                        color: model.progress >= 0 ? "#4F46E5" : "#FCA5A5"
+                                    }
+                                    GradientStop {
+                                        position: 1.0
+                                        color: model.progress >= 0 ? "#818CF8" : "#EF4444"
+                                    }
+                                }
+                            }
+                        }
+
+                        // 百分比 / 状态文字
+                        Text {
+                            text: {
+                                if (model.progress >= 100) return qsTr("已完成")
+                                if (model.progress < 0) {
+                                    return (model.error && model.error !== "") ? model.error : qsTr("失败")
+                                }
+                                return model.progress + "%"
+                            }
+                            font.pixelSize: 10
+                            font.family: "Microsoft YaHei"
+                            color: model.progress < 0 ? "#EF4444" : "#9C9AAA"
+                        }
                     }
-                    ProgressBar {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        from: 0
-                        to: 100
-                        value: progress
-                        visible: progress >= 0
-                    }
-                    Text {
-                        text: progress >= 0 ? (progress + "%") : error
-                        font.pixelSize: 10
-                        color: progress < 0 ? "#EF4444" : "#6B6A7F"
-                        visible: progress >= 0 || error !== ""
+
+                    // item 底部分隔线（最后一个除外）
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width
+                        height: 1
+                        color: "#EAE9F2"
+                        visible: index < fileProgressModel.count - 1
                     }
                 }
             }

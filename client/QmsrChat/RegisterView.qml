@@ -16,13 +16,26 @@ Item {
 
     Rectangle {
         visible: currentPage === 1
-        width: 376
-        height: formColumn.implicitHeight + 64
-        anchors.centerIn: parent
+        anchors.fill: parent
         color: "#FFFFFF"
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+        clip: true
+
+        // 顶部渐变装饰条（由父级 clip 裁切圆角）
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#4F46E5" }
+                GradientStop { position: 0.5; color: "#818CF8" }
+                GradientStop { position: 1.0; color: "#4F46E5" }
+            }
+        }
 
         ColumnLayout {
             id: formColumn
@@ -213,13 +226,26 @@ Item {
 
     Rectangle {
         visible: currentPage === 2
-        width: 376
-        height: 280
-        anchors.centerIn: parent
+        anchors.fill: parent
         color: "#FFFFFF"
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+        clip: true
+
+        // 顶部渐变装饰条（由父级 clip 裁切圆角）
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#4F46E5" }
+                GradientStop { position: 0.5; color: "#818CF8" }
+                GradientStop { position: 1.0; color: "#4F46E5" }
+            }
+        }
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 32

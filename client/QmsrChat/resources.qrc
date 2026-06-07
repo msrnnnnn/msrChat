@@ -11,6 +11,8 @@
         <file>MessageActionMenu.qml</file>
         <file>EditMessageDialog.qml</file>
         <file>MainWindow.qml</file>
+        <file>AuthWindow.qml</file>
+        <file>ChatWindow.qml</file>
         <file>LoginView.qml</file>
         <file>RegisterView.qml</file>
         <file>ResetView.qml</file>

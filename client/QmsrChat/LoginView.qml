@@ -12,13 +12,26 @@ Item {
 
     Rectangle {
         id: card
-        width: 376
-        height: cardColumn.implicitHeight + 64
-        anchors.centerIn: parent
+        anchors.fill: parent
         color: "#FFFFFF"
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+        clip: true
+
+        // 顶部渐变装饰条（由父级 clip 裁切圆角）
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: "#4F46E5" }
+                GradientStop { position: 0.5; color: "#818CF8" }
+                GradientStop { position: 1.0; color: "#4F46E5" }
+            }
+        }
 
         ColumnLayout {
             id: cardColumn
@@ -83,7 +96,37 @@ Item {
                 enabled: !isSubmitting && loginUser.text.trim().length > 0 && loginPass.text.trim().length > 0
                 contentItem: Item {
                     Text { anchors.centerIn: parent; text: qsTr("登录"); color: loginBtn.enabled ? "#FFFFFF" : "#9C9AAA"; font.pixelSize: 14; font.weight: Font.Medium; visible: !isSubmitting }
-                    BusyIndicator { anchors.centerIn: parent; running: isSubmitting; visible: isSubmitting; width: 20; height: 20 }
+                    // 自定义旋转圆环（对齐 HTML .sp）
+                    Item {
+                        anchors.centerIn: parent; width: 18; height: 18
+                        visible: isSubmitting
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 9
+                            color: "transparent"
+                            border.width: 2
+                            border.color: Qt.rgba(1, 1, 1, 0.3)
+                        }
+                        Rectangle {
+                            width: 18; height: 18; radius: 9
+                            color: "transparent"
+                            border.width: 2
+                            border.color: "transparent"
+                            RotationAnimation on rotation {
+                                from: 0; to: 360; duration: 600
+                                loops: Animation.Infinite
+                                running: isSubmitting
+                            }
+                            // 顶部白色弧段
+                            Rectangle {
+                                width: 4; height: 2; radius: 1
+                                color: "#FFFFFF"
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.top: parent.top
+                                anchors.topMargin: -1
+                            }
+                        }
+                    }
                 }
                 background: Rectangle { color: parent.enabled ? "#4F46E5" : "#EAE9F2"; radius: 8 }
                 onClicked: { errorMessage = ""; successMessage = ""; isSubmitting = true; authController.login(loginUser.text.trim(), loginPass.text.trim()) }

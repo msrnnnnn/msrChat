@@ -48,16 +48,18 @@ Item {
 
         Rectangle {
             anchors.centerIn: parent
-            height: 24
-            width: Math.min(recalledText.implicitWidth + 24, imageBubble.maxBubbleWidth)
-            radius: 4
-            color: "#ebedf0"
+            height: 32
+            width: Math.min(recalledText.implicitWidth + 40, imageBubble.maxBubbleWidth)
+            radius: 999
+            color: "#F8F9FE"
+            border.width: 1
+            border.color: "#EAE9F2"
 
             Text {
                 id: recalledText
                 anchors.centerIn: parent
                 text: imageBubble.isSelf ? qsTr("你撤回了一条消息") : qsTr("对方撤回了一条消息")
-                color: "#b0b3b8"
+                color: "#9C9AAA"
                 font.pixelSize: 12
                 font.family: "Microsoft YaHei"
             }

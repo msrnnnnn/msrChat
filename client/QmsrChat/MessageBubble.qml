@@ -39,10 +39,10 @@ Item {
         visible: recalled
         anchors.horizontalCenter: parent.horizontalCenter
         y: 0
-        width: Math.min(maxBubbleWidth, recalledText.width + 24)
-        height: 30
-        radius: 12
-        color: isSelf ? "#EEF2FF" : "#F8F9FE"
+        width: Math.min(maxBubbleWidth, recalledText.width + 40)
+        height: 32
+        radius: 999
+        color: "#F8F9FE"
         border.width: 1
         border.color: "#EAE9F2"
 
