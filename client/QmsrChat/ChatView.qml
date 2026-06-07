@@ -13,7 +13,7 @@ import QtQml
 Rectangle {
     id: chatViewRoot
     objectName: "chatViewRoot"   // Phase B — MessageBubble.mapToItem 上溯查找
-    color: "#F5F5F5"
+    color: "#F8F9FE"
 
     // 核心数据属性 — 由外部注入的数据模型、控制器和对话框引用
     property var chatModel: null
@@ -108,11 +108,11 @@ Rectangle {
                 anchors.rightMargin: 2
                 policy: ScrollBar.AsNeeded
                 background: Rectangle {
-                    color: "#E0E0E0"
+                    color: "#EAE9F2"
                     radius: 4
                 }
                 contentItem: Rectangle {
-                    color: "#A0A0A0"
+                    color: "#9C9AAA"
                     radius: 4
                 }
             }
@@ -130,7 +130,7 @@ Rectangle {
             id: imagePreviewBar
             Layout.fillWidth: true
             Layout.preferredHeight: pendingImagePath !== "" ? 72 : 0
-            color: "#F0F4F8"
+            color: "#EEF2FF"
             visible: pendingImagePath !== ""
             clip: true
 
@@ -171,7 +171,7 @@ Rectangle {
                         color: "#FFFFFF"
                         radius: 6
                         border.width: 1
-                        border.color: "#DDDDDD"
+                        border.color: "#EAE9F2"
                     }
                 }
 
@@ -211,7 +211,7 @@ Rectangle {
             Layout.preferredHeight: 130
             color: "#FFFFFF"
             border.width: 1
-            border.color: "#E0E0E0"
+            border.color: "#EAE9F2"
 
             TextArea {
                 id: messageInput
@@ -228,10 +228,10 @@ Rectangle {
                 padding: 8
 
                 background: Rectangle {
-                    color: "#F8F8F8"
-                    radius: 8
-                    border.width: 1
-                    border.color: "#E0E0E0"
+                    color: "#F8F9FE"
+                    radius: 10
+                    border.width: 1.5
+                    border.color: "#EAE9F2"
                 }
 
                 // 回车发送（Shift+Enter 换行）
@@ -258,14 +258,17 @@ Rectangle {
 
                 contentItem: Text {
                     text: parent.text
-                    color: parent.enabled ? "#FFFFFF" : "#A0A0A0"
+                    color: parent.enabled ? "#FFFFFF" : "#9C9AAA"
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font: parent.font
                 }
 
                 background: Rectangle {
-                    color: parent.enabled ? "#2196F3" : "#E0E0E0"
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: parent.enabled ? "#4F46E5" : "#EAE9F2" }
+                        GradientStop { position: 1.0; color: parent.enabled ? "#6366F1" : "#EAE9F2" }
+                    }
                     radius: 8
                     border.width: 0
                 }
@@ -299,10 +302,10 @@ Rectangle {
                 }
 
                 background: Rectangle {
-                    color: "#F0F0F0"
-                    radius: 8
+                    color: "#F8F9FE"
+                    radius: 6
                     border.width: 1
-                    border.color: "#E0E0E0"
+                    border.color: "#EAE9F2"
                 }
 
                 onClicked: {
@@ -331,10 +334,10 @@ Rectangle {
                 }
 
                 background: Rectangle {
-                    color: "#F0F0F0"
-                    radius: 8
+                    color: "#F8F9FE"
+                    radius: 6
                     border.width: 1
-                    border.color: "#E0E0E0"
+                    border.color: "#EAE9F2"
                 }
 
                 onClicked: {
@@ -375,7 +378,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 130  // inputArea height
         height: 0
-        color: "#FF5252"
+        color: "#EF4444"
         visible: height > 0
         clip: true
         Behavior on height { NumberAnimation { duration: 300 } }
@@ -448,8 +451,8 @@ Rectangle {
         visible: fileProgressModel.count > 0
         color: "#FFFFFF"
         border.width: 1
-        border.color: "#E0E0E0"
-        radius: 8
+        border.color: "#EAE9F2"
+        radius: 10
 
         ListView {
             id: fileProgressList
@@ -478,12 +481,12 @@ Rectangle {
                         font.pixelSize: 14
                         font.bold: true
                         anchors.centerIn: parent
-                        color: "#999999"
+                        color: "#9C9AAA"
                     }
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
-                        onEntered: closeBtn.color = "#E0E0E0"
+                        onEntered: closeBtn.color = "#EAE9F2"
                         onExited: closeBtn.color = "transparent"
                         onClicked: {
                             for (var i = 0; i < fileProgressModel.count; i++) {
@@ -505,7 +508,7 @@ Rectangle {
                     Text {
                         text: filename
                         font.pixelSize: 12
-                        color: "#333333"
+                        color: "#1A1A2E"
                         elide: Text.ElideMiddle
                     }
                     ProgressBar {
@@ -519,7 +522,7 @@ Rectangle {
                     Text {
                         text: progress >= 0 ? (progress + "%") : error
                         font.pixelSize: 10
-                        color: progress < 0 ? "#FF5252" : "#666666"
+                        color: progress < 0 ? "#EF4444" : "#6B6A7F"
                         visible: progress >= 0 || error !== ""
                     }
                 }
