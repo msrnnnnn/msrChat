@@ -32,6 +32,214 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
+        // === UID 输入栏 ===
+        Rectangle {
+            id: uidBar
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            color: "#F8F9FE"
+            border.color: "#EAE9F2"
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 24
+                anchors.rightMargin: 24
+                spacing: 12
+
+                Text {
+                    text: qsTr("目标 UID")
+                    color: "#9C9AAA"
+                    font.pixelSize: 12
+                    font.family: "Microsoft YaHei"
+                    font.weight: Font.Medium
+                }
+
+                TextField {
+                    id: uidInput
+                    Layout.preferredWidth: 110
+                    Layout.preferredHeight: 32
+                    font.pixelSize: 13
+                    font.family: "Microsoft YaHei"
+                    placeholderText: qsTr("输入 ID")
+                    inputMethodHints: Qt.ImhDigitsOnly
+                    maximumLength: 6
+                    color: "#1A1A2E"
+
+                    background: Rectangle {
+                        color: "#FFFFFF"
+                        radius: 6
+                        border.width: 1.5
+                        border.color: uidInput.activeFocus ? "#4F46E5" : "#EAE9F2"
+                    }
+
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Return) {
+                            connectBtn.clicked()
+                        }
+                    }
+                }
+
+                Button {
+                    id: connectBtn
+                    text: qsTr("连接")
+                    Layout.preferredHeight: 32
+                    font.pixelSize: 12
+                    font.family: "Microsoft YaHei"
+                    font.weight: Font.DemiBold
+                    enabled: uidInput.text.trim().length > 0 && !isConnecting
+
+                    property bool isConnecting: false
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#FFFFFF" : "#9C9AAA"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font: parent.font
+                    }
+                    background: Rectangle {
+                        color: parent.enabled ? "#4F46E5" : "#EAE9F2"
+                        radius: 6
+                    }
+
+                    onClicked: {
+                        var uidText = uidInput.text.trim()
+                        if (uidText.length === 0) return
+                        var uid = parseInt(uidText)
+                        if (isNaN(uid) || uid <= 0) return
+
+                        connectBtn.isConnecting = true
+                        connectBtn.text = qsTr("…")
+                        chatController.setTargetUid(uid)
+                        connectTimer.start()
+                    }
+                }
+
+                Timer {
+                    id: connectTimer
+                    interval: 800
+                    onTriggered: {
+                        connectBtn.isConnecting = false
+                        connectBtn.text = qsTr("连接")
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+
+                    RowLayout {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+
+                        Rectangle {
+                            width: 8
+                            height: 8
+                            radius: 4
+                            color: isConnected ? "#10B981" : "#EF4444"
+                            SequentialAnimation on color {
+                                running: !isConnected
+                                loops: Animation.Infinite
+                                ColorAnimation { to: "#F59E0B"; duration: 500 }
+                                ColorAnimation { to: "#EF4444"; duration: 500 }
+                            }
+                        }
+
+                        Text {
+                            text: isConnected ? qsTr("已连接") : qsTr("连接断开")
+                            color: isConnected ? "#9C9AAA" : "#EF4444"
+                            font.pixelSize: 11
+                            font.family: "Microsoft YaHei"
+                        }
+                    }
+                }
+            }
+        }
+
+        // === 状态栏 ===
+        Rectangle {
+            id: statusBar
+            Layout.fillWidth: true
+            Layout.preferredHeight: 26
+            color: "#F8F9FE"
+            border.color: "#EAE9F2"
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 24
+                anchors.rightMargin: 24
+                spacing: 6
+
+                Rectangle {
+                    width: 6; height: 6; radius: 3
+                    color: isConnected ? "#10B981" : "#EF4444"
+                }
+
+                Text {
+                    text: "当前UID: " + currentUid + " · 目标UID: " + (targetUid > 0 ? targetUid : "未选择")
+                    color: "#9C9AAA"
+                    font.pixelSize: 11
+                    font.family: "Microsoft YaHei"
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: isConnected ? qsTr("已连接") : qsTr("未连接")
+                    color: "#9C9AAA"
+                    font.pixelSize: 11
+                    font.family: "Microsoft YaHei"
+                }
+            }
+        }
+
+        // === 空状态引导 ===
+        Item {
+            id: emptyState
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: messageListView.count === 0
+
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 12
+
+                Rectangle {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 72; height: 72; radius: 36
+                    color: "#EEF2FF"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "💬"
+                        font.pixelSize: 28
+                    }
+                }
+
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: qsTr("开始聊天")
+                    color: "#6B6A7F"
+                    font.pixelSize: 17
+                    font.family: "Microsoft YaHei"
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: qsTr("输入目标 UID 并点击「连接」\n即可开始对话")
+                    color: "#9C9AAA"
+                    font.pixelSize: 13
+                    font.family: "Microsoft YaHei"
+                    horizontalAlignment: Text.AlignHCenter
+                    lineHeight: 1.7
+                }
+            }
+        }
+
         // 消息列表 — 使用 Loader 按消息类型（文字/图片）动态选择气泡组件
         ListView {
             id: messageListView
@@ -401,38 +609,6 @@ Rectangle {
             errorBanner.height = 32
             errorBannerTimer.restart()
         }
-    }
-
-    // 连接状态指示器 — 断开时显示红点闪烁动画
-    Rectangle {
-        id: connectionIndicator
-        width: 10
-        height: 10
-        radius: 5
-        color: isConnected ? "#4CAF50" : "#F44336"
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.margins: 10
-        visible: !isConnected
-
-        SequentialAnimation on color {
-            running: !isConnected
-            loops: Animation.Infinite
-            ColorAnimation { to: "#FFC107"; duration: 500 }
-            ColorAnimation { to: "#F44336"; duration: 500 }
-        }
-    }
-
-    // 连接状态文字提示
-    Label {
-        id: connectionLabel
-        text: isConnected ? "" : qsTr("连接断开")
-        color: "#F44336"
-        font.pixelSize: 12
-        anchors.top: connectionIndicator.bottom
-        anchors.right: parent.right
-        anchors.margins: 10
-        visible: !isConnected
     }
 
     // 文件传输进度数据模型
