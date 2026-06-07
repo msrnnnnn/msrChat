@@ -32,10 +32,12 @@ Rectangle {
     // 是否在撤回窗口内（己方 && 2 分钟内）
     readonly property bool isWithinRecallWindow: isOwn && messageAgeSec < recallWindowSec
 
-    // 深色背景，圆角 8px
-    color: "#2b2b2b"
-    radius: 8
-    width: 180
+    // 白色卡片背景，圆角 10px
+    color: "#FFFFFF"
+    radius: 10
+    border.width: 1
+    border.color: "#EAE9F2"
+    width: 192
     height: column.implicitHeight + 12
     visible: opacity > 0
 
@@ -71,7 +73,7 @@ Rectangle {
                     Rectangle {
                         width: column.width
                         height: 1
-                        color: "#444"
+                        color: "#EAE9F2"
                         anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                     }
                 }
@@ -81,8 +83,10 @@ Rectangle {
                         id: row
                         width: column.width
                         height: 32
-                        color: itemMouse.containsMouse && modelData.enabled
-                               ? "#3a3a3a" : "transparent"
+                        color: {
+                            if (!itemMouse.containsMouse || !modelData.enabled) return "transparent"
+                            return modelData.danger ? "#FEF2F2" : "#F8F9FE"
+                        }
 
                         Behavior on color {
                             ColorAnimation { duration: 150 }
@@ -96,9 +100,9 @@ Rectangle {
 
                             Text {
                                 text: modelData.icon
-                                color: !modelData.enabled ? "#777"
-                                     : modelData.danger ? "#ff7a7a"
-                                     : "#ffffff"
+                                color: !modelData.enabled ? "#9C9AAA"
+                                     : modelData.danger ? "#EF4444"
+                                     : "#1A1A2E"
                                 font.pixelSize: 14
                                 width: 18
                                 horizontalAlignment: Text.AlignHCenter
@@ -106,9 +110,9 @@ Rectangle {
                             }
                             Text {
                                 text: modelData.label
-                                color: !modelData.enabled ? "#777"
-                                     : modelData.danger ? "#ff7a7a"
-                                     : "#ffffff"
+                                color: !modelData.enabled ? "#9C9AAA"
+                                     : modelData.danger ? "#EF4444"
+                                     : "#1A1A2E"
                                 font.pixelSize: 13
                                 font.family: "Microsoft YaHei"
                                 anchors.verticalCenter: parent.verticalCenter
