@@ -54,6 +54,21 @@ static std::string GenerateSalt()
     return SecureRandomHex(16);
 }
 
+/**
+ * @brief 从 SQLite 结果集读取 Phase 7 新增的 6 列
+ * @details 列索引 6-11: type, image_id, recalled, recalled_at, edited, edited_at
+ */
+static void ReadPhase7Columns(sqlite3_stmt *stmt, ChatMessage &msg)
+{
+    msg.type = sqlite3_column_int(stmt, 6);
+    const unsigned char *iid = sqlite3_column_text(stmt, 7);
+    if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+    msg.recalled = sqlite3_column_int(stmt, 8) != 0;
+    msg.recalled_at = sqlite3_column_int64(stmt, 9);
+    msg.edited = sqlite3_column_int(stmt, 10) != 0;
+    msg.edited_at = sqlite3_column_int64(stmt, 11);
+}
+
 SQLiteConnectionPool::SQLiteConnectionPool(const std::string &db_path, int pool_size)
     : _db_path(db_path),
       _pool_size(pool_size)
@@ -528,14 +543,7 @@ std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t befo
         msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
-        // Phase 7 — 6 个新字段
-        msg.type = sqlite3_column_int(stmt, 6);
-        const unsigned char *iid = sqlite3_column_text(stmt, 7);
-        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
-        msg.recalled = sqlite3_column_int(stmt, 8) != 0;
-        msg.recalled_at = sqlite3_column_int64(stmt, 9);
-        msg.edited = sqlite3_column_int(stmt, 10) != 0;
-        msg.edited_at = sqlite3_column_int64(stmt, 11);
+        ReadPhase7Columns(stmt, msg);
         messages.push_back(msg);
     }
 
@@ -822,33 +830,8 @@ std::optional<User> SQLiteMgr::GetUserByUsername(const std::string &username)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
-    {
         return std::nullopt;
-    }
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(
-        db, "SELECT uid, username, password_hash, email, avatar_path, created_at FROM users WHERE username = ?");
-    if (!stmt)
-    {
-        return std::nullopt;
-    }
-
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
-
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        User user;
-        user.uid = sqlite3_column_int(stmt, 0);
-        user.username = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
-        user.password_hash = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
-        user.email = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
-        user.avatar_path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)));
-        user.created_at = sqlite3_column_int64(stmt, 5);
-        return user;
-    }
-
-    return std::nullopt;
+    return GetUserByUsernameUnlocked(guard.Get(), username);
 }
 
 std::optional<User> SQLiteMgr::GetUserByUsernameUnlocked(sqlite3 *db, const std::string &username)

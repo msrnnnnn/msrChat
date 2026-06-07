@@ -49,28 +49,6 @@ private slots:
     void slot_reset_pwd_rsp(const ResetPwdRspStruct &rsp);
 
 private:
-    bool checkUserValid();
-    bool checkEmailValid();
-    bool checkPassValid();
-    bool checkVarifyValid();
-    /**
-     * @brief 在界面上显示提示信息
-     * @param str 提示文本
-     * @param isCorrect true 表示正常提示，false 表示错误提示
-     */
-    void showTip(QString str, bool isCorrect);
-    /**
-     * @brief 记录字段校验错误到提示映射
-     * @param te 字段类型枚举
-     * @param tips 错误提示文本
-     */
-    void AddTipErr(TipErr te, QString tips);
-    /**
-     * @brief 清除字段校验错误记录
-     * @param te 字段类型枚举
-     */
-    void DelTipErr(TipErr te);
-
     Ui::ResetDialog *ui;
     QMap<TipErr, QString> _tip_errs;
 };

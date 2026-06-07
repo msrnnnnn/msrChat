@@ -29,11 +29,27 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     connect(TcpMgr::Instance(), &TcpMgr::sigRegisterRsp, this, &RegisterDialog::slot_register_rsp);
 
     // 连接各输入框的 editingFinished 信号，实时校验输入合法性
-    connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
-    connect(ui->email_Edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
-    connect(ui->password_Edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
+    connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_USER_ERR,
+            AuthUiHelpers::ValidateUsername(ui->user_Edit->text()), ui->error_label);
+    });
+    connect(ui->email_Edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_Edit->text()), ui->error_label);
+    });
+    connect(ui->password_Edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_PWD_ERR,
+            AuthUiHelpers::ValidatePassword(ui->password_Edit->text()), ui->error_label);
+    });
     connect(ui->confirm_password_Edit, &QLineEdit::editingFinished, this, [this]() { checkConfirmValid(); });
-    connect(ui->verifycode_Edit, &QLineEdit::editingFinished, this, [this]() { checkVarifyValid(); });
+    connect(ui->verifycode_Edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_VARIFY_ERR,
+            AuthUiHelpers::ValidateVerifyCode(ui->verifycode_Edit->text()), ui->error_label);
+    });
 
     AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
     AuthUiHelpers::BindPasswordToggle(ui->confirm_visible, ui->confirm_password_Edit);
@@ -75,26 +91,24 @@ RegisterDialog::~RegisterDialog()
  */
 void RegisterDialog::on_Confirm_Button_clicked()
 {
-    if (!checkUserValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_USER_ERR,
+            AuthUiHelpers::ValidateUsername(ui->user_Edit->text()), ui->error_label))
         return;
-    }
-    if (!checkEmailValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_Edit->text()), ui->error_label))
         return;
-    }
-    if (!checkPassValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_PWD_ERR,
+            AuthUiHelpers::ValidatePassword(ui->password_Edit->text()), ui->error_label))
         return;
-    }
     if (!checkConfirmValid())
-    {
         return;
-    }
-    if (!checkVarifyValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_VARIFY_ERR,
+            AuthUiHelpers::ValidateVerifyCode(ui->verifycode_Edit->text()), ui->error_label))
         return;
-    }
 
     RegisterReqStruct req;
     req.user = ui->user_Edit->text();
@@ -111,10 +125,10 @@ void RegisterDialog::on_Confirm_Button_clicked()
  */
 void RegisterDialog::on_confirm_verifycode_Button_clicked()
 {
-    if (!checkEmailValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_Edit->text()), ui->error_label))
         return;
-    }
 
     VerifyCodeReqStruct req;
     req.email = ui->email_Edit->text().trimmed();
@@ -144,11 +158,11 @@ void RegisterDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
             default:
                 break;
         }
-        showTip(errStr, false);
+        AuthUiHelpers::ShowTip(ui->error_label, errStr, false);
         return;
     }
 
-    showTip(tr("验证码: %1 (已发送到邮箱，注意查收)").arg(rsp.code), true);
+    AuthUiHelpers::ShowTip(ui->error_label, tr("验证码: %1 (已发送到邮箱，注意查收)").arg(rsp.code), true);
     qDebug() << "Verification code sent to:" << rsp.email << "code:" << rsp.code;
     startVerifyCountdown(10);
 }
@@ -183,11 +197,11 @@ void RegisterDialog::slot_register_rsp(const RegisterRspStruct &rsp)
                 errStr = tr("注册失败，未知错误");
                 break;
         }
-        showTip(errStr, false);
+        AuthUiHelpers::ShowTip(ui->error_label, errStr, false);
         return;
     }
 
-    showTip(tr("用户注册成功"), true);
+    AuthUiHelpers::ShowTip(ui->error_label, tr("用户注册成功"), true);
     qDebug() << "email is " << rsp.email;
     ChangeTipPage();
 }
@@ -214,43 +228,6 @@ void RegisterDialog::startVerifyCountdown(int seconds)
     ui->confirm_verifycode_Button->startCountdown(seconds);
 }
 
-/**
- * @brief 记录输入校验错误并显示
- * @param te 错误类型
- * @param tips 提示文本
- */
-void RegisterDialog::AddTipErr(TipErr te, QString tips)
-{
-    AuthUiHelpers::AddTipError(_tip_errs, te, tips, ui->error_label);
-}
-
-/**
- * @brief 移除输入校验错误并刷新提示
- * @param te 错误类型
- */
-void RegisterDialog::DelTipErr(TipErr te)
-{
-    AuthUiHelpers::RemoveTipError(_tip_errs, te, ui->error_label);
-}
-
-bool RegisterDialog::checkUserValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_USER_ERR, AuthUiHelpers::ValidateUsername(ui->user_Edit->text()), ui->error_label);
-}
-
-bool RegisterDialog::checkEmailValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_EMAIL_ERR, AuthUiHelpers::ValidateEmail(ui->email_Edit->text()), ui->error_label);
-}
-
-bool RegisterDialog::checkPassValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_PWD_ERR, AuthUiHelpers::ValidatePassword(ui->password_Edit->text()), ui->error_label);
-}
-
 bool RegisterDialog::checkConfirmValid()
 {
     const QString confirmError =
@@ -261,35 +238,20 @@ bool RegisterDialog::checkConfirmValid()
     {
         if (isEmptyConfirm)
         {
-            AddTipErr(TipErr::TIP_CONFIRM_ERR, confirmError);
-            DelTipErr(TipErr::TIP_PWD_CONFIRM);
+            AuthUiHelpers::AddTipError(_tip_errs, TipErr::TIP_CONFIRM_ERR, confirmError, ui->error_label);
+            AuthUiHelpers::RemoveTipError(_tip_errs, TipErr::TIP_PWD_CONFIRM, ui->error_label);
         }
         else
         {
-            AddTipErr(TipErr::TIP_PWD_CONFIRM, confirmError);
-            DelTipErr(TipErr::TIP_CONFIRM_ERR);
+            AuthUiHelpers::AddTipError(_tip_errs, TipErr::TIP_PWD_CONFIRM, confirmError, ui->error_label);
+            AuthUiHelpers::RemoveTipError(_tip_errs, TipErr::TIP_CONFIRM_ERR, ui->error_label);
         }
         return false;
     }
 
-    DelTipErr(TipErr::TIP_CONFIRM_ERR);
-    DelTipErr(TipErr::TIP_PWD_CONFIRM);
+    AuthUiHelpers::RemoveTipError(_tip_errs, TipErr::TIP_CONFIRM_ERR, ui->error_label);
+    AuthUiHelpers::RemoveTipError(_tip_errs, TipErr::TIP_PWD_CONFIRM, ui->error_label);
     return true;
-}
-
-bool RegisterDialog::checkVarifyValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_VARIFY_ERR, AuthUiHelpers::ValidateVerifyCode(ui->verifycode_Edit->text()),
-        ui->error_label);
-}
-
-/**
- * @brief 显示提示信息
- */
-void RegisterDialog::showTip(QString str, bool isCorrect)
-{
-    AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
 }
 
 /**

@@ -83,32 +83,7 @@ private:
      */
     void ChangeTipPage();
 
-    /* 表单校验函数组 */
-    bool checkUserValid();    ///< 校验用户名
-    bool checkEmailValid();   ///< 校验邮箱
-    bool checkPassValid();    ///< 校验密码
-    bool checkConfirmValid(); ///< 校验确认密码
-    bool checkVarifyValid();  ///< 校验验证码
-
-    /**
-     * @brief 添加错误提示
-     * @param te 错误类型
-     * @param tips 提示内容
-     */
-    void AddTipErr(TipErr te, QString tips);
-
-    /**
-     * @brief 移除错误提示
-     * @param te 错误类型
-     */
-    void DelTipErr(TipErr te);
-
-    /**
-     * @brief 显示提示信息
-     * @param str 提示内容
-     * @param isCorrect true显示正常颜色，false显示错误颜色
-     */
-    void showTip(QString str, bool isCorrect);
+    bool checkConfirmValid(); ///< 校验确认密码（含空值/不匹配双键逻辑）
 
     Ui::RegisterDialog *ui;
 

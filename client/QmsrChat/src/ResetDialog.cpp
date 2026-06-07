@@ -26,10 +26,26 @@ ResetDialog::ResetDialog(QWidget *parent)
     connect(TcpMgr::Instance(), &TcpMgr::sigResetPwdRsp, this, &ResetDialog::slot_reset_pwd_rsp);
 
     // 连接各输入框的 editingFinished 信号，实时校验输入合法性
-    connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
-    connect(ui->email_edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
-    connect(ui->pwd_edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
-    connect(ui->varify_edit, &QLineEdit::editingFinished, this, [this]() { checkVarifyValid(); });
+    connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_USER_ERR,
+            AuthUiHelpers::ValidateUsername(ui->user_edit->text()), ui->error_label);
+    });
+    connect(ui->email_edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_edit->text()), ui->error_label);
+    });
+    connect(ui->pwd_edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_PWD_ERR,
+            AuthUiHelpers::ValidatePassword(ui->pwd_edit->text()), ui->error_label);
+    });
+    connect(ui->varify_edit, &QLineEdit::editingFinished, this, [this]() {
+        AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_VARIFY_ERR,
+            AuthUiHelpers::ValidateVerifyCode(ui->varify_edit->text()), ui->error_label);
+    });
     ui->varify_btn->setAutoStart(false);
 }
 
@@ -42,55 +58,14 @@ ResetDialog::~ResetDialog()
 }
 
 /**
- * @brief 校验用户名合法性
- * @return bool 是否有效
- */
-bool ResetDialog::checkUserValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_USER_ERR, AuthUiHelpers::ValidateUsername(ui->user_edit->text()), ui->error_label);
-}
-
-/**
- * @brief 校验密码合法性
- * @return bool 是否有效
- */
-bool ResetDialog::checkPassValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_PWD_ERR, AuthUiHelpers::ValidatePassword(ui->pwd_edit->text()), ui->error_label);
-}
-
-/**
- * @brief 校验邮箱合法性
- * @return bool 是否有效
- */
-bool ResetDialog::checkEmailValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_EMAIL_ERR, AuthUiHelpers::ValidateEmail(ui->email_edit->text()), ui->error_label);
-}
-
-/**
- * @brief 校验验证码合法性
- * @return bool 是否有效
- */
-bool ResetDialog::checkVarifyValid()
-{
-    return AuthUiHelpers::ApplyValidationResult(
-        _tip_errs, TipErr::TIP_VARIFY_ERR, AuthUiHelpers::ValidateVerifyCode(ui->varify_edit->text()),
-        ui->error_label);
-}
-
-/**
- * @brief 获取验证码按钮点击处理
+ * @brief 析构函数
  */
 void ResetDialog::on_varify_btn_clicked()
 {
-    if (!checkEmailValid())
-    {
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_edit->text()), ui->error_label))
         return;
-    }
 
     VerifyCodeReqStruct req;
     req.email = ui->email_edit->text();
@@ -102,17 +77,21 @@ void ResetDialog::on_varify_btn_clicked()
  */
 void ResetDialog::on_sure_btn_clicked()
 {
-    bool valid = checkUserValid();
-    if (!valid)
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_USER_ERR,
+            AuthUiHelpers::ValidateUsername(ui->user_edit->text()), ui->error_label))
         return;
-    valid = checkEmailValid();
-    if (!valid)
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_EMAIL_ERR,
+            AuthUiHelpers::ValidateEmail(ui->email_edit->text()), ui->error_label))
         return;
-    valid = checkPassValid();
-    if (!valid)
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_PWD_ERR,
+            AuthUiHelpers::ValidatePassword(ui->pwd_edit->text()), ui->error_label))
         return;
-    valid = checkVarifyValid();
-    if (!valid)
+    if (!AuthUiHelpers::ApplyValidationResult(
+            _tip_errs, TipErr::TIP_VARIFY_ERR,
+            AuthUiHelpers::ValidateVerifyCode(ui->varify_edit->text()), ui->error_label))
         return;
 
     ResetPwdReqStruct req;
@@ -137,11 +116,11 @@ void ResetDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
 
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS))
     {
-        showTip(tr("获取验证码失败"), false);
+        AuthUiHelpers::ShowTip(ui->error_label, tr("获取验证码失败"), false);
         return;
     }
 
-    showTip(tr("验证码: %1").arg(rsp.code), true);
+    AuthUiHelpers::ShowTip(ui->error_label, tr("验证码: %1").arg(rsp.code), true);
     ui->varify_btn->startCountdown(10);
 }
 
@@ -177,38 +156,9 @@ void ResetDialog::slot_reset_pwd_rsp(const ResetPwdRspStruct &rsp)
             default:
                 break;
         }
-        showTip(errStr, false);
+        AuthUiHelpers::ShowTip(ui->error_label, errStr, false);
         return;
     }
 
-    showTip(tr("重置成功，返回登录"), true);
-}
-
-/**
- * @brief 记录输入错误并提示
- * @param te 错误类型
- * @param tips 提示文本
- */
-void ResetDialog::AddTipErr(TipErr te, QString tips)
-{
-    AuthUiHelpers::AddTipError(_tip_errs, te, tips, ui->error_label);
-}
-
-/**
- * @brief 移除输入错误并刷新提示
- * @param te 错误类型
- */
-void ResetDialog::DelTipErr(TipErr te)
-{
-    AuthUiHelpers::RemoveTipError(_tip_errs, te, ui->error_label);
-}
-
-/**
- * @brief 显示提示信息
- * @param str 提示文本
- * @param isCorrect 是否为成功提示
- */
-void ResetDialog::showTip(QString str, bool isCorrect)
-{
-    AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
+    AuthUiHelpers::ShowTip(ui->error_label, tr("重置成功，返回登录"), true);
 }
