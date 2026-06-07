@@ -69,15 +69,11 @@ Rectangle {
                 }
             }
 
-            // 按钮行 — 右对齐，取消/确定
+            // 按钮行 — 右对齐，确定/取消
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 spacing: 8
 
-                Button {
-                    text: qsTr("取消")
-                    onClicked: dialogRoot.cancelled()
-                }
                 Button {
                     text: qsTr("确定")
                     enabled: editArea.text.trim().length > 0
@@ -97,6 +93,25 @@ Rectangle {
                     }
 
                     onClicked: dialogRoot.accepted(dialogRoot.messageTimestamp, editArea.text.trim())
+                }
+                Button {
+                    text: qsTr("取消")
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#6B6A7F"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font: parent.font
+                    }
+                    background: Rectangle {
+                        color: parent.hovered ? "#EEF2FF" : "#F8F9FE"
+                        radius: 6
+                        border.width: 1
+                        border.color: "#EAE9F2"
+                    }
+
+                    onClicked: dialogRoot.cancelled()
                 }
             }
         }

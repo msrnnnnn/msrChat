@@ -184,15 +184,6 @@ Rectangle {
                     font.pixelSize: 11
                     font.family: "Microsoft YaHei"
                 }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: isConnected ? qsTr("已连接") : qsTr("未连接")
-                    color: "#9C9AAA"
-                    font.pixelSize: 11
-                    font.family: "Microsoft YaHei"
-                }
             }
         }
 
@@ -473,12 +464,13 @@ Rectangle {
                 }
 
                 background: Rectangle {
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: parent.enabled ? "#4F46E5" : "#EAE9F2" }
-                        GradientStop { position: 1.0; color: parent.enabled ? "#6366F1" : "#EAE9F2" }
-                    }
+                    id: sendBtnBg
                     radius: 8
                     border.width: 0
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: sendButton.enabled ? "#4F46E5" : "#EAE9F2" }
+                        GradientStop { position: 1.0; color: sendButton.enabled ? "#6366F1" : "#EAE9F2" }
+                    }
                 }
 
                 onClicked: {

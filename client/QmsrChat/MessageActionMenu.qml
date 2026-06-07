@@ -85,11 +85,7 @@ Rectangle {
                         height: 32
                         color: {
                             if (!itemMouse.containsMouse || !modelData.enabled) return "transparent"
-                            return modelData.danger ? "#FEF2F2" : "#F8F9FE"
-                        }
-
-                        Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            return modelData.danger ? "#FEF2F2" : "#EEF2FF"
                         }
 
                         Row {
