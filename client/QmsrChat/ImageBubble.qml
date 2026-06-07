@@ -73,10 +73,14 @@ Item {
         anchors.left: imageBubble.isSelf ? undefined : parent.left
         width: Math.min(imageBubble.maxBubbleWidth, imageColumn.implicitWidth + 16)
         height: imageColumn.height + 16
-        radius: 12
-        color: imageBubble.isSelf ? "#2196F3" : "#FFFFFF"
+        // 圆角：三个角圆润，底角尖锐突出（同 MessageBubble）
+        topLeftRadius: 12
+        topRightRadius: 12
+        bottomLeftRadius: imageBubble.isSelf ? 12 : 0
+        bottomRightRadius: imageBubble.isSelf ? 0 : 12
+        color: imageBubble.isSelf ? "#4F46E5" : "#FFFFFF"
         border.width: imageBubble.isSelf ? 0 : 1
-        border.color: "#E0E0E0"
+        border.color: "#EAE9F2"
         visible: !imageBubble.recalled
         opacity: 0
 
@@ -110,14 +114,14 @@ Item {
             // 加载中占位 — 灰色背景 + "加载中…"
             Rectangle {
                 anchors.fill: parent
-                color: "#d8dde3"
+                color: "#EEF2FF"
                 visible: !imageBubble.loaded && !imageBubble.failed
                 radius: 6
 
                 Text {
                     anchors.centerIn: parent
                     text: qsTr("加载中…")
-                    color: "#888888"
+                    color: "#9C9AAA"
                     font.pixelSize: 13
                     font.family: "Microsoft YaHei"
                 }
@@ -126,14 +130,14 @@ Item {
             // 加载失败占位 — 浅红背景 + 错误提示
             Rectangle {
                 anchors.fill: parent
-                color: "#e8e0e0"
+                color: "#FEF2F2"
                 visible: imageBubble.failed
                 radius: 6
 
                 Text {
                     anchors.centerIn: parent
                     text: qsTr("图片加载失败")
-                    color: "#cc4444"
+                    color: "#EF4444"
                     font.pixelSize: 13
                     font.family: "Microsoft YaHei"
                 }
@@ -164,7 +168,7 @@ Item {
         Text {
             visible: imageBubble.caption !== ""
             text: imageBubble.caption
-            color: imageBubble.isSelf ? "#FFFFFF" : "#333333"
+            color: imageBubble.isSelf ? "#FFFFFF" : "#1A1A2E"
             font.pixelSize: 14
             font.family: "Microsoft YaHei"
             wrapMode: Text.Wrap
@@ -178,16 +182,17 @@ Item {
 
             Text {
                 text: imageBubble.displayTime
-                color: imageBubble.isSelf ? "#CCDDEE" : "#666666"
+                color: imageBubble.isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.55) : "#9C9AAA"
                 font.pixelSize: 11
                 font.family: "Microsoft YaHei"
             }
             Text {
                 visible: imageBubble.edited
                 text: qsTr("已编辑")
-                color: "#888888"
+                color: "#9C9AAA"
                 font.pixelSize: 11
                 font.family: "Microsoft YaHei"
+                font.italic: true
             }
         }
     }
