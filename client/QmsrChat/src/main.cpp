@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     // TcpMgr::Init() 会创建 Worker（QThread），真正的 TCP 连接需延迟到事件循环启动后
     // 通过 QTimer::singleShot(0, ...) 确保 Worker 的 event loop 已就绪
     QTimer::singleShot(0, [si]() {
-        TcpMgr::Instance()->slot_tcp_connect(si);
+        TcpMgr::Instance()->slotTcpConnect(si);
     });
 
     int exit_code = a.exec();

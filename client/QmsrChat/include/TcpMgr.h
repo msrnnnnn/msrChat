@@ -36,13 +36,13 @@ public:
      * @brief 发起 TCP 连接
      * @param si 服务器地址信息
      */
-    void slot_tcp_connect(ServerInfo si);
+    void slotTcpConnect(ServerInfo si);
     /**
      * @brief 发送原始协议数据
      * @param reqId 请求类型
      * @param data 序列化后的协议数据
      */
-    void slot_send_data(RequestType reqId, const QByteArray &data);
+    void slotSendData(RequestType reqId, const QByteArray &data);
 
     void slot_send_login_req(const LoginReqStruct &req);
     void slot_send_chat_login_req(const ChatLoginReqStruct &req);
@@ -73,23 +73,23 @@ public:
     void slot_send_image_download_req(const QString &image_id);
 
 signals:
-    void sig_con_success(bool bsuccess);
+    void sigConSuccess(bool bsuccess);
     /**
      * @brief 断线重连成功后发射
      */
     void sig_reconnected();
 
-    void sig_login_rsp(const LoginRspStruct &rsp);
-    void sig_chat_login_rsp(const ChatLoginRspStruct &rsp);
-    void sig_chat_text_msg(const ChatTextMsgStruct &msg);
+    void sigLoginRsp(const LoginRspStruct &rsp);
+    void sigChatLoginRsp(const ChatLoginRspStruct &rsp);
+    void sigChatTextMsg(const ChatTextMsgStruct &msg);
     void sig_chat_ack(const ChatAckStruct &ack);
     /**
      * @brief 离线消息确认通知
      */
     void sig_offline_ack(const OfflineAckStruct &ack);
-    void sig_verify_code_rsp(const VerifyCodeRspStruct &rsp);
-    void sig_register_rsp(const RegisterRspStruct &rsp);
-    void sig_reset_pwd_rsp(const ResetPwdRspStruct &rsp);
+    void sigVerifyCodeRsp(const VerifyCodeRspStruct &rsp);
+    void sigRegisterRsp(const RegisterRspStruct &rsp);
+    void sigResetPwdRsp(const ResetPwdRspStruct &rsp);
 
     void sigChatImage(const ChatImageStruct &msg);
     void sigImageDownloadRsp(const ImageDownloadRspStruct &rsp);
@@ -107,9 +107,9 @@ signals:
     /**
      * @brief 通知工作线程停止运行
      */
-    void sig_stop_worker();
-    void sig_connect_worker(ServerInfo si);
-    void sig_send_data_worker(RequestType reqId, const QByteArray &data);
+    void sigStopWorker();
+    void sigConnectWorker(ServerInfo si);
+    void sigSendDataWorker(RequestType reqId, const QByteArray &data);
 
 private slots:
     /**
@@ -117,7 +117,7 @@ private slots:
      * @param msg_id 消息类型 ID
      * @param data 消息体数据
      */
-    void slot_dispatch_packet(quint16 msg_id, const QByteArray &data);
+    void slotDispatchPacket(quint16 msg_id, const QByteArray &data);
 
 private:
     explicit TcpMgr(QObject *parent = nullptr);

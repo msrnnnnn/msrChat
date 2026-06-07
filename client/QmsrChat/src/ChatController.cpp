@@ -100,10 +100,10 @@ void ChatController::setChatModel(ChatListModel *model)
 void ChatController::ConnectSignals()
 {
     connect(
-        TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg, Qt::QueuedConnection);
+        TcpMgr::Instance(), &TcpMgr::sigChatTextMsg, this, &ChatController::slotOnChatTextMsg, Qt::QueuedConnection);
     connect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck, Qt::QueuedConnection);
     connect(
-        TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &ChatController::slotOnConnectionStateChanged,
+        TcpMgr::Instance(), &TcpMgr::sigConSuccess, this, &ChatController::slotOnConnectionStateChanged,
         Qt::QueuedConnection);
     connect(
         TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress,
@@ -111,7 +111,7 @@ void ChatController::ConnectSignals()
     connect(
         TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
     connect(
-        TcpMgr::Instance(), &TcpMgr::sig_chat_login_rsp, this, &ChatController::slotOnChatLoginRsp,
+        TcpMgr::Instance(), &TcpMgr::sigChatLoginRsp, this, &ChatController::slotOnChatLoginRsp,
         Qt::QueuedConnection);
     connect(
         &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
@@ -185,12 +185,12 @@ void ChatController::ConnectSignals()
  */
 void ChatController::DisconnectSignals()
 {
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this, &ChatController::slotOnChatTextMsg);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigChatTextMsg, this, &ChatController::slotOnChatTextMsg);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck);
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &ChatController::slotOnConnectionStateChanged);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigConSuccess, this, &ChatController::slotOnConnectionStateChanged);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress);
     disconnect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected);
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_login_rsp, this, &ChatController::slotOnChatLoginRsp);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigChatLoginRsp, this, &ChatController::slotOnChatLoginRsp);
     disconnect(
         &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
     disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);

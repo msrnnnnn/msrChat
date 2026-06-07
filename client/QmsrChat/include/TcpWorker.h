@@ -31,12 +31,12 @@ public:
 
 public slots:
     void slot_init();
-    void slot_tcp_connect(ServerInfo si);
-    void slot_send_data(RequestType reqId, const QByteArray &data);
+    void slotTcpConnect(ServerInfo si);
+    void slotSendData(RequestType reqId, const QByteArray &data);
     void slot_stop();
 
 signals:
-    void sig_con_success(bool bsuccess);
+    void sigConSuccess(bool bsuccess);
     void sig_packet_received(quint16 msg_id, QByteArray data);
     /**
      * @brief 断线重连成功后发射

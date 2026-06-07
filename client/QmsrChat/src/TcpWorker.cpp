@@ -78,7 +78,7 @@ void TcpWorker::slot_init()
             si = *_pending_connect;
             _pending_connect.reset();
         }
-        slot_tcp_connect(si);
+        slotTcpConnect(si);
     }
 }
 
@@ -111,7 +111,7 @@ void TcpWorker::slot_stop()
  * @details 若 socket 尚未初始化（slot_init 未调用），将连接参数缓存到 _pending_connect，
  *          等待 slot_init 时补发。已初始化则直接连接。
  */
-void TcpWorker::slot_tcp_connect(ServerInfo si)
+void TcpWorker::slotTcpConnect(ServerInfo si)
 {
     QMutexLocker locker(&_pending_connect_mutex);
     if (!_socket)
@@ -147,7 +147,7 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
  * @details 将数据打包为 [2字节ID|4字节长度|负载] 的大端格式后写入 socket。
  *          发送前检查 socket 是否存在且连接状态正常。
  */
-void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
+void TcpWorker::slotSendData(RequestType reqId, const QByteArray &data)
 {
     if (!_socket)
     {
@@ -204,7 +204,7 @@ void TcpWorker::slot_connected()
         emit sig_reconnected();
     }
 
-    emit sig_con_success(true);
+    emit sigConSuccess(true);
 }
 
 /**
@@ -318,7 +318,7 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
     }
 
     stop_timers();
-    emit sig_con_success(false);
+    emit sigConSuccess(false);
     schedule_reconnect();
 }
 
@@ -334,7 +334,7 @@ void TcpWorker::slot_disconnected()
     }
 
     stop_timers();
-    emit sig_con_success(false);
+    emit sigConSuccess(false);
     schedule_reconnect();
 }
 
@@ -343,7 +343,7 @@ void TcpWorker::slot_disconnected()
  */
 void TcpWorker::slot_send_ping()
 {
-    slot_send_data(RequestType::MSG_HELLO, "{}");
+    slotSendData(RequestType::MSG_HELLO, "{}");
 }
 
 /**

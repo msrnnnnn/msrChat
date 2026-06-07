@@ -29,10 +29,10 @@ LoginDialog::LoginDialog(QWidget *parent)
     Utils::repolish(ui->error_label);
 
     connect(ui->sign_up_Button, &QPushButton::clicked, this, &LoginDialog::switchRegister);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_login_rsp, this, &LoginDialog::slot_login_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigLoginRsp, this, &LoginDialog::slot_login_rsp);
 
-    connect(TcpMgr::Instance(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_chat_login_rsp, this, &LoginDialog::slot_chat_login_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigConSuccess, this, &LoginDialog::slot_tcp_con_finish);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatLoginRsp, this, &LoginDialog::slot_chat_login_rsp);
 
     ui->forget_password_label->SetState("normal", "hover", "", "selected", "selected_hover", "");
     ui->forget_password_label->setCursor(Qt::PointingHandCursor);
@@ -41,7 +41,7 @@ LoginDialog::LoginDialog(QWidget *parent)
     AuthUiHelpers::BindPasswordToggle(ui->pass_visible, ui->password_Edit);
 
     _msg_buffer_connection = connect(
-        TcpMgr::Instance(), &TcpMgr::sig_chat_text_msg, this,
+        TcpMgr::Instance(), &TcpMgr::sigChatTextMsg, this,
         [this](const ChatTextMsgStruct &msg) {
             _buffered_messages.append(msg);
         }, Qt::QueuedConnection);

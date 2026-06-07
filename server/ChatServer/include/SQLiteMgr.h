@@ -319,8 +319,8 @@ private:
     ~SQLiteMgr();
 
     bool CreateTables(sqlite3 *db);
-    std::optional<User> GetUserByUsername_unlocked(sqlite3 *db, const std::string &username);
-    int CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, const std::string &code);
+    std::optional<User> GetUserByUsernameUnlocked(sqlite3 *db, const std::string &username);
+    int CheckVerifyCodeUnlocked(sqlite3 *db, const std::string &email, const std::string &code);
 
     std::shared_ptr<SQLiteConnectionPool> _pool;
     std::atomic<bool> _initialized{false};

@@ -37,7 +37,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         rsp.token = jsonObj["token"].toString();
         rsp.user = jsonObj["user"].toString();
 
-        emit _tcpMgr.sig_login_rsp(rsp);
+        emit _tcpMgr.sigLoginRsp(rsp);
     }
     else if (req_type == RequestType::ID_GET_VARIFY_CODE)
     {
@@ -46,7 +46,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         rsp.email = jsonObj["email"].toString();
         rsp.code = jsonObj["code"].toInt();
 
-        emit _tcpMgr.sig_verify_code_rsp(rsp);
+        emit _tcpMgr.sigVerifyCodeRsp(rsp);
     }
     else if (req_type == RequestType::ID_REGISTER_USER)
     {
@@ -54,14 +54,14 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         rsp.error = jsonObj["error"].toInt();
         rsp.email = jsonObj["email"].toString();
 
-        emit _tcpMgr.sig_register_rsp(rsp);
+        emit _tcpMgr.sigRegisterRsp(rsp);
     }
     else if (req_type == RequestType::ID_RESET_PWD)
     {
         ResetPwdRspStruct rsp;
         rsp.error = jsonObj["error"].toInt();
 
-        emit _tcpMgr.sig_reset_pwd_rsp(rsp);
+        emit _tcpMgr.sigResetPwdRsp(rsp);
     }
 }
 
@@ -87,7 +87,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         rsp.error = obj.value("error").toInt(1);
         rsp.message = obj.value("message").toString();
 
-        emit _tcpMgr.sig_chat_login_rsp(rsp);
+        emit _tcpMgr.sigChatLoginRsp(rsp);
         return;
     }
 
@@ -104,7 +104,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
             msg.server_msg_id = chatMsg.server_msg_id();
             msg.timestamp = chatMsg.timestamp();
 
-            emit _tcpMgr.sig_chat_text_msg(msg);
+            emit _tcpMgr.sigChatTextMsg(msg);
         }
         else
         {

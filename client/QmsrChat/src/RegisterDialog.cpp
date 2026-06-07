@@ -25,8 +25,8 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     ui->error_label->setProperty("state", "normal");
     Utils::repolish(ui->error_label);
 
-    connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &RegisterDialog::slot_verify_code_rsp);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_register_rsp, this, &RegisterDialog::slot_register_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigVerifyCodeRsp, this, &RegisterDialog::slot_verify_code_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigRegisterRsp, this, &RegisterDialog::slot_register_rsp);
 
     // 连接各输入框的 editingFinished 信号，实时校验输入合法性
     connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });

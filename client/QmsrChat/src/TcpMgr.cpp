@@ -99,7 +99,7 @@ TcpMgr::~TcpMgr()
 {
     if (_worker)
     {
-        emit sig_stop_worker();
+        emit sigStopWorker();
         // 将 delete 操作投递到工作线程的事件循环，确保在工作线程内析构 QTcpSocket 等对象
         _worker->deleteLater();
     }
@@ -135,19 +135,19 @@ void TcpMgr::init_thread()
     connect(_netThread, &QThread::started, _worker, &TcpWorker::slot_init);
     // 删除 finished->deleteLater：会导致 deleteLater 投递到已退出 worker 线程的事件队列
 
-    connect(_worker, &TcpWorker::sig_con_success, this,
+    connect(_worker, &TcpWorker::sigConSuccess, this,
             [this](bool connected) {
                 _is_connected = connected;
-                emit sig_con_success(connected);
+                emit sigConSuccess(connected);
             },
             Qt::QueuedConnection);
     connect(_worker, &TcpWorker::sig_reconnected, this, &TcpMgr::sig_reconnected, Qt::QueuedConnection);
 
-    connect(_worker, &TcpWorker::sig_packet_received, this, &TcpMgr::slot_dispatch_packet, Qt::QueuedConnection);
+    connect(_worker, &TcpWorker::sig_packet_received, this, &TcpMgr::slotDispatchPacket, Qt::QueuedConnection);
 
-    connect(this, &TcpMgr::sig_stop_worker, _worker, &TcpWorker::slot_stop, Qt::QueuedConnection);
-    connect(this, &TcpMgr::sig_connect_worker, _worker, &TcpWorker::slot_tcp_connect, Qt::QueuedConnection);
-    connect(this, &TcpMgr::sig_send_data_worker, _worker, &TcpWorker::slot_send_data, Qt::QueuedConnection);
+    connect(this, &TcpMgr::sigStopWorker, _worker, &TcpWorker::slot_stop, Qt::QueuedConnection);
+    connect(this, &TcpMgr::sigConnectWorker, _worker, &TcpWorker::slotTcpConnect, Qt::QueuedConnection);
+    connect(this, &TcpMgr::sigSendDataWorker, _worker, &TcpWorker::slotSendData, Qt::QueuedConnection);
 
     _netThread->start();
 }
@@ -156,13 +156,13 @@ void TcpMgr::init_thread()
  * @brief 发送连接请求到工作线程
  * @param si 服务器连接信息
  */
-void TcpMgr::slot_tcp_connect(ServerInfo si)
+void TcpMgr::slotTcpConnect(ServerInfo si)
 {
     if (!_worker)
     {
         return;
     }
-    emit sig_connect_worker(si);
+    emit sigConnectWorker(si);
 }
 
 /**
@@ -170,13 +170,13 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
  * @param reqId 请求类型
  * @param data 数据内容
  */
-void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
+void TcpMgr::slotSendData(RequestType reqId, const QByteArray &data)
 {
     if (!_worker)
     {
         return;
     }
-    emit sig_send_data_worker(reqId, data);
+    emit sigSendDataWorker(reqId, data);
 }
 
 /**
@@ -185,7 +185,7 @@ void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
  */
 void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
 {
-    slot_send_data(RequestType::ID_LOGIN_USER, MakeJsonPayload({{"user", req.user}, {"passwd", req.passwd}}));
+    slotSendData(RequestType::ID_LOGIN_USER, MakeJsonPayload({{"user", req.user}, {"passwd", req.passwd}}));
 }
 
 /**
@@ -194,7 +194,7 @@ void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
  */
 void TcpMgr::slot_send_chat_login_req(const ChatLoginReqStruct &req)
 {
-    slot_send_data(RequestType::MSG_CHAT_LOGIN, MakeJsonPayload({{"uid", req.uid}, {"token", req.token}}));
+    slotSendData(RequestType::MSG_CHAT_LOGIN, MakeJsonPayload({{"uid", req.uid}, {"token", req.token}}));
 }
 
 /**
@@ -214,7 +214,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_CHAT_TEXT, QByteArray(serialized.data(), serialized.size()));
+        slotSendData(RequestType::MSG_CHAT_TEXT, QByteArray(serialized.data(), serialized.size()));
     }
 }
 
@@ -224,7 +224,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
  */
 void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 {
-    slot_send_data(RequestType::ID_GET_VARIFY_CODE, MakeJsonPayload({{"email", req.email}}));
+    slotSendData(RequestType::ID_GET_VARIFY_CODE, MakeJsonPayload({{"email", req.email}}));
 }
 
 /**
@@ -233,7 +233,7 @@ void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
  */
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
-    slot_send_data(RequestType::ID_REGISTER_USER,
+    slotSendData(RequestType::ID_REGISTER_USER,
                    MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
@@ -243,7 +243,7 @@ void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
  */
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
-    slot_send_data(RequestType::ID_RESET_PWD,
+    slotSendData(RequestType::ID_RESET_PWD,
                    MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
@@ -253,7 +253,7 @@ void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
  */
 void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
 {
-    slot_send_data(RequestType::MSG_OFFLINE_ACK, MakeJsonPayload({{"received", req.received}}));
+    slotSendData(RequestType::MSG_OFFLINE_ACK, MakeJsonPayload({{"received", req.received}}));
 }
 
 /**
@@ -275,7 +275,7 @@ void TcpMgr::slot_send_file_req(const FileReqStruct &req)
     std::string serialized;
     if (fileReq.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_FILE_REQ, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        slotSendData(RequestType::MSG_FILE_REQ, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
 
@@ -295,7 +295,7 @@ void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
     std::string serialized;
     if (msg.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_CHAT_RECALL, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        slotSendData(RequestType::MSG_CHAT_RECALL, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
 
@@ -313,7 +313,7 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
     std::string serialized;
     if (msg.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_CHAT_EDIT, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        slotSendData(RequestType::MSG_CHAT_EDIT, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
 
@@ -338,7 +338,7 @@ void TcpMgr::slot_send_chat_image(const ChatImageStruct &msg)
     std::string serialized;
     if (imgMsg.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_CHAT_IMAGE,
+        slotSendData(RequestType::MSG_CHAT_IMAGE,
                        QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
@@ -355,7 +355,7 @@ void TcpMgr::slot_send_image_download_req(const QString &image_id)
     std::string serialized;
     if (req.SerializeToString(&serialized))
     {
-        slot_send_data(RequestType::MSG_IMAGE_DOWNLOAD_REQ,
+        slotSendData(RequestType::MSG_IMAGE_DOWNLOAD_REQ,
                        QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
@@ -366,7 +366,7 @@ void TcpMgr::slot_send_image_download_req(const QString &image_id)
  * @param data 原始数据
  * @details 登录相关走 JSON 解析器，聊天消息走 Protobuf 解析器，文件传输走专用文件处理流程。
  */
-void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
+void TcpMgr::slotDispatchPacket(quint16 msg_id, const QByteArray &data)
 {
     const auto req_type = static_cast<RequestType>(msg_id);
     switch (req_type)
@@ -439,7 +439,7 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         std::string serialized;
         if (ack.SerializeToString(&serialized))
         {
-            slot_send_data(RequestType::MSG_FILE_ACK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+            slotSendData(RequestType::MSG_FILE_ACK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
         }
         return;
     }
@@ -472,7 +472,7 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         std::string serialized;
         if (rsp.SerializeToString(&serialized))
         {
-            slot_send_data(RequestType::MSG_FILE_RSP, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+            slotSendData(RequestType::MSG_FILE_RSP, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
         }
         return;
     }

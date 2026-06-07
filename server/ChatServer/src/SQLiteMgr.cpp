@@ -562,7 +562,7 @@ AuthResult SQLiteMgr::RegisterUser(
     }
     sqlite3 *db = guard.Get();
 
-    auto existing = GetUserByUsername_unlocked(db, username);
+    auto existing = GetUserByUsernameUnlocked(db, username);
     if (existing.has_value())
     {
         AuthResult r;
@@ -623,7 +623,7 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
     }
     sqlite3 *db = guard.Get();
 
-    auto user = GetUserByUsername_unlocked(db, username);
+    auto user = GetUserByUsernameUnlocked(db, username);
     if (!user.has_value())
     {
         AuthResult r;
@@ -773,7 +773,7 @@ int SQLiteMgr::ResetPassword(
     }
     sqlite3 *db = guard.Get();
 
-    auto user = GetUserByUsername_unlocked(db, username);
+    auto user = GetUserByUsernameUnlocked(db, username);
     if (!user.has_value())
     {
         return ERR_USER_NOT_EXIST;
@@ -784,7 +784,7 @@ int SQLiteMgr::ResetPassword(
         return ERR_EMAIL_NOT_MATCH;
     }
 
-    int verify_result = CheckVerifyCode_unlocked(db, email, code);
+    int verify_result = CheckVerifyCodeUnlocked(db, email, code);
     if (verify_result != 0)
     {
         return verify_result;
@@ -851,7 +851,7 @@ std::optional<User> SQLiteMgr::GetUserByUsername(const std::string &username)
     return std::nullopt;
 }
 
-std::optional<User> SQLiteMgr::GetUserByUsername_unlocked(sqlite3 *db, const std::string &username)
+std::optional<User> SQLiteMgr::GetUserByUsernameUnlocked(sqlite3 *db, const std::string &username)
 {
     ScopedStmt stmt(
         db, "SELECT uid, username, password_hash, email, avatar_path, created_at FROM users WHERE username = ?");
@@ -874,7 +874,7 @@ std::optional<User> SQLiteMgr::GetUserByUsername_unlocked(sqlite3 *db, const std
     return std::nullopt;
 }
 
-int SQLiteMgr::CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, const std::string &code)
+int SQLiteMgr::CheckVerifyCodeUnlocked(sqlite3 *db, const std::string &email, const std::string &code)
 {
     ScopedStmt stmt(db, "SELECT expires_at FROM verify_codes WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1");
     if (!stmt)

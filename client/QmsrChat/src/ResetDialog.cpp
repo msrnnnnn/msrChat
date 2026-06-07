@@ -22,8 +22,8 @@ ResetDialog::ResetDialog(QWidget *parent)
     Utils::repolish(ui->error_label);
 
     connect(ui->cancel_btn, &QPushButton::clicked, this, &ResetDialog::switchLogin);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &ResetDialog::slot_verify_code_rsp);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_reset_pwd_rsp, this, &ResetDialog::slot_reset_pwd_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigVerifyCodeRsp, this, &ResetDialog::slot_verify_code_rsp);
+    connect(TcpMgr::Instance(), &TcpMgr::sigResetPwdRsp, this, &ResetDialog::slot_reset_pwd_rsp);
 
     // 连接各输入框的 editingFinished 信号，实时校验输入合法性
     connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });

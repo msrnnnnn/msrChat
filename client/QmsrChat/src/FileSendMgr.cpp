@@ -162,7 +162,7 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
     }
 
     // 通过 TcpMgr 长连接发送 protobuf 序列化后的分片数据
-    TcpMgr::Instance()->slot_send_data(
+    TcpMgr::Instance()->slotSendData(
         RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     task.sent_size += data.size();
 

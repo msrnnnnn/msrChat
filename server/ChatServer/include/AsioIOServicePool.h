@@ -50,10 +50,10 @@ private:
      */
     AsioIOServicePool(std::size_t size = std::thread::hardware_concurrency());
 
-    std::vector<std::shared_ptr<IOService>> ioServices_; ///< I/O 服务列表
-    std::vector<WorkGuard> works_;                       ///< work guard 列表
-    std::vector<std::thread> threads_;                   ///< 线程列表
-    std::atomic<std::size_t> nextIOService_;             ///< 下一个 io_context 索引
+    std::vector<std::shared_ptr<IOService>> _ioServices; ///< I/O 服务列表
+    std::vector<WorkGuard> _works;                       ///< work guard 列表
+    std::vector<std::thread> _threads;                   ///< 线程列表
+    std::atomic<std::size_t> _nextIOService;             ///< 下一个 io_context 索引
 };
 
 #endif // ASIOIOSERVICEPOOL_H
