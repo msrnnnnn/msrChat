@@ -20,9 +20,9 @@ Rectangle {
     property var chatController: null
     property var chatDialog: null
 
-    // 当前用户 ID 和目标用户 ID，由 chatController 驱动
-    property int currentUid: chatController ? chatController.currentUid : 0
-    property int targetUid: chatController ? chatController.targetUid : 0
+    // 当前用户 ID 和目标用户 ID，通过 Connections 监听信号更新
+    property int currentUid: 0
+    property int targetUid: 0
     // 连接状态，通过 Connections 监听信号更新
     property bool isConnected: false
     property string pendingImagePath: ""  // 待发送图片路径（选中后内嵌预览）
@@ -32,6 +32,8 @@ Rectangle {
         target: chatController
         enabled: chatController !== null
         function onSigConnectionStatusChanged() { if (chatController) isConnected = chatController.isConnected }
+        function onSigCurrentUidChanged() { if (chatController) currentUid = chatController.currentUid }
+        function onSigTargetUidChanged() { if (chatController) targetUid = chatController.targetUid }
     }
 
     // 主布局：消息列表 + 图片预览条 + 输入区，纵向排列
@@ -192,50 +194,6 @@ Rectangle {
                     color: "#9C9AAA"
                     font.pixelSize: 11
                     font.family: "Microsoft YaHei"
-                }
-            }
-        }
-
-        // === 空状态引导 ===
-        Item {
-            id: emptyState
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            visible: messageListView.count === 0
-
-            ColumnLayout {
-                anchors.centerIn: parent
-                spacing: 12
-
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 72; height: 72; radius: 36
-                    color: "#EEF2FF"
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "💬"
-                        font.pixelSize: 28
-                    }
-                }
-
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("开始聊天")
-                    color: "#6B6A7F"
-                    font.pixelSize: 17
-                    font.family: "Microsoft YaHei"
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: qsTr("输入目标 UID 并点击「连接」\n即可开始对话")
-                    color: "#9C9AAA"
-                    font.pixelSize: 13
-                    font.family: "Microsoft YaHei"
-                    horizontalAlignment: Text.AlignHCenter
-                    lineHeight: 1.7
                 }
             }
         }
@@ -556,6 +514,52 @@ Rectangle {
         }
     }
 
+    // === 空状态引导（覆盖层，居中显示） ===
+    Rectangle {
+        id: emptyState
+        anchors.fill: parent
+        visible: messageListView.count === 0
+        color: "transparent"
+        z: 1
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 12
+
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                width: 72
+                height: 72
+                radius: 36
+                color: "#EEF2FF"
+                Text {
+                    anchors.centerIn: parent
+                    text: "💬"
+                    font.pixelSize: 28
+                }
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: qsTr("开始聊天")
+                color: "#6B6A7F"
+                font.pixelSize: 17
+                font.family: "Microsoft YaHei"
+                font.weight: Font.DemiBold
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: qsTr("输入目标 UID 并点击「连接」\n即可开始对话")
+                color: "#9C9AAA"
+                font.pixelSize: 13
+                font.family: "Microsoft YaHei"
+                horizontalAlignment: Text.AlignHCenter
+                lineHeight: 1.7
+            }
+        }
+    }
+
     // 通用文件选择对话框 — 选中后直接发送文件
     FileDialog {
         id: fileDialog
@@ -781,17 +785,6 @@ Rectangle {
         function onScrollToTopRequested() {
             messageListView.positionViewAtIndex(0, ListView.Beginning)
         }
-    }
-
-    // 调试用状态显示栏 — 显示当前 UID 和目标 UID
-    Text {
-        text: "当前UID: " + (chatController ? chatController.currentUid : "未知")
-              + " | 目标UID: " + (chatController ? chatController.targetUid : "未选择")
-        color: "#666666"
-        font.pixelSize: 12
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.margins: 5
     }
 
     // ImageViewer modal（Phase 5）— 接收 sigShowImageViewer 信号弹出
