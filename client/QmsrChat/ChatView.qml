@@ -15,11 +15,6 @@ Rectangle {
     objectName: "chatViewRoot"   // Phase B — MessageBubble.mapToItem 上溯查找
     color: "#F8F9FE"
 
-    // 核心数据属性 — 由外部注入的数据模型、控制器和对话框引用
-    property var chatModel: null
-    property var chatController: null
-    property var chatDialog: null
-
     // 当前用户 ID 和目标用户 ID，通过 Connections 监听信号更新
     property int currentUid: 0
     property int targetUid: 0
@@ -30,10 +25,18 @@ Rectangle {
     // 监听 chatController 信号
     Connections {
         target: chatController
-        enabled: chatController !== null
-        function onSigConnectionStatusChanged() { if (chatController) isConnected = chatController.isConnected }
-        function onSigCurrentUidChanged() { if (chatController) currentUid = chatController.currentUid }
-        function onSigTargetUidChanged() { if (chatController) targetUid = chatController.targetUid }
+        function onSigConnectionStatusChanged() {
+            console.log("[ChatView] onSigConnectionStatusChanged, isConnected =", chatController.isConnected)
+            isConnected = chatController.isConnected
+        }
+        function onSigCurrentUidChanged() {
+            console.log("[ChatView] onSigCurrentUidChanged, currentUid =", chatController.currentUid)
+            currentUid = chatController.currentUid
+        }
+        function onSigTargetUidChanged() {
+            console.log("[ChatView] onSigTargetUidChanged, targetUid =", chatController.targetUid)
+            targetUid = chatController.targetUid
+        }
     }
 
     // 主布局：消息列表 + 图片预览条 + 输入区，纵向排列
@@ -209,7 +212,7 @@ Rectangle {
             clip: true
             cacheBuffer: 2000
 
-            model: chatModel
+            model: _chatModel
 
             // 根据消息类型选择气泡：type=1 图片气泡，否则文字气泡
             delegate: Loader {
@@ -370,145 +373,134 @@ Rectangle {
             }
         }
 
-        // 消息输入区域 — 包含文本输入、发送/图片/文件按钮
+        // 消息输入区域 — 参照 HTML .ia：工具栏(左) | TextArea(flex) | 发送按钮(右)
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
-            Layout.preferredHeight: 130
+            Layout.preferredHeight: messageInput.implicitHeight + 28
             color: "#FFFFFF"
             border.width: 1
             border.color: "#EAE9F2"
 
-            TextArea {
-                id: messageInput
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                anchors.margins: 5
-                anchors.rightMargin: 8
-                placeholderText: qsTr("输入消息...")
-                wrapMode: TextArea.Wrap
-                font.pixelSize: 14
-                verticalAlignment: TextInput.AlignVCenter
-                padding: 8
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 8
 
-                background: Rectangle {
-                    color: "#F8F9FE"
-                    radius: 10
-                    border.width: 1.5
-                    border.color: "#EAE9F2"
-                }
+                // 左侧工具栏（图片 + 文件按钮，透明背景，hover 变色）
+                Row {
+                    Layout.alignment: Qt.AlignBottom
+                    Layout.bottomMargin: 4
+                    spacing: 2
 
-                // 回车发送（Shift+Enter 换行）
-                Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
-                        event.accepted = true
-                        sendButton.clicked()
+                    Button {
+                        id: imageButton
+                        width: 36; height: 36
+                        text: qsTr("🖼")
+                        font.pixelSize: 16
+                        enabled: isConnected
+                        flat: true
+                        background: Rectangle {
+                            color: imageButton.hovered ? "#F8F9FE" : "transparent"
+                            radius: 6
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.enabled ? "#9C9AAA" : "#D0D0D0"
+                            font: parent.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            imageFileDialog.open()
+                        }
                     }
-                }
-            }
 
-            // 发送按钮 — 连接状态且输入非空时可用
-            Button {
-                id: sendButton
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: 10
-                width: 70
-                height: 36
-                text: qsTr("发送")
-                font.pixelSize: 14
-                font.bold: true
-                enabled: isConnected && messageInput.text.trim().length > 0
-
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "#FFFFFF" : "#9C9AAA"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font: parent.font
-                }
-
-                background: Rectangle {
-                    id: sendBtnBg
-                    radius: 8
-                    border.width: 0
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: sendButton.enabled ? "#4F46E5" : "#EAE9F2" }
-                        GradientStop { position: 1.0; color: sendButton.enabled ? "#6366F1" : "#EAE9F2" }
+                    Button {
+                        id: fileButton
+                        width: 36; height: 36
+                        text: qsTr("📎")
+                        font.pixelSize: 16
+                        enabled: isConnected
+                        flat: true
+                        background: Rectangle {
+                            color: fileButton.hovered ? "#F8F9FE" : "transparent"
+                            radius: 6
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.enabled ? "#9C9AAA" : "#D0D0D0"
+                            font: parent.font
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            fileDialog.open()
+                        }
                     }
                 }
 
-                onClicked: {
-                    if (messageInput.text.trim().length > 0) {
-                        chatController.sendMessage(messageInput.text)
-                        messageInput.text = ""
+                // 消息输入框（flex:1，无边框，高度 44~120 自适应）
+                TextArea {
+                    id: messageInput
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignBottom
+                    Layout.preferredHeight: Math.min(Math.max(44, implicitHeight), 120)
+                    placeholderText: qsTr("输入消息… (Enter 发送, Shift+Enter 换行)")
+                    placeholderTextColor: "#9C9AAA"
+                    wrapMode: TextArea.Wrap
+                    font.pixelSize: 14
+                    font.family: "Microsoft YaHei"
+                    padding: 10
+                    color: "#1A1A2E"
+
+                    background: Rectangle {
+                        color: messageInput.activeFocus ? "#EEF2FF" : "#F8F9FE"
+                        radius: 10
+                    }
+
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
+                            event.accepted = true
+                            sendButton.clicked()
+                        }
                     }
                 }
-            }
 
-            // 图片选择按钮 — 打开图片文件对话框
-            Button {
-                id: imageButton
-                anchors.right: fileButton.left
-                anchors.bottom: parent.bottom
-                anchors.margins: 10
-                width: 36
-                height: 36
-                text: qsTr("🖼️")
-                font.pixelSize: 16
-                enabled: isConnected
+                // 发送按钮（44px 高，渐变紫色，底部对齐）
+                Button {
+                    id: sendButton
+                    Layout.alignment: Qt.AlignBottom
+                    Layout.preferredHeight: 44
+                    Layout.preferredWidth: 80
+                    text: qsTr("发送 →")
+                    font.pixelSize: 14
+                    font.bold: true
+                    font.family: "Microsoft YaHei"
+                    enabled: isConnected && messageInput.text.trim().length > 0
 
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "#666666" : "#A0A0A0"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font: parent.font
-                }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#FFFFFF" : "#9C9AAA"
+                        font: parent.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
 
-                background: Rectangle {
-                    color: "#F8F9FE"
-                    radius: 6
-                    border.width: 1
-                    border.color: "#EAE9F2"
-                }
+                    background: Rectangle {
+                        radius: 8
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: sendButton.enabled ? "#4F46E5" : "#EAE9F2" }
+                            GradientStop { position: 1.0; color: sendButton.enabled ? "#6366F1" : "#EAE9F2" }
+                        }
+                    }
 
-                onClicked: {
-                    imageFileDialog.open()
-                }
-            }
-
-            // 文件选择按钮 — 打开通用文件对话框
-            Button {
-                id: fileButton
-                anchors.right: sendButton.left
-                anchors.bottom: parent.bottom
-                anchors.margins: 10
-                width: 36
-                height: 36
-                text: qsTr("📎")
-                font.pixelSize: 16
-                enabled: isConnected
-
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "#666666" : "#A0A0A0"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    font: parent.font
-                }
-
-                background: Rectangle {
-                    color: "#F8F9FE"
-                    radius: 6
-                    border.width: 1
-                    border.color: "#EAE9F2"
-                }
-
-                onClicked: {
-                    fileDialog.open()
+                    onClicked: {
+                        if (messageInput.text.trim().length > 0) {
+                            chatController.sendMessage(messageInput.text)
+                            messageInput.text = ""
+                        }
+                    }
                 }
             }
         }
@@ -774,9 +766,9 @@ Rectangle {
         }
     }
 
-    // 绑定 chatModel 信号 — 响应滚动到底部/顶部请求
+    // 绑定 _chatModel 信号 — 响应滚动到底部/顶部请求
     Connections {
-        target: chatModel
+        target: _chatModel
 
         function onScrollToBottomRequested() {
             messageListView.positionViewAtEnd()
@@ -857,7 +849,7 @@ Rectangle {
             onEditRequested: {
                 var ts = actionMenuLoader.menuTimestamp
                 editDialogLoader.editTs = ts
-                editDialogLoader.editOrig = chatModel.GetContentByTimestamp(ts)
+                editDialogLoader.editOrig = _chatModel.GetContentByTimestamp(ts)
                 editDialogLoader.active = true
                 actionMenuLoader.active = false
             }

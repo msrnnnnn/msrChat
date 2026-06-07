@@ -51,15 +51,19 @@ ApplicationWindow {
             }
             ChatView {
                 anchors.fill: parent
-                chatModel: _chatModel
-                chatController: chatController
             }
         }
     }
 
     Connections {
         target: authController
-        function onChatLoginSuccess() { pageStack.replace(chatPage) }
-        function onTokenInvalid(message) { pageStack.replace(loginPage) }
+        function onChatLoginSuccess() {
+            console.log("[MainWindow] onChatLoginSuccess — replacing to chatPage")
+            pageStack.replace(chatPage)
+        }
+        function onTokenInvalid(message) {
+            console.log("[MainWindow] onTokenInvalid — replacing to loginPage, msg:", message)
+            pageStack.replace(loginPage)
+        }
     }
 }

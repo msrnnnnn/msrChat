@@ -76,6 +76,13 @@ void ChatController::initialize()
 {
     _current_uid = UserMgr::Instance()->GetUid();
     _is_connected = TcpMgr::Instance()->IsConnected();
+    qDebug() << "[ChatController::initialize] _current_uid =" << _current_uid << "_is_connected =" << _is_connected << "_chat_model =" << (_chat_model != nullptr);
+
+    if (_chat_model != nullptr && _current_uid > 0)
+    {
+        _chat_model->SetCurrentUid(_current_uid);
+    }
+
     emit sigCurrentUidChanged();
     emit sigConnectionStatusChanged();
 }
