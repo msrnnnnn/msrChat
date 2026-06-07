@@ -583,7 +583,7 @@ QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString
     query.bindValue(1, uid2);
     query.bindValue(2, uid2);
     query.bindValue(3, uid1);
-    query.bindValue(4, QString("%%").append(keyword).append("%%"));
+    query.bindValue(4, QString("%").append(keyword).append("%"));
     query.bindValue(5, limit);
 
     if (!query.exec())

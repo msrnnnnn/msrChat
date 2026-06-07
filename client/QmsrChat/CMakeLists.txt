@@ -107,7 +107,7 @@ set(PROJECT_SOURCES
         include/TcpWorker.h
         include/FileRecvMgr.h
         include/FileSendMgr.h
-        include/singleton.h
+        include/Singleton.h
         include/DPIHelper.h
         include/Utils.h
         include/TimerBtn.h

@@ -29,14 +29,9 @@
  *       server/ChatServer/src/SessionManager.cpp \
  *       server/ChatServer/src/MessageRouter.cpp \
  *       server/ChatServer/src/TokenManager.cpp \
- *       server/ChatServer/src/Protocol/BaseProtocol.cpp \
- *       server/ChatServer/src/Protocol/TLVProtocol.cpp \
- *       server/ChatServer/src/Protocol/BinaryPacketProtocol.cpp \
  *       server/ChatServer/src/ThreadPool.cpp \
  *       server/ChatServer/src/FileTransfer.cpp \
  *       server/ChatServer/src/SQLiteMgr.cpp \
- *       server/ChatServer/src/UserData.cpp \
- *       server/ChatServer/src/OfflineStorage.cpp \
  *       server/ChatServer/src/ImageStorage.cpp \
  *       client/QmsrChat/proto/Message.pb.cc \
  *       -L/usr/local/opt/openssl/lib -L/usr/local/opt/sqlite/lib \

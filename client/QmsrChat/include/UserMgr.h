@@ -6,7 +6,7 @@
 #ifndef USERMGR_H
 #define USERMGR_H
 
-#include "singleton.h"
+#include "Singleton.h"
 #include <QObject>
 #include <QString>
 
