@@ -33,27 +33,27 @@ Item {
     // 根据撤回状态切换显示区域高度
     height: recalled ? recalledRect.height : bubbleRect.height
 
-    // 已撤回状态显示 — 居中灰色胶囊 "消息已撤回"
+    // 已撤回状态显示 — 居中灰色胶囊
     Rectangle {
         id: recalledRect
         visible: recalled
-        x: isSelf ? parent.width - width : 0
+        anchors.horizontalCenter: parent.horizontalCenter
         y: 0
         width: Math.min(maxBubbleWidth, recalledText.width + 24)
         height: 30
         radius: 12
-        color: "#F0F0F0"
+        color: isSelf ? "#EEF2FF" : "#F8F9FE"
         border.width: 1
-        border.color: "#E0E0E0"
+        border.color: "#EAE9F2"
 
         Text {
             id: recalledText
             anchors.centerIn: parent
-            text: "消息已撤回"
-            color: "#999999"
-            font.pixelSize: 13
+            text: isSelf ? "你撤回了一条消息" : "对方撤回了一条消息"
+            color: "#9C9AAA"
+            font.pixelSize: 12
             font.family: "Microsoft YaHei"
-            font.italic: true
+            font.italic: false
         }
     }
 
@@ -66,11 +66,15 @@ Item {
         anchors.right: isSelf ? parent.right : undefined
         anchors.left: isSelf ? undefined : parent.left
         anchors.top: parent.top
-        radius: 12
+        // 圆角：三个角圆润，底角尖锐突出（己方右下，对方左下）
+        topLeftRadius: 12
+        topRightRadius: 12
+        bottomLeftRadius: isSelf ? 12 : 0
+        bottomRightRadius: isSelf ? 0 : 12
         // 颜色区分己方/对方
-        color: isSelf ? "#2196F3" : "#FFFFFF"
+        color: isSelf ? "#4F46E5" : "#FFFFFF"
         border.width: 1
-        border.color: isSelf ? "#1976D2" : "#E0E0E0"
+        border.color: isSelf ? "#3730A3" : "#EAE9F2"
         opacity: recalled ? 0.5 : 1.0
         visible: !recalled
 
@@ -86,7 +90,7 @@ Item {
             Text {
                 id: messageText
                 text: content
-                color: isSelf ? "#FFFFFF" : "#333333"
+                color: isSelf ? "#FFFFFF" : "#1A1A2E"
                 font.pixelSize: 16
                 font.family: "Microsoft YaHei"
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
@@ -98,9 +102,10 @@ Item {
                 id: editedLabel
                 visible: edited && !recalled
                 text: "(已编辑)"
-                color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.5) : Qt.rgba(0.0, 0.0, 0.0, 0.4)
+                color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.60) : "#9C9AAA"
                 font.pixelSize: 10
                 font.family: "Microsoft YaHei"
+                font.italic: true
                 Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
             }
 
@@ -112,17 +117,24 @@ Item {
                 Text {
                     id: timeText
                     text: displayTime
-                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.7) : Qt.rgba(0.0, 0.0, 0.0, 0.5)
+                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.55) : Qt.rgba(0.0, 0.0, 0.0, 0.45)
                     font.pixelSize: 10
                     font.family: "Microsoft YaHei"
                 }
 
-                // 状态图标 — 仅己方消息显示
+                // 状态图标 — 仅己方消息显示，根据状态分色
                 Text {
                     id: statusIcon
                     visible: isSelf
                     font.pixelSize: 10
-                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.7) : Qt.rgba(0.0, 0.0, 0.0, 0.5)
+                    color: {
+                        switch (status) {
+                            case -1: return "#EF4444"       // 失败 → 红色
+                            case 2:  return "#F59E0B"       // 离线 → 橙色
+                            default: return Qt.rgba(1.0, 1.0, 1.0, 0.55)  // 发送中/已送达 → 白色半透明
+                        }
+                    }
+                    opacity: status === 0 ? 0.5 : 1.0
 
                     // 根据 status 值映射为中文状态文本
                     text: {
@@ -137,22 +149,6 @@ Item {
                 }
             }
         }
-    }
-
-    // 气泡尾部三角指示器 — 旋转 45° 的正方形，颜色跟随气泡
-    Rectangle {
-        id: tailIndicator
-        width: 12
-        height: 12
-        rotation: 45
-        color: bubbleRect.color
-
-        anchors.bottom: bubbleRect.bottom
-        anchors.bottomMargin: 6
-        anchors.horizontalCenter: isSelf ? bubbleRect.right : bubbleRect.left
-        anchors.horizontalCenterOffset: isSelf ? 6 : -6
-        z: -1
-        visible: !recalled
     }
 
     // 右键 MouseArea — 捕获右键点击并向上查找 chatViewRoot 以触发 showActionMenu
@@ -189,13 +185,37 @@ Item {
             value: 0
         }
 
-        NumberAnimation {
+        PropertyAction {
             target: bubbleRect
-            property: "opacity"
-            from: 0
-            to: 1
-            duration: 200
-            easing.type: Easing.OutQuad
+            property: "transformOrigin"
+            value: Item.Center
+        }
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: bubbleRect
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 350
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: bubbleRect
+                property: "y"
+                from: bubbleRect.y + 10
+                to: bubbleRect.y
+                duration: 350
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: bubbleRect
+                property: "scale"
+                from: 0.96
+                to: 1.0
+                duration: 350
+                easing.type: Easing.OutCubic
+            }
         }
     }
 
