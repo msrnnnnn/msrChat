@@ -448,6 +448,7 @@ void ChatController::slotOnChatImage(const ChatImageStruct &msg)
         (m.from_uid == _current_uid && m.to_uid == _target_uid)))
     {
         _chat_model->AddMessage(m);
+        FlushPendingRecalls();
     }
 
     // 3. 如果本地没有缓存，自动触发图片下载
@@ -495,8 +496,6 @@ void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
 
 void ChatController::slotOnChatRecallNotify(const ChatRecallNotifyStruct &n)
 {
-    // 不管当前 _chat_model 是不是这个会话的，都先入 _pending_recall 兜底
-    // 然后尝试立即 mark（当前 _chat_model 如果是 A 会话就直接生效）
     QMutexLocker lock(&_pending_mutex);
     _pending_recall[n.msg_timestamp] = n.recall_ts;
     lock.unlock();
@@ -513,15 +512,17 @@ void ChatController::FlushPendingRecalls()
 {
     if (!_chat_model || _pending_recall.isEmpty()) return;
     QMutexLocker lock(&_pending_mutex);
-    // 把 _pending_recall 的 timestamps 全部尝试 mark（model 内 _messages 找不到的就 no-op）
     auto it = _pending_recall.begin();
     while (it != _pending_recall.end()) {
         qint64 ts = it.key();
-        _chat_model->MarkRecalled(ts, _current_uid);
-        ++it;
+        ChatMessage dummy;
+        if (_chat_model->GetMessageByTimestamp(ts, dummy)) {
+            _chat_model->MarkRecalled(ts, _current_uid);
+            it = _pending_recall.erase(it);
+        } else {
+            ++it;
+        }
     }
-    // 清空（已被 loadHistory 加载或 no-op 的都算处理完）
-    _pending_recall.clear();
 }
 
 void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
@@ -617,6 +618,8 @@ void ChatController::slotOnChatTextMsg(const ChatTextMsgStruct &msg)
         (chat_msg.from_uid == _current_uid && chat_msg.to_uid == _target_uid)))
     {
         _chat_model->UpsertMessage(chat_msg);
+        // 新消息加入模型后立即 flush pending recall（1014 可能先于消息到达）
+        FlushPendingRecalls();
     }
 }
 

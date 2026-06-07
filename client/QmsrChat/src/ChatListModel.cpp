@@ -335,9 +335,6 @@ void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
         if (_messages[i].timestamp == ts)
         {
             mutator(_messages[i]);
-            // 局部刷新：dataChanged 而非 beginResetModel/endResetModel。
-            // beginResetModel 在 ListView + Loader delegate 组合下会破坏 Loader 内部状态
-            // （撤回后图片"藏在 ListView 下方、聊几句后冒出来" 的根因之一）。
             lock.unlock();
             QModelIndex idx = index(i);
             emit dataChanged(idx, idx);

@@ -5,6 +5,7 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "CSession.h"
+#include "Message.pb.h"
 #include "MessageRouter.h"
 #include "SQLiteMgr.h"
 #include "const.h"
@@ -144,21 +145,21 @@ void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &sess
         {
             int64_t total_count = SQLiteMgr::Instance().GetOfflineMessageCount(uid);
 
-            if (total_count == 0)
+            if (total_count > 0)
             {
-                return;
+                {
+                    std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
+                    session->_offline_send_state.uid = uid;
+                    session->_offline_send_state.total_count = total_count;
+                    session->_offline_send_state.sent_count = 0;
+                    session->_offline_send_state.sending = true;
+                    session->_offline_send_state.last_sent_id = 0;
+                }
+
+                session->SendNextOfflinePage();
             }
 
-            {
-                std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
-                session->_offline_send_state.uid = uid;
-                session->_offline_send_state.total_count = total_count;
-                session->_offline_send_state.sent_count = 0;
-                session->_offline_send_state.sending = true;
-                session->_offline_send_state.last_sent_id = 0;
-            }
-
-            session->SendNextOfflinePage();
+            self->FlushRecallNotifies(uid, session);
         });
 }
 
@@ -191,4 +192,31 @@ void CServer::Stop()
 
     _thread_pool.Shutdown();
     spdlog::info("[CServer] Server stopped");
+}
+
+void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session)
+{
+    auto self = shared_from_this();
+    boost::asio::post(
+        session->GetStrand(),
+        [self, session, uid]()
+        {
+            auto entries = SQLiteMgr::Instance().PopRecallNotifies(uid);
+            for (const auto &e : entries)
+            {
+                qmsrchat::RecallNotify n;
+                n.set_msg_timestamp(e.msg_timestamp);
+                n.set_recall_uid(e.recall_uid);
+                n.set_recalled_to(e.recalled_to);
+                n.set_recall_ts(e.recall_ts);
+                std::string s;
+                n.SerializeToString(&s);
+                session->Send(s, MSG_CHAT_RECALL_NOTIFY);
+                spdlog::info("[CServer] FlushRecallNotifies: sent 1014 to uid={} for ts={}", uid, e.msg_timestamp);
+            }
+            if (!entries.empty())
+            {
+                SQLiteMgr::Instance().ClearRecallNotifies(uid);
+            }
+        });
 }

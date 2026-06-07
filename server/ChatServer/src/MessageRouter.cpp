@@ -34,9 +34,10 @@ bool MessageRouter::ForwardMessage(int target_uid, const std::string &msg_data)
     chat_msg.set_content(json_data.value("content", ""));
     chat_msg.set_server_msg_id(_next_server_msg_id.fetch_add(1));
     chat_msg.set_client_msg_id(json_data.value("client_msg_id", ""));
-    chat_msg.set_timestamp(
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count());
+    chat_msg.set_timestamp(json_data.value("timestamp",
+        static_cast<int64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count())));
 
     std::string serialized;
     if (!chat_msg.SerializeToString(&serialized))

@@ -345,6 +345,15 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             token TEXT NOT NULL,
             created_at INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS recall_notify_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid INTEGER NOT NULL,
+            msg_timestamp INTEGER NOT NULL,
+            recall_uid INTEGER NOT NULL,
+            recall_ts INTEGER NOT NULL,
+            recalled_to INTEGER NOT NULL
+        );
     )";
 
     char *err_msg = nullptr;
@@ -1274,6 +1283,69 @@ bool SQLiteMgr::UpdateMessageContent(int64_t timestamp, int from_uid,
     sqlite3_bind_int64(stmt, 2, edit_ts);
     sqlite3_bind_int64(stmt, 3, timestamp);
     sqlite3_bind_int(stmt, 4, from_uid);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+// === Phase 2 — Recall Notify 队列 ===
+
+bool SQLiteMgr::EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid,
+                                     int64_t recall_ts, int recalled_to)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db,
+        "INSERT INTO recall_notify_queue (uid, msg_timestamp, recall_uid, recall_ts, recalled_to) "
+        "VALUES (?, ?, ?, ?, ?)");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+    sqlite3_bind_int64(stmt, 2, msg_timestamp);
+    sqlite3_bind_int(stmt, 3, recall_uid);
+    sqlite3_bind_int64(stmt, 4, recall_ts);
+    sqlite3_bind_int(stmt, 5, recalled_to);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+std::vector<RecallNotifyEntry> SQLiteMgr::PopRecallNotifies(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return {};
+    sqlite3 *db = guard.Get();
+
+    std::vector<RecallNotifyEntry> entries;
+    ScopedStmt stmt(db,
+        "SELECT id, uid, msg_timestamp, recall_uid, recall_ts, recalled_to "
+        "FROM recall_notify_queue WHERE uid = ? "
+        "ORDER BY id ASC");
+    if (!stmt) return entries;
+    sqlite3_bind_int(stmt, 1, uid);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        RecallNotifyEntry e;
+        e.id = sqlite3_column_int64(stmt, 0);
+        e.uid = sqlite3_column_int(stmt, 1);
+        e.msg_timestamp = sqlite3_column_int64(stmt, 2);
+        e.recall_uid = sqlite3_column_int(stmt, 3);
+        e.recall_ts = sqlite3_column_int64(stmt, 4);
+        e.recalled_to = sqlite3_column_int(stmt, 5);
+        entries.push_back(e);
+    }
+    return entries;
+}
+
+bool SQLiteMgr::ClearRecallNotifies(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db, "DELETE FROM recall_notify_queue WHERE uid = ?");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }

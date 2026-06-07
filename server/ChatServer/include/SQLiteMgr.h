@@ -13,6 +13,16 @@
 #include <thread>
 #include <vector>
 
+struct RecallNotifyEntry
+{
+    int64_t id = 0;
+    int     uid          = 0;
+    int64_t msg_timestamp = 0;
+    int     recall_uid   = 0;
+    int64_t recall_ts    = 0;
+    int     recalled_to  = 0;
+};
+
 struct ChatMessage
 {
     int64_t id = 0;
@@ -236,6 +246,11 @@ public:
 
     bool SaveUser(const User &user);
     std::optional<User> GetUserByUsername(const std::string &username);
+
+    // Phase 2 — Recall Notify 队列
+    bool EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid, int64_t recall_ts, int recalled_to);
+    std::vector<RecallNotifyEntry> PopRecallNotifies(int uid);
+    bool ClearRecallNotifies(int uid);
 
     bool SaveOfflineMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);

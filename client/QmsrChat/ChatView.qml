@@ -42,6 +42,15 @@ Rectangle {
             delegate: Loader {
                 width: messageListView.width - 12
                 sourceComponent: model.messageType === 1 ? imageBubbleComponent : textBubbleComponent
+                property bool _recalled: model.recalled
+                property bool _edited: model.edited
+                on_RecalledChanged: {
+                    console.log("[RECALL-LOADER] _recalled=" + _recalled + " item=" + (item ? "valid" : "null"))
+                    if (item) item.recalled = _recalled
+                }
+                on_EditedChanged: {
+                    if (item) item.edited = _edited
+                }
 
                 Component {
                     id: textBubbleComponent

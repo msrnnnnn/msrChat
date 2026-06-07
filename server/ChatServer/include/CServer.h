@@ -28,6 +28,7 @@ public:
     bool StoreOfflineMessage(int target_uid, const std::string &msg_data);
     bool StoreOfflineMessage(const ChatMessage &msg);  // Phase D: 图片消息直接传 ChatMessage
     void SendOfflineMessages(int uid, const std::shared_ptr<CSession> &session);
+    void FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session);
 
     ThreadPool &GetThreadPool()
     {

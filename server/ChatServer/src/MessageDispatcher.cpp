@@ -461,6 +461,10 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         {
             forward["client_msg_id"] = client_msg_id;
         }
+        if (chatMsg.timestamp() > 0)
+        {
+            forward["timestamp"] = chatMsg.timestamp();
+        }
 
         std::string forward_data = forward.dump();
         auto server = session.GetServer();
@@ -1233,10 +1237,15 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
         return true;
     }
 
-    // 6. 推 RecallNotify 给原接收方（v1: 在线才推，离线丢奔）
+    // 6. 入 RecallNotifyQueue 兜底（无论目标是否在线）
+    SQLiteMgr::Instance().EnqueueRecallNotify(orig->to_uid, req.msg_timestamp(), from, now_ms, orig->to_uid);
+    spdlog::info("HandleChatRecall: Notify queued for uid={} ts={}", orig->to_uid, req.msg_timestamp());
+
+    // 7. 尝试在线推送（优化路径）
     auto target_session = SessionManager::Instance().GetSession(orig->to_uid);
     if (target_session)
     {
+        spdlog::info("HandleChatRecall: pushing 1014 to uid={} session={}", orig->to_uid, target_session->GetUuid());
         qmsrchat::RecallNotify n;
         n.set_msg_timestamp(req.msg_timestamp());
         n.set_recall_uid(from);
@@ -1246,13 +1255,17 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
         n.SerializeToString(&s);
         if (!MessageRouter::Instance().SendToSession(target_session, s, MSG_CHAT_RECALL_NOTIFY))
         {
-            spdlog::warn("HandleChatRecall: Notify send failed (target_session closed?)");
+            spdlog::error("HandleChatRecall: SendToSession 1014 FAILED for uid={}", orig->to_uid);
+        }
+        else
+        {
+            spdlog::info("HandleChatRecall: SendToSession 1014 SUCCESS for uid={}", orig->to_uid);
+            SQLiteMgr::Instance().ClearRecallNotifies(orig->to_uid);
         }
     }
     else
     {
-        spdlog::info("HandleChatRecall: target uid={} offline, Notify dropped (P7 v1 limit)",
-                     orig->to_uid);
+        spdlog::info("HandleChatRecall: target uid={} offline, Notify queued (will deliver on login)", orig->to_uid);
     }
 
     // 7. 回 RecallAck 给发起方（用 EditAck 结构体，与 MSG_CHAT_RECALL 协议号配套）
