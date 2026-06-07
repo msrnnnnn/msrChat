@@ -13,7 +13,7 @@ Rectangle {
     id: dialogRoot
     anchors.fill: parent
     // 半透明黑色遮罩
-    color: Qt.rgba(0, 0, 0, 0.4)
+    color: Qt.rgba(0.059, 0.059, 0.118, 0.25)
 
     // 要编辑的消息时间戳和原始内容
     property var messageTimestamp: 0    // qint64 via var
@@ -33,9 +33,9 @@ Rectangle {
         anchors.centerIn: parent
         width: 420
         height: 220
-        radius: 10
+        radius: 16
         color: "#ffffff"
-        border.color: "#dddddd"
+        border.color: "#EAE9F2"
         border.width: 1
 
         ColumnLayout {
@@ -49,7 +49,7 @@ Rectangle {
                 font.pixelSize: 16
                 font.bold: true
                 font.family: "Microsoft YaHei"
-                color: "#222222"
+                color: "#1A1A2E"
             }
 
             // 可滚动的文本编辑区
@@ -83,6 +83,19 @@ Rectangle {
                     enabled: editArea.text.trim().length > 0
                              && editArea.text.trim().length <= 4096
                              && editArea.text !== dialogRoot.originalContent
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? "#FFFFFF" : "#9C9AAA"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font: parent.font
+                    }
+                    background: Rectangle {
+                        color: parent.enabled ? "#4F46E5" : "#EAE9F2"
+                        radius: 6
+                    }
+
                     onClicked: dialogRoot.accepted(dialogRoot.messageTimestamp, editArea.text.trim())
                 }
             }
