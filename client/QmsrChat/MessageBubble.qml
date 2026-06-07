@@ -27,11 +27,10 @@ Item {
     Rectangle {
         id: recalledRect
         visible: recalled
+        x: isSelf ? parent.width - width : 0
+        y: 0
         width: Math.min(maxBubbleWidth, recalledText.width + 24)
         height: 30
-        anchors.top: parent.top
-        anchors.left: isSelf ? undefined : parent.left
-        anchors.right: isSelf ? parent.right : undefined
         radius: 12
         color: "#F0F0F0"
         border.width: 1
