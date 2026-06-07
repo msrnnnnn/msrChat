@@ -361,6 +361,8 @@ void ChatListModel::UpdateImagePath(const QString &image_id, const QString &loca
 
 void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
 {
+    // 先写 DB（异步），再改内存。修复"假撤回"bug：刷新界面后 DB 仍是 recalled=0 导致图片复活
+    DbThreadManager::Instance().MarkMessageRecalled(ts, current_uid);
     UpdateMessageByTimestamp(ts, [](ChatMessage &m) {
         m.recalled = true;
         m.recalled_at = QDateTime::currentMSecsSinceEpoch();
