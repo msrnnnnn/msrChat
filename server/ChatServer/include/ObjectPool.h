@@ -1,3 +1,10 @@
+/**
+ * @file ObjectPool.h
+ * @brief 通用对象池模板 —— 预分配对象并循环复用，避免频繁 new/delete
+ * @details 池中对象必须提供 SetPool()、Reset()、Init() 方法。
+ *          Acquire() 返回 shared_ptr，自定义删除器将对象归还池中。
+ *          池耗尽时自动按 grow_size 扩容。
+ */
 #ifndef OBJECT_POOL_H
 #define OBJECT_POOL_H
 
@@ -5,6 +12,10 @@
 #include <mutex>
 #include <vector>
 
+/**
+ * @brief 线程安全的对象池
+ * @tparam T 池中对象类型，要求实现 SetPool()、Reset()、Init() 接口
+ */
 template<typename T>
 class ObjectPool
 {
@@ -31,6 +42,11 @@ public:
     ObjectPool(const ObjectPool &) = delete;
     ObjectPool &operator=(const ObjectPool &) = delete;
 
+    /**
+     * @brief 从池中获取一个对象（shared_ptr，归还时自动调用 Reset() 并 push 回池）
+     * @param args 可选初始化参数，有参数时调用 obj->Init(args...)，无参数时调用 obj->Reset()
+     * @return shared_ptr 持有对象，引用计数归零时对象自动归还池中
+     */
     template<typename... Args>
     std::shared_ptr<T> Acquire(Args &&...args)
     {

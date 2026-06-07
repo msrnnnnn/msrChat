@@ -10,7 +10,6 @@
 #include "Utils.h"
 #include "ui_registerdialog.h"
 #include <QDebug>
-#include <QMessageBox>
 #include <QTimer>
 
 /**
@@ -29,6 +28,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &RegisterDialog::slot_verify_code_rsp);
     connect(TcpMgr::Instance(), &TcpMgr::sig_register_rsp, this, &RegisterDialog::slot_register_rsp);
 
+    // 连接各输入框的 editingFinished 信号，实时校验输入合法性
     connect(ui->user_Edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
     connect(ui->email_Edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
     connect(ui->password_Edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
@@ -42,6 +42,7 @@ RegisterDialog::RegisterDialog(QWidget *parent)
 
     _countdown_timer = new QTimer(this);
     _countdown = 5;
+    // 注册成功后倒计时，倒计时结束自动切回登录页
     connect(
         _countdown_timer, &QTimer::timeout, this,
         [this]()
@@ -49,7 +50,8 @@ RegisterDialog::RegisterDialog(QWidget *parent)
             if (_countdown <= 0)
             {
                 _countdown_timer->stop();
-                ui->stackedWidget->setCurrentWidget(ui->page_1);
+    // 默认显示注册表单页（page_1）
+    ui->stackedWidget->setCurrentWidget(ui->page_1);
                 emit switchLogin();
                 return;
             }
@@ -97,6 +99,7 @@ void RegisterDialog::on_Confirm_Button_clicked()
     RegisterReqStruct req;
     req.user = ui->user_Edit->text();
     req.email = ui->email_Edit->text();
+    // 密码使用 SHA-256 哈希后发送
     req.passwd = Utils::hashPassword(ui->password_Edit->text());
     req.varifycode = ui->verifycode_Edit->text();
 
@@ -163,6 +166,7 @@ void RegisterDialog::slot_register_rsp(const RegisterRspStruct &rsp)
 
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS))
     {
+        // 错误码映射到用户可见的中文提示
         QString errStr = tr("注册失败");
         switch (static_cast<ERRORCODES>(rsp.error))
         {
@@ -201,16 +205,29 @@ void RegisterDialog::ChangeTipPage()
     _countdown_timer->start(1000);
 }
 
+/**
+ * @brief 启动验证码按钮倒计时
+ * @param seconds 倒计时秒数
+ */
 void RegisterDialog::startVerifyCountdown(int seconds)
 {
     ui->confirm_verifycode_Button->startCountdown(seconds);
 }
 
+/**
+ * @brief 记录输入校验错误并显示
+ * @param te 错误类型
+ * @param tips 提示文本
+ */
 void RegisterDialog::AddTipErr(TipErr te, QString tips)
 {
     AuthUiHelpers::AddTipError(_tip_errs, te, tips, ui->error_label);
 }
 
+/**
+ * @brief 移除输入校验错误并刷新提示
+ * @param te 错误类型
+ */
 void RegisterDialog::DelTipErr(TipErr te)
 {
     AuthUiHelpers::RemoveTipError(_tip_errs, te, ui->error_label);
@@ -275,6 +292,9 @@ void RegisterDialog::showTip(QString str, bool isCorrect)
     AuthUiHelpers::ShowTip(ui->error_label, str, isCorrect);
 }
 
+/**
+ * @brief 返回登录按钮点击处理
+ */
 void RegisterDialog::on_return_btn_clicked()
 {
     _countdown_timer->stop();
@@ -282,6 +302,9 @@ void RegisterDialog::on_return_btn_clicked()
     emit switchLogin();
 }
 
+/**
+ * @brief 取消按钮点击处理
+ */
 void RegisterDialog::on_Cancel_Button_clicked()
 {
     _countdown_timer->stop();

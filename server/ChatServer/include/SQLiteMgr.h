@@ -1,3 +1,11 @@
+/**
+ * @file SQLiteMgr.h
+ * @brief SQLite 数据库管理层 —— 连接池、消息持久化、用户认证
+ * @details 包含 SQLiteConnection 连接封装、SQLiteConnectionPool 连接池、
+ *          SQLiteConnectionGuard RAII 连接守卫、ScopedStmt 语句生命周期管理，
+ *          以及顶层的 SQLiteMgr 业务操作接口。
+ *          所有数据库操作通过连接池获取连接，支持多线程并发访问。
+ */
 #ifndef SQLITE_MGR_H
 #define SQLITE_MGR_H
 
@@ -13,6 +21,9 @@
 #include <thread>
 #include <vector>
 
+/**
+ * @brief 撤回通知记录 —— 通知目标用户某条消息已被撤回
+ */
 struct RecallNotifyEntry
 {
     int64_t id = 0;
@@ -23,6 +34,9 @@ struct RecallNotifyEntry
     int     recalled_to  = 0;
 };
 
+/**
+ * @brief 聊天消息数据库记录
+ */
 struct ChatMessage
 {
     int64_t id = 0;
@@ -41,6 +55,9 @@ struct ChatMessage
     int64_t edited_at   = 0;
 };
 
+/**
+ * @brief 用户数据库记录
+ */
 struct User
 {
     int uid;
@@ -51,6 +68,9 @@ struct User
     int64_t created_at;
 };
 
+/**
+ * @brief 认证操作结果
+ */
 struct AuthResult
 {
     int error = 0;
@@ -59,6 +79,9 @@ struct AuthResult
     std::string username;
 };
 
+/**
+ * @brief SQLite 数据库连接封装 —— 线程内绑定，记录使用状态
+ */
 class SQLiteConnection
 {
 public:
@@ -75,6 +98,12 @@ private:
     bool _in_use;
 };
 
+/**
+ * @brief SQLite 连接池 —— 管理多个 SQLiteConnection，支持阻塞式获取/归还
+ * @details 使用 std::queue 管理空闲连接，条件变量实现等待通知。
+ *          Acquire() 在无可用连接时阻塞等待，Release() 归还后唤醒等待者。
+ *          Shutdown() 关闭所有连接并唤醒所有等待线程。
+ */
 class SQLiteConnectionPool
 {
     friend class SQLiteMgr;
@@ -103,6 +132,11 @@ private:
     std::atomic<bool> _initialized{false};
 };
 
+/**
+ * @brief SQLite 连接 RAII 守卫 —— 构造时获取连接，析构时自动归还
+ * @details 提供 Get() 获取原始 sqlite3* 指针，支持布尔判断连接是否有效。
+ *          移动语义：移动后源对象释放所有权，避免重复归还。
+ */
 class SQLiteConnectionGuard
 {
 public:
@@ -164,6 +198,10 @@ private:
     std::shared_ptr<SQLiteConnection> _conn;
 };
 
+/**
+ * @brief SQLite Statement RAII 封装 —— 构造时 prepare，析构时自动 finalize
+ * @details 支持移动语义，提供 operator-> 和隐式转换 sqlite3_stmt* 方便绑定参数。
+ */
 class ScopedStmt
 {
 public:
@@ -226,6 +264,12 @@ private:
     sqlite3 *_db;
 };
 
+/**
+ * @brief SQLite 业务管理器（单例） —— 封装所有数据库业务操作
+ * @details 提供消息 CRUD、用户注册/登录、验证码、Token 持久化等接口。
+ *          内部通过 SQLiteConnectionPool 管理连接，每个公开方法内部创建
+ *          SQLiteConnectionGuard 自动获取和归还连接。
+ */
 class SQLiteMgr
 {
 public:
@@ -237,17 +281,15 @@ public:
 
     bool SaveMessage(const ChatMessage &msg);
     std::vector<ChatMessage> GetMessages(int uid1, int uid2, int64_t before_time, int limit = 50);
-    std::vector<ChatMessage> SearchMessages(int uid1, int uid2, const std::string &keyword, int limit = 50);
 
     // Phase 7 — 撤回 / 编辑
     bool MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts);
     bool UpdateMessageContent(int64_t timestamp, int from_uid, const std::string &new_content, int64_t edit_ts);
     std::optional<ChatMessage> GetMessageByTimestamp(int64_t timestamp, int from_uid);
 
-    bool SaveUser(const User &user);
     std::optional<User> GetUserByUsername(const std::string &username);
 
-    // Phase 2 — Recall Notify 队列
+    // Phase 2 — Recall Notify
     bool EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid, int64_t recall_ts, int recalled_to);
     std::vector<RecallNotifyEntry> PopRecallNotifies(int uid);
     bool ClearRecallNotifies(int uid);
@@ -266,7 +308,6 @@ public:
         const std::string &new_password_hash);
 
     bool SaveToken(int uid, const std::string &token);
-    bool RemoveTokenFromDB(int uid);
     std::optional<std::string> GetTokenFromDB(int uid);
     std::vector<std::pair<int, std::string>> GetAllTokens();
 

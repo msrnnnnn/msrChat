@@ -55,6 +55,11 @@ LoginDialog::~LoginDialog()
     delete ui;
 }
 
+/**
+ * @brief 处理 Windows 原生事件（无边框窗口拖拽支持）
+ * @details 拦截 WM_NCHITTEST 消息，将所有客户区区域视为标题栏区域，
+ *          从而允许无边框窗口在任意位置拖拽。
+ */
 bool LoginDialog::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
     Q_UNUSED(eventType);
@@ -74,11 +79,19 @@ bool LoginDialog::nativeEvent(const QByteArray &eventType, void *message, qintpt
     return QDialog::nativeEvent(eventType, message, result);
 }
 
+/**
+ * @brief 校验用户名合法性
+ * @return 合法返回 true
+ */
 bool LoginDialog::checkUserValid()
 {
     return AuthUiHelpers::ValidateUsername(ui->user_Edit->text()).isEmpty();
 }
 
+/**
+ * @brief 校验密码合法性
+ * @return 合法返回 true
+ */
 bool LoginDialog::checkPwdValid()
 {
     return AuthUiHelpers::ValidatePassword(ui->password_Edit->text()).isEmpty();
@@ -103,6 +116,7 @@ void LoginDialog::on_login_Button_clicked()
     auto pwd = ui->password_Edit->text();
     LoginReqStruct req;
     req.user = user;
+    // 密码使用 SHA-256 哈希后发送，不在明文传输
     req.passwd = Utils::hashPassword(pwd);
     TcpMgr::Instance()->slot_send_login_req(req);
 }
@@ -116,6 +130,7 @@ void LoginDialog::slot_login_rsp(const LoginRspStruct &rsp)
 {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS))
     {
+        // 错误码映射到用户可见的中文提示
         QString errStr = tr("登录失败");
         switch (static_cast<ERRORCODES>(rsp.error))
         {
@@ -133,6 +148,7 @@ void LoginDialog::slot_login_rsp(const LoginRspStruct &rsp)
         return;
     }
 
+    // 认证成功后保存 uid 和 token，并继续发起聊天服务登录
     _uid = rsp.uid;
     _token = rsp.token;
     UserMgr::Instance()->SetUid(_uid);
@@ -179,6 +195,7 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
 {
     qDebug() << "LoginDialog received chat login rsp, error:" << rsp.error << "message:" << rsp.message;
 
+    // 聊天登录回包失败：清除认证信息，发射 token 失效信号
     if (rsp.error != 0)
     {
         _uid = 0;
@@ -188,10 +205,12 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
         qWarning() << "Chat login failed:" << message;
         _chat_login_ready = false;
         showTip(message, false);
+        // 通知 MainWindow 回到登录界面
         emit sig_token_invalid();
         return;
     }
 
+    // 使用 _chat_login_ready 标志防止重复发射 sig_login_success
     if (!_chat_login_ready)
     {
         _chat_login_ready = true;
@@ -200,6 +219,11 @@ void LoginDialog::slot_chat_login_rsp(const ChatLoginRspStruct &rsp)
     }
 }
 
+/**
+ * @brief 取出登录期间缓冲的消息并断开缓冲连接
+ * @details 登录成功后调用，将登录过程中收到的消息转交给 ChatController。
+ *          断开信号连接以防止后续消息继续缓冲。
+ */
 QVector<ChatTextMsgStruct> LoginDialog::TakeBufferedMessages()
 {
     disconnect(_msg_buffer_connection);

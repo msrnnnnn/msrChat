@@ -1,14 +1,28 @@
+/**
+ * @file ImageStorage.cpp
+ * @brief 图片存储引擎实现
+ * @details 基于 SQLite 的图片 Blob 存储，支持分片追加、范围读取、过期清理。
+ */
 #include "ImageStorage.h"
 #include <spdlog/spdlog.h>
 #include <ctime>
-#include <cstring>
 
+/**
+ * @brief 获取单例实例
+ * @return ImageStorage& 全局唯一实例
+ */
 ImageStorage &ImageStorage::Instance()
 {
     static ImageStorage inst;
     return inst;
 }
 
+/**
+ * @brief 初始化存储引擎
+ * @param pool SQLite 连接池
+ * @return 初始化成功返回 true
+ * @details 线程安全初始化，建表失败返回 false
+ */
 bool ImageStorage::Init(std::shared_ptr<SQLiteConnectionPool> pool)
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -17,6 +31,11 @@ bool ImageStorage::Init(std::shared_ptr<SQLiteConnectionPool> pool)
     return CreateTables();
 }
 
+/**
+ * @brief 创建图片存储表与索引
+ * @return 建表成功返回 true
+ * @details image_storage 表用 image_id 作为主键，blob 字段存完整图片数据
+ */
 bool ImageStorage::CreateTables()
 {
     SQLiteConnectionGuard guard(_pool);
@@ -49,6 +68,12 @@ bool ImageStorage::CreateTables()
     return true;
 }
 
+/**
+ * @brief 插入图片元数据行
+ * @param rec 图片记录（不含 blob 数据，blob 初始为空）
+ * @return 插入成功返回 true
+ * @details 使用 INSERT OR REPLACE 避免 image_id 冲突
+ */
 bool ImageStorage::Insert(const ImageRecord &rec)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -77,6 +102,16 @@ bool ImageStorage::Insert(const ImageRecord &rec)
     return rc == SQLITE_DONE;
 }
 
+/**
+ * @brief 分片追加图片二进制数据
+ * @param image_id 图片唯一 ID
+ * @param offset 写入偏移量（字节）
+ * @param data 数据指针
+ * @param len 数据长度
+ * @return 追加成功返回 true
+ * @details 先读取已有 blob，在内存中追加分片后写回；
+ *          若 offset 大于已有大小，中间部分填零补齐
+ */
 bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
                                const uint8_t *data, size_t len)
 {
@@ -132,6 +167,12 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
     return true;
 }
 
+/**
+ * @brief 标记图片传输完成，设置过期时间
+ * @param image_id 图片唯一 ID
+ * @return 更新成功返回 true
+ * @details 将 expires_at 设为当前时间 + 7 天
+ */
 bool ImageStorage::MarkCompleted(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -147,6 +188,11 @@ bool ImageStorage::MarkCompleted(const std::string &image_id)
     return rc == SQLITE_DONE;
 }
 
+/**
+ * @brief 查询图片元数据（不含 blob）
+ * @param image_id 图片唯一 ID
+ * @return 存在则返回 ImageRecord，否则返回 std::nullopt
+ */
 std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -178,6 +224,15 @@ std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
     return result;
 }
 
+/**
+ * @brief 按偏移量读取图片 blob 片段
+ * @param image_id 图片唯一 ID
+ * @param offset 读取起始偏移（字节）
+ * @param size 读取长度
+ * @param out 输出缓冲区
+ * @return 读取成功返回 true
+ * @details 边界检查：offset + size 不能超过 blob 实际大小
+ */
 bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_t size,
                               std::vector<uint8_t> &out)
 {
@@ -216,6 +271,11 @@ bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_
     return ok;
 }
 
+/**
+ * @brief 标记图片已被撤回
+ * @param image_id 图片唯一 ID
+ * @return 更新成功返回 true
+ */
 bool ImageStorage::MarkRecalled(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -230,6 +290,11 @@ bool ImageStorage::MarkRecalled(const std::string &image_id)
     return rc == SQLITE_DONE;
 }
 
+/**
+ * @brief 清理已过期且已撤回的图片记录
+ * @param now 当前时间戳（秒）
+ * @return 删除的记录数
+ */
 int ImageStorage::DeleteExpired(int64_t now)
 {
     SQLiteConnectionGuard guard(_pool);

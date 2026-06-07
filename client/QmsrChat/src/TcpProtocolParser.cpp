@@ -1,3 +1,9 @@
+/**
+ * @file    TcpProtocolParser.cpp
+ * @brief   TCP 协议数据解析器实现
+ * @details 负责将原始字节流解析为业务结构体，通过信号通知 TcpMgr。
+ *          登录/注册等请求使用 JSON 格式，聊天消息使用 Protobuf 格式。
+ */
 #include "TcpProtocolParser.h"
 #include "Message.pb.h"
 #include "ProtocolStructs.h"
@@ -6,8 +12,15 @@
 #include <QJsonObject>
 #include <QDebug>
 
+/**
+ * @brief 解析登录/注册相关数据包（JSON 格式）
+ * @param req_type 请求类型
+ * @param data JSON 字节数组
+ * @details 兼容 ID_LOGIN_USER、ID_GET_VARIFY_CODE、ID_REGISTER_USER、ID_RESET_PWD 四种类型。
+ */
 void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray &data)
 {
+    // 解析 JSON 数据
     QJsonDocument doc = QJsonDocument::fromJson(data);
     if (doc.isNull() || !doc.isObject())
     {
@@ -52,8 +65,15 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
     }
 }
 
+/**
+ * @brief 解析聊天消息数据包
+ * @param req_type 请求类型
+ * @param data 原始数据（JSON 或 Protobuf 格式）
+ * @details 聊天登录使用 JSON 格式，其余消息（文本、ACK、图片、撤回、编辑等）使用 Protobuf 反序列化。
+ */
 void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &data)
 {
+    // MSG_CHAT_LOGIN 使用 JSON 格式，其余聊天消息使用 Protobuf 格式
     if (req_type == RequestType::MSG_CHAT_LOGIN)
     {
         QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -195,6 +215,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         emit _tcpMgr.sigChatEditAck(a);
         return;
     }
+    // MSG_CHAT_RECALL_NOTIFY：服务器主动推送的撤回通知（不同于客户端请求撤回后的 ACK）
     if (req_type == RequestType::MSG_CHAT_RECALL_NOTIFY)
     {
         qmsrchat::RecallNotify n;
@@ -211,6 +232,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         emit _tcpMgr.sigChatRecallNotify(notify);
         return;
     }
+    // MSG_CHAT_EDIT_NOTIFY：服务器主动推送的编辑通知（通知其他会话参与者消息已被编辑）
     if (req_type == RequestType::MSG_CHAT_EDIT_NOTIFY)
     {
         qmsrchat::EditNotify n;

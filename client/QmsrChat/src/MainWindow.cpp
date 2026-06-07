@@ -41,7 +41,8 @@ MainWindow::MainWindow(QWidget *parent)
     setMaximumSize(DPI.scaled(MAX_WIDTH), DPI.scaled(MAX_HEIGHT));
     resize(baseLoginSize);
 
-    // 隐藏 MainWindow 默认的中心控件（避免显示空白）
+    // 隐藏 MainWindow 默认的中心控件
+    // 登录阶段主窗口作为容器存在，实际界面由各子对话框提供
     if (this->centralWidget())
     {
         this->centralWidget()->hide();
@@ -75,13 +76,14 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化聊天对话框（初始隐藏）
     _chat_dialog = nullptr;
 
-    // 4. 绑定切换信号槽
+    // 4. 绑定对话框切换信号槽：登录 ↔ 注册 ↔ 重置密码
     connect(_login_dialog, &LoginDialog::switchRegister, this, &MainWindow::slotSwitchRegister);
     connect(_register_dialog, &RegisterDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
     connect(_login_dialog, &LoginDialog::switchReset, this, &MainWindow::slotSwitchReset);
     connect(_reset_dialog, &ResetDialog::switchLogin, this, &MainWindow::slotSwitchLogin);
 
     // 绑定登录成功信号
+    // 绑定登录成功/失败信号
     connect(_login_dialog, &LoginDialog::sig_login_success, this, &MainWindow::slotLoginSuccess);
     connect(_login_dialog, &LoginDialog::sig_token_invalid, this, &MainWindow::slotTokenInvalid);
 }
@@ -136,13 +138,15 @@ void MainWindow::slotLoginSuccess()
     _register_dialog->hide();
     _reset_dialog->hide();
 
-    // 创建并显示聊天对话框
+    // 创建聊天对话框并设为中心控件
+    // ChatDialog 为 QMainWindow 的 centralWidget，其生命周期由 QMainWindow 管理（随窗口销毁自动析构）
     if (_chat_dialog == nullptr)
     {
         _chat_dialog = new ChatDialog(this);
         _chat_dialog->setWindowFlags(Qt::Widget);
         setCentralWidget(_chat_dialog);
 
+        // 将登录期间缓冲的消息转交给 ChatController 处理
         QVector<ChatTextMsgStruct> buffered = _login_dialog->TakeBufferedMessages();
         if (!buffered.isEmpty() && _chat_dialog->GetChatController())
         {
@@ -156,6 +160,7 @@ void MainWindow::slotLoginSuccess()
     setMaximumSize(DPI.scaled(MAX_WIDTH), DPI.scaled(MAX_HEIGHT));
     resize(baseChatSize);
 
+    // 窗口居中并激活
     DPI.centerOnScreen(this);
 
     show();
@@ -164,6 +169,9 @@ void MainWindow::slotLoginSuccess()
     _chat_dialog->show();
 }
 
+/**
+ * @brief Token 失效处理：隐藏聊天界面，切回登录界面
+ */
 void MainWindow::slotTokenInvalid()
 {
     qDebug() << "MainWindow::slotTokenInvalid: token expired, switching to login";

@@ -16,7 +16,6 @@
 #include <filesystem>
 #include <iostream>
 #include <spdlog/spdlog.h>
-#include <thread>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -27,6 +26,11 @@ struct ServerConfig
     std::string db_path = "chatserver.db";
 };
 
+/**
+ * @brief 加载服务器配置
+ * @return ServerConfig 配置结构体
+ * @details 从当前目录的 config.ini 读取端口和数据库路径，文件不存在则使用默认值
+ */
 ServerConfig LoadConfig()
 {
     ServerConfig config;
@@ -54,10 +58,19 @@ ServerConfig LoadConfig()
     return config;
 }
 
+/**
+ * @brief ChatServer 主入口
+ * @param argc 命令行参数个数
+ * @param argv 命令行参数列表
+ * @return 0 正常退出，1 异常退出
+ * @details 初始化流程：解析命令行 → 加载配置 → 初始化 SQLite/ImageStorage/TokenManager
+ *           → 创建 CServer 并启动监听 → 注册信号处理 → 进入 I/O 事件循环
+ */
 int main(int argc, char *argv[])
 {
     try
     {
+        // 解析 -d/--daemon 守护进程模式参数
         bool daemon_mode = false;
         for (int i = 1; i < argc; ++i)
         {
@@ -144,6 +157,7 @@ int main(int argc, char *argv[])
             stop_server(signal_name);
         };
 
+        // 注册 SIGINT/SIGTERM 信号处理器，实现优雅关闭
         boost::asio::signal_set shutdown_signals(io_context, SIGINT, SIGTERM);
         shutdown_signals.async_wait(handle_sigint_sigterm);
 

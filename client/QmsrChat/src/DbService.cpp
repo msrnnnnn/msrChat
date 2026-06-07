@@ -1,21 +1,39 @@
+/**
+ * @file    DbService.cpp
+ * @brief   SQLite 数据库服务实现（线程安全的多连接管理）
+ */
 #include "DbService.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
 #include <QSqlRecord>
 
+/**
+ * @brief 线程局部存储的数据库连接缓存
+ * @details 每个工作线程持有独立的 QSqlDatabase 连接，QThreadStorage 在线程退出时自动析构并关闭
+ */
 QThreadStorage<QSqlDatabase> g_thread_db_cache;
 
+/**
+ * @brief 构造函数
+ */
 DbService::DbService()
     : _initialized(false)
 {
 }
 
+/**
+ * @brief 析构函数，调用 Destroy() 关闭所有连接
+ */
 DbService::~DbService()
 {
     Destroy();
 }
 
+/**
+ * @brief 获取单例实例
+ * @return DbService 引用
+ */
 DbService &DbService::Instance()
 {
     static DbService instance;
@@ -124,6 +142,12 @@ QSqlDatabase &DbService::GetOrCreateThreadConnection()
     return g_thread_db_cache.localData();
 }
 
+/**
+ * @brief 关闭所有线程连接（占位方法）
+ * @details QThreadStorage 在线程退出时自动析构 QSqlDatabase 并关闭连接，
+ *          因此此处不需要手动遍历关闭。工作线程通过 GetOrCreateThreadConnection()
+ *          创建的独立连接随线程退出由 QThreadStorage 自动回收。
+ */
 void DbService::CloseAllThreadConnections()
 {
     // QThreadStorage 会在每个线程退出时自动析构 QSqlDatabase 并关闭连接，
@@ -404,6 +428,12 @@ bool DbService::UpdateMessageStatus(const QString &client_msg_id, int status)
     return query.numRowsAffected() > 0;
 }
 
+/**
+ * @brief 更新图片本地路径（Phase D）
+ * @param image_id 图片 UUID
+ * @param local_path 本地文件路径
+ * @return 是否更新成功（至少影响一行）
+ */
 bool DbService::UpdateImagePath(const QString &image_id, const QString &local_path)
 {
     if (image_id.isEmpty())
@@ -647,6 +677,13 @@ bool DbService::DeleteMessageByTimestamp(qint64 ts)
     return true;
 }
 
+/**
+ * @brief 标记消息为已撤回（写 DB）
+ * @param ts 消息时间戳
+ * @param current_uid 当前用户 ID（限定消息范围）
+ * @return 是否成功
+ * @details UPDATE 限定 timestamp 且 (from_uid 或 to_uid 为 current_uid) 的消息
+ */
 bool DbService::MarkMessageRecalled(qint64 ts, int current_uid)
 {
     QSqlDatabase &db = GetOrCreateThreadConnection();

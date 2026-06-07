@@ -18,6 +18,7 @@ static std::string SHA256(const std::string &input)
 {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256(reinterpret_cast<const unsigned char *>(input.c_str()), input.size(), hash);
+    // 将 256-bit 哈希转换为 64 字符十六进制字符串
     char hex_str[2 * SHA256_DIGEST_LENGTH + 1];
     for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
     {
@@ -29,11 +30,13 @@ static std::string SHA256(const std::string &input)
 static std::string SecureRandomHex(int bytes)
 {
     std::vector<unsigned char> buf(bytes);
+    // OpenSSL RAND_bytes 优先，失败时回退到 random_device
     if (RAND_bytes(buf.data(), bytes) != 1)
     {
         std::random_device rd;
         for (int i = 0; i < bytes; ++i) buf[i] = static_cast<unsigned char>(rd());
     }
+    // 转换为大写十六进制字符串
     std::stringstream ss;
     for (int i = 0; i < bytes; ++i)
     {
@@ -42,6 +45,10 @@ static std::string SecureRandomHex(int bytes)
     return ss.str();
 }
 
+/**
+ * @brief 生成 16 字节随机盐值
+ * @details 16 字节 × 2 字符/字节 = 32 字符十六进制字符串
+ */
 static std::string GenerateSalt()
 {
     return SecureRandomHex(16);
@@ -102,12 +109,13 @@ bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
 /**
  * @brief 从连接池获取一个连接
  * @return 可用连接，不可用时返回 nullptr
- * @details 阻塞直到有可用连接或池已关闭
+ * @details 条件变量阻塞等待，最多 30 秒；池关闭返回 nullptr
  */
 std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
 {
     std::unique_lock<std::mutex> lock(_mutex);
 
+    // 等待可用连接或池关闭，超时 30 秒
     if (!_cv.wait_for(lock, std::chrono::seconds(30),
                       [this] { return !_available_connections.empty() || _shutdown.load(); }))
     {
@@ -130,6 +138,7 @@ std::shared_ptr<SQLiteConnection> SQLiteConnectionPool::Acquire()
 /**
  * @brief 归还连接到池
  * @param conn 要归还的连接
+ * @details 标记未使用后放回可用队列，通知一个等待线程
  */
 void SQLiteConnectionPool::Release(std::shared_ptr<SQLiteConnection> conn)
 {
@@ -223,6 +232,7 @@ bool SQLiteMgr::Init(const std::string &db_path, int pool_size)
 
     sqlite3_close(db_temp);
 
+    // 批量创建连接并加入可用队列与全连接列表
     for (int i = 0; i < pool_size; ++i)
     {
         sqlite3 *db = nullptr;
@@ -321,17 +331,6 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             image_id TEXT DEFAULT ''
         );
         
-        CREATE TABLE IF NOT EXISTS file_transfers (
-            task_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            from_uid INTEGER NOT NULL,
-            to_uid INTEGER NOT NULL,
-            filename TEXT NOT NULL,
-            total_size INTEGER NOT NULL,
-            transferred_size INTEGER DEFAULT 0,
-            status INTEGER DEFAULT 0,
-            created_at INTEGER NOT NULL
-        );
-        
         CREATE TABLE IF NOT EXISTS verify_codes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL,
@@ -366,6 +365,7 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
         return false;
     }
 
+    // Phase 2 — 向后兼容迁移：users 表增加 email 列（ignore duplicate column）
     const char *migration_sql = "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''";
     char *mig_err = nullptr;
     int mig_rc = sqlite3_exec(db, migration_sql, nullptr, nullptr, &mig_err);
@@ -570,6 +570,7 @@ AuthResult SQLiteMgr::RegisterUser(
         return r;
     }
 
+    // 生成盐值，格式: salt + "$" + SHA256(password_hash + salt)
     std::string salt = GenerateSalt();
     std::string salted_hash = SHA256(password_hash + salt);
     std::string stored_password = salt + "$" + salted_hash;
@@ -630,10 +631,12 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
         return r;
     }
 
+    // 解析存储的密码：salt$salted_hash 格式 → 重新计算验证
     std::string stored = user->password_hash;
     auto dollar_pos = stored.find('$');
     if (dollar_pos == std::string::npos)
     {
+        // 旧版明文密码，直接比对
         if (stored != password_hash)
         {
             AuthResult r;
@@ -815,96 +818,6 @@ int SQLiteMgr::ResetPassword(
     return 0;
 }
 
-/**
- * @brief 搜索消息（无 RPC endpoint，当前仅客户端本地搜索使用）
- * @param uid1 用户1 ID
- * @param uid2 用户2 ID
- * @param keyword 关键词（LIKE 模糊匹配）
- * @param limit 最大返回条数
- * @return 匹配的消息列表
- */
-std::vector<ChatMessage> SQLiteMgr::SearchMessages(int uid1, int uid2, const std::string &keyword, int limit)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-    {
-        return {};
-    }
-    sqlite3 *db = guard.Get();
-
-    std::vector<ChatMessage> messages;
-    // Phase 7: 增 6 列（与 GetMessages 一致）
-    ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status,
-               type, image_id, recalled, recalled_at, edited, edited_at
-        FROM messages
-        WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
-        AND content LIKE ?
-        ORDER BY timestamp DESC
-        LIMIT ?
-    )");
-    if (!stmt)
-    {
-        return messages;
-    }
-
-    std::string pattern = "%" + keyword + "%";
-
-    sqlite3_bind_int(stmt, 1, uid1);
-    sqlite3_bind_int(stmt, 2, uid2);
-    sqlite3_bind_int(stmt, 3, uid2);
-    sqlite3_bind_int(stmt, 4, uid1);
-    sqlite3_bind_text(stmt, 5, pattern.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 6, limit);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        ChatMessage msg;
-        msg.id = sqlite3_column_int64(stmt, 0);
-        msg.from_uid = sqlite3_column_int(stmt, 1);
-        msg.to_uid = sqlite3_column_int(stmt, 2);
-        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
-        msg.timestamp = sqlite3_column_int64(stmt, 4);
-        msg.status = sqlite3_column_int(stmt, 5);
-        // Phase 7 — 6 个新字段
-        msg.type = sqlite3_column_int(stmt, 6);
-        const unsigned char *iid = sqlite3_column_text(stmt, 7);
-        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
-        msg.recalled = sqlite3_column_int(stmt, 8) != 0;
-        msg.recalled_at = sqlite3_column_int64(stmt, 9);
-        msg.edited = sqlite3_column_int(stmt, 10) != 0;
-        msg.edited_at = sqlite3_column_int64(stmt, 11);
-        messages.push_back(msg);
-    }
-
-    return messages;
-}
-
-bool SQLiteMgr::SaveUser(const User &user)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-    {
-        return false;
-    }
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(
-        db, "INSERT INTO users (username, password_hash, email, avatar_path, created_at) VALUES (?, ?, ?, ?, ?)");
-    if (!stmt)
-    {
-        return false;
-    }
-
-    sqlite3_bind_text(stmt, 1, user.username.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, user.password_hash.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, user.email.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, user.avatar_path.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 5, user.created_at);
-
-    return sqlite3_step(stmt) == SQLITE_DONE;
-}
-
 std::optional<User> SQLiteMgr::GetUserByUsername(const std::string &username)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -1007,11 +920,12 @@ bool SQLiteMgr::SaveOfflineMessage(const ChatMessage &msg)
     sqlite3_bind_int(stmt, 2, msg.to_uid);
     if (msg.type == 1)
     {
-        // 图片消息：content 存 Base64 编码的 protobuf binary，用 blob 绑定保留 \0
+        // 图片消息：content 存 Base64 编码的 protobuf binary，用 blob 绑定保留 \0 字节
         sqlite3_bind_blob(stmt, 3, msg.content.data(), static_cast<int>(msg.content.size()), SQLITE_TRANSIENT);
     }
     else
     {
+        // 文本消息：普通 bind_text
         sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
     }
     sqlite3_bind_int64(stmt, 4, msg.timestamp);
@@ -1055,7 +969,7 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
         msg.id = sqlite3_column_int64(stmt, 0);
         msg.from_uid = sqlite3_column_int(stmt, 1);
         msg.to_uid = sqlite3_column_int(stmt, 2);
-        // content: type=1 时用 blob 读取（保留 \0 字节）
+        // content: type=1（图片）时用 blob API 读取（保留 \0 字节），type=0（文本）用 text API
         msg.type = sqlite3_column_int(stmt, 7);
         if (msg.type == 1)
         {
@@ -1140,6 +1054,13 @@ bool SQLiteMgr::ClearOfflineMessages(int uid)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
+/**
+ * @brief 持久化 Token 到 tokens 表
+ * @param uid 用户 ID
+ * @param token Token 字符串
+ * @return 写入成功返回 true
+ * @details INSERT OR REPLACE：同 uid 覆盖旧 Token
+ */
 bool SQLiteMgr::SaveToken(int uid, const std::string &token)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -1153,17 +1074,11 @@ bool SQLiteMgr::SaveToken(int uid, const std::string &token)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
-bool SQLiteMgr::RemoveTokenFromDB(int uid)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
-    sqlite3 *db = guard.Get();
-    ScopedStmt stmt(db, "DELETE FROM tokens WHERE uid = ?");
-    if (!stmt) return false;
-    sqlite3_bind_int(stmt, 1, uid);
-    return sqlite3_step(stmt) == SQLITE_DONE;
-}
-
+/**
+ * @brief 从 tokens 表按 UID 获取 Token
+ * @param uid 用户 ID
+ * @return Token 字符串，不存在则 nullopt
+ */
 std::optional<std::string> SQLiteMgr::GetTokenFromDB(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
@@ -1179,6 +1094,10 @@ std::optional<std::string> SQLiteMgr::GetTokenFromDB(int uid)
     return std::nullopt;
 }
 
+/**
+ * @brief 获取 tokens 表中所有 (uid, token) 对
+ * @return 键值对列表，用于服务启动时从数据库恢复 TokenManager 缓存
+ */
 std::vector<std::pair<int, std::string>> SQLiteMgr::GetAllTokens()
 {
     SQLiteConnectionGuard guard(_pool);

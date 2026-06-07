@@ -10,13 +10,27 @@
 #include <QString>
 #include <QWidget>
 
+/**
+ * @brief 通用工具类（全局单例）
+ * @details 提供密码哈希、样式刷新等全局工具函数。
+ */
 class Utils
 {
 public:
     Utils(const Utils &) = delete;
     Utils &operator=(const Utils &) = delete;
 
+    /**
+     * @brief 对密码进行加盐哈希
+     * @param input 明文密码
+     * @return SHA-256 哈希后的十六进制字符串
+     */
     static QString hashPassword(const QString &input);
+    /**
+     * @brief 强制刷新控件的 QSS 样式
+     * @details 通过移除并重新设置样式表来触发 Qt 样式重绘
+     * @param w 目标控件
+     */
     static void repolish(QWidget *w);
 
     static Utils &instance()
@@ -29,6 +43,10 @@ private:
     Utils() = default;
     ~Utils() = default;
 
+    /**
+     * @brief 获取全局加盐值
+     * @return 盐值字符串引用
+     */
     static const QString &salt();
 };
 

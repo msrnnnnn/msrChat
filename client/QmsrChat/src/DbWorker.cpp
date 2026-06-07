@@ -1,6 +1,14 @@
+/**
+ * @file    DbWorker.cpp
+ * @brief   数据库工作线程实现（DbWorker + DbThreadManager 跨线程信号槽桥接）
+ */
 #include "DbWorker.h"
 #include <QDebug>
 
+/**
+ * @brief DbWorker 构造函数
+ * @param parent 父 QObject
+ */
 DbWorker::DbWorker(QObject *parent)
     : QObject(parent),
       _dbInitialized(false),
@@ -8,15 +16,26 @@ DbWorker::DbWorker(QObject *parent)
 {
 }
 
+/**
+ * @brief 析构函数
+ */
 DbWorker::~DbWorker()
 {
 }
 
+/**
+ * @brief 异步设置停止标志
+ * @details 使用 std::atomic 保证跨线程可见性，DB 操作槽函数在检测到 _stop_flag 后拒绝新请求
+ */
 void DbWorker::stopAsync()
 {
     _stop_flag.store(true);
 }
 
+/**
+ * @brief 销毁数据库（工作线程内调用）
+ * @details 仅在 _dbInitialized 时执行，通过 DbService::Destroy() 关闭所有线程连接
+ */
 void DbWorker::slot_db_destroy()
 {
 
@@ -28,6 +47,11 @@ void DbWorker::slot_db_destroy()
     }
 }
 
+/**
+ * @brief 初始化数据库（工作线程内调用）
+ * @param db_path 数据库文件路径
+ * @details 通过 Qt::BlockingQueuedConnection 从主线程同步调用，保证 Init 完成后再继续
+ */
 void DbWorker::slot_init(const QString &db_path)
 {
 
@@ -43,6 +67,11 @@ void DbWorker::slot_init(const QString &db_path)
     }
 }
 
+/**
+ * @brief 保存消息到数据库（工作线程内调用）
+ * @param msg 消息结构体
+ * @details 先检查 _stop_flag 和 _dbInitialized，通过 sig_messages_saved 返回结果
+ */
 void DbWorker::slot_save_message(const ChatMessage &msg)
 {
 
@@ -69,6 +98,11 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
     }
 }
 
+/**
+ * @brief 更新消息状态（工作线程内调用）
+ * @param client_msg_id 客户端消息 ID
+ * @param status 新状态
+ */
 void DbWorker::slot_update_message_status(const QString &client_msg_id, int status)
 {
 
@@ -94,6 +128,11 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
     }
 }
 
+/**
+ * @brief 更新图片路径（工作线程内调用，Phase D）
+ * @param image_id 图片 UUID
+ * @param local_path 本地文件路径
+ */
 void DbWorker::slot_update_image_path(const QString &image_id, const QString &local_path)
 {
     if (_stop_flag.load() || !_dbInitialized)
@@ -104,6 +143,13 @@ void DbWorker::slot_update_image_path(const QString &image_id, const QString &lo
     DbService::Instance().UpdateImagePath(image_id, local_path);
 }
 
+/**
+ * @brief 加载聊天历史消息（工作线程内调用）
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ * @param before_time 时间戳上限
+ * @param limit 每页条数
+ */
 void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int limit)
 {
 
@@ -125,6 +171,13 @@ void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int lim
     emit sig_messages_loaded(messages);
 }
 
+/**
+ * @brief 搜索消息（工作线程内调用）
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ * @param keyword 搜索关键词
+ * @param limit 返回条数限制
+ */
 void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, int limit)
 {
 
@@ -146,6 +199,11 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
     emit sig_messages_loaded(messages);
 }
 
+/**
+ * @brief 删除两个用户之间的所有聊天记录（工作线程内调用）
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ */
 void DbWorker::slot_delete_messages(int uid1, int uid2)
 {
 
@@ -174,6 +232,10 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
 
 // === Phase 6 — 单条删除 ===
 
+/**
+ * @brief 按时间戳删除单条消息（工作线程内调用，Phase 6）
+ * @param ts 消息时间戳
+ */
 void DbWorker::slot_delete_message_by_timestamp(qint64 ts)
 {
     if (_stop_flag.load())
@@ -199,7 +261,11 @@ void DbWorker::slot_delete_message_by_timestamp(qint64 ts)
     }
 }
 
-// 撤回持久化 — slot 入口
+/**
+ * @brief 标记消息为已撤回（工作线程内调用）
+ * @param ts 消息时间戳
+ * @param current_uid 当前用户 ID
+ */
 void DbWorker::slot_mark_message_recalled(qint64 ts, int current_uid)
 {
     if (_stop_flag.load())
@@ -223,12 +289,21 @@ void DbWorker::slot_mark_message_recalled(qint64 ts, int current_uid)
     emit sig_messages_saved(success);
 }
 
+/**
+ * @brief 获取 DbThreadManager 单例
+ * @return 单例引用
+ */
 DbThreadManager &DbThreadManager::Instance()
 {
     static DbThreadManager instance;
     return instance;
 }
 
+/**
+ * @brief DbThreadManager 构造函数
+ * @details 注册 ChatMessage 和 QVector<ChatMessage> 到 Qt 元对象系统，
+ *          以支持跨线程信号槽传递自定义类型
+ */
 DbThreadManager::DbThreadManager()
     : QObject(nullptr),
       _thread(nullptr),
@@ -243,6 +318,11 @@ DbThreadManager::~DbThreadManager()
     cleanup();
 }
 
+/**
+ * @brief 清理工作线程
+ * @details 先 stopAsync 通知拒绝新请求 → 发射 sig_destroy_db 清理 DB → quit + wait(5000ms) 等待线程结束。
+ *          超时后放弃等待防止死锁，由 OS 在线程退出时回收资源（安全：SQLite 连接由 QThreadStorage 管理）
+ */
 void DbThreadManager::cleanup()
 {
     if (_thread != nullptr)
@@ -272,6 +352,14 @@ void DbThreadManager::cleanup()
     qDebug() << "DbThreadManager cleanup completed";
 }
 
+/**
+ * @brief 初始化工作线程和信号槽桥接
+ * @param db_path 数据库文件路径
+ * @return 初始化是否成功
+ * @details 创建 QThread + DbWorker，moveToThread 将 Worker 移入工作线程，
+ *          连接所有跨线程信号槽（BlockingQueuedConnection 用于 init/destroy，QueuedConnection 用于日常操作）。
+ *          Worker 信号通过 DbThreadManager 转发到主线程
+ */
 bool DbThreadManager::Init(const QString &db_path)
 {
     if (_thread != nullptr)
@@ -317,6 +405,10 @@ bool DbThreadManager::Init(const QString &db_path)
     return true;
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 保存消息
+ * @param msg 消息结构体
+ */
 void DbThreadManager::SaveMessage(const ChatMessage &msg)
 {
     if (_worker == nullptr)
@@ -328,6 +420,11 @@ void DbThreadManager::SaveMessage(const ChatMessage &msg)
     emit sig_save_msg(msg);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 更新消息状态
+ * @param client_msg_id 客户端消息 ID
+ * @param status 新状态
+ */
 void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     if (_worker == nullptr)
@@ -339,6 +436,11 @@ void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int stat
     emit sig_update_msg_status(client_msg_id, status);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 更新图片路径
+ * @param image_id 图片 UUID
+ * @param local_path 本地路径
+ */
 void DbThreadManager::UpdateImagePath(const QString &image_id, const QString &local_path)
 {
     if (_worker == nullptr)
@@ -350,6 +452,13 @@ void DbThreadManager::UpdateImagePath(const QString &image_id, const QString &lo
     emit sig_update_image_path(image_id, local_path);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 加载历史消息
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ * @param before_time 时间戳上限
+ * @param limit 每页条数
+ */
 void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
 {
     if (_worker == nullptr)
@@ -361,6 +470,13 @@ void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int li
     emit sig_get_msgs(uid1, uid2, before_time, limit);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 搜索消息
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ * @param keyword 关键词
+ * @param limit 返回条数
+ */
 void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
 {
     if (_worker == nullptr)
@@ -372,6 +488,11 @@ void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword,
     emit sig_search_msgs(uid1, uid2, keyword, limit);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 删除会话历史
+ * @param uid1 用户 A
+ * @param uid2 用户 B
+ */
 void DbThreadManager::DeleteMessages(int uid1, int uid2)
 {
     if (_worker == nullptr)
@@ -383,6 +504,10 @@ void DbThreadManager::DeleteMessages(int uid1, int uid2)
     emit sig_delete_msgs(uid1, uid2);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 单条删除
+ * @param ts 消息时间戳
+ */
 void DbThreadManager::DeleteMessageByTimestamp(qint64 ts)
 {
     if (_worker == nullptr)
@@ -394,6 +519,11 @@ void DbThreadManager::DeleteMessageByTimestamp(qint64 ts)
     emit sig_delete_msg_by_ts(ts);
 }
 
+/**
+ * @brief 桥接：主线程 → 工作线程 标记撤回
+ * @param ts 消息时间戳
+ * @param current_uid 当前用户 ID
+ */
 void DbThreadManager::MarkMessageRecalled(qint64 ts, int current_uid)
 {
     if (_worker == nullptr)

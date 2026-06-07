@@ -20,9 +20,13 @@
 
 struct PendingMessageInfo
 {
-    qint64 send_time = 0;
+    qint64 send_time = 0;  ///< 消息发送时间，用于超时检测
 };
 
+/**
+ * @brief 聊天控制器，封装聊天业务逻辑
+ * @details 作为 QML 与 C++ 业务层的通信桥梁，管理消息发送/接收、历史加载、连接状态，通过信号槽与 TcpMgr 和 DbWorker 交互。
+ */
 class ChatController : public QObject
 {
     Q_OBJECT
@@ -38,11 +42,20 @@ public:
     Q_INVOKABLE void sendFile(const QString &filePath);
     Q_INVOKABLE void sendImage(const QString &imagePath, const QString &caption);
     Q_INVOKABLE void setTargetUid(int uid);
+    /**
+     * @brief 加载当前会话的历史消息（最近一页）
+     */
     Q_INVOKABLE void loadHistory();
+    /**
+     * @brief 加载更早的历史消息（向上分页）
+     */
     Q_INVOKABLE void loadMoreHistory();
     Q_PROPERTY(bool hasMoreHistory READ hasMoreHistory NOTIFY sigHasMoreHistoryChanged)
     Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void searchMessages(const QString &keyword);
+    /**
+     * @brief 初始化：连接信号槽、启动心跳定时器等
+     */
     Q_INVOKABLE void initialize();
     Q_INVOKABLE void openImageViewer(const QString &imageId);
     Q_INVOKABLE QVariantList getImageListForViewer() const;
@@ -55,6 +68,9 @@ public:
     Q_INVOKABLE void actionSaveAs(qint64 timestamp);
     Q_INVOKABLE void actionDelete(qint64 timestamp);
 
+    /**
+     * @brief 将离线期间缓冲的消息按序注入消息模型
+     */
     void drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs);
 
     int GetCurrentUid() const;
@@ -90,9 +106,15 @@ public slots:
     void slotOnOfflineProgress(const OfflineAckStruct &ack);
     void slotOnReconnected();
     void slotOnChatLoginRsp(const ChatLoginRspStruct &rsp);
+    /**
+     * @brief 将暂存中未应用的撤回消息刷新到当前聊天模型
+     */
     void FlushPendingRecalls();
     void slotOnHistoryLoaded(const QVector<ChatMessage> &messages);
     void slotOnMessageSaved(bool success);
+    /**
+     * @brief 定时清理超时未收到 ACK 的待确认消息
+     */
     void slotCleanTimeoutMessages();
     void slotOnChatImage(const ChatImageStruct &msg);
     void slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp);
@@ -104,6 +126,7 @@ public slots:
 private:
     void ConnectSignals();
     void DisconnectSignals();
+    static QString normalizeFilePath(const QString &rawPath);
 
     int _target_uid;
     int _current_uid;

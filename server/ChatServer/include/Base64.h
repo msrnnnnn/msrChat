@@ -12,6 +12,12 @@
 namespace base64
 {
 
+/**
+ * @brief 将二进制数据编码为 Base64 文本
+ * @param input 原始二进制数据
+ * @return Base64 编码后的字符串
+ * @details 每 3 字节编码为 4 个字符，不足 3 字节以 '=' 填充
+ */
 inline std::string encode(const std::string &input)
 {
     static const char table[] =
@@ -33,6 +39,12 @@ inline std::string encode(const std::string &input)
     return out;
 }
 
+/**
+ * @brief 将 Base64 文本解码为原始二进制数据
+ * @param input Base64 编码的字符串
+ * @return 解码后的原始二进制数据
+ * @details 自动跳过无效字符，支持标准 Base64 格式（含 '=' 填充）
+ */
 inline std::string decode(const std::string &input)
 {
     static const int table[] = {

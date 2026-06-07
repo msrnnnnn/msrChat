@@ -13,15 +13,11 @@
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
 #include "const.h"
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
-#include <fcntl.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
 
 /**
  * @brief 构造函数
@@ -42,6 +38,9 @@ CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server
     _recv_msg_node = RecvNodePool().Acquire();
 }
 
+/**
+ * @brief 析构函数
+ */
 CSession::~CSession()
 {
     spdlog::info("~CSession: {}", _uuid);
@@ -91,11 +90,19 @@ void CSession::Start()
         });
 }
 
+/**
+ * @brief 重置读超时时间点
+ * @details 每次成功接收到数据后刷新超时
+ */
 void CSession::ResetReadDeadline()
 {
     _expiry_time = std::chrono::steady_clock::now() + kReadTimeout;
 }
 
+/**
+ * @brief 调度读超时检查
+ * @details 周期性异步检查，超时则终止会话；未超时则递归调度下一次检查
+ */
 void CSession::ScheduleReadDeadlineCheck()
 {
     _read_deadline.expires_after(kReadCheckInterval);
@@ -299,6 +306,11 @@ void CSession::Send(const std::string &msg, short msg_id)
         });
 }
 
+/**
+ * @brief 异步写入队列中的下一条消息
+ * @details 从发送队列取头部节点，通过 strand 保证单线程写操作；
+ *          写完一条后检查队列是否还有数据，有则继续递归调用
+ */
 void CSession::AsyncWriteMsg()
 {
     if (_send_queue.empty())
@@ -412,6 +424,12 @@ void CSession::ContinueOfflineSend()
     }
 }
 
+/**
+ * @brief 清理会话资源
+ * @param ec 触发清理的 Boost 错误码
+ * @details 处理断开或错误，先从 SessionManager 移除映射再关闭 socket，
+ *          最后按 UUID 清理由 DoAccept 注册的占位条目
+ */
 void CSession::CleanupSession(const boost::system::error_code &ec)
 {
     if (ec)
@@ -442,6 +460,11 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
     }
 }
 
+/**
+ * @brief 终止会话
+ * @param error_msg 终止原因描述
+ * @details 与 CleanupSession 不同，此方法不区分错误码，强制关闭并移除映射
+ */
 void CSession::TerminateSession(const std::string &error_msg)
 {
     if (!error_msg.empty())

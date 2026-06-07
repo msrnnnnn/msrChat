@@ -1,3 +1,9 @@
+/**
+ * @file FileTransfer.h
+ * @brief 文件传输任务管理与路由
+ * @details 管理 P2P 文件传输任务的生命周期，支持对象池复用，
+ *          使用互斥锁保护任务映射表，原子变量管理进度与状态。
+ */
 #ifndef FILE_TRANSFER_H
 #define FILE_TRANSFER_H
 
@@ -13,6 +19,12 @@
 #include <shared_mutex>
 #include <string>
 
+/**
+ * @class FileTransferTask
+ * @brief 单个文件传输任务的状态与进度
+ * @details 使用原子变量存储传输进度和状态，支持跨线程读取。
+ *          可通过 ObjectPool 复用，降低频繁创建/销毁开销。
+ */
 class FileTransferTask
 {
 public:
@@ -137,9 +149,19 @@ private:
     bool _target_offline = false;
 };
 
+/**
+ * @class FileTransfer
+ * @brief 文件传输任务路由管理器（单例）
+ * @details 管理所有进行中的文件传输任务。
+ *          使用 std::map + std::mutex 保护任务表，原子变量分配任务 ID。
+ *          支持通过会话 UID 批量移除任务（用于会话断开清理）。
+ */
 class FileTransfer
 {
 public:
+    /**
+     * @brief 获取单例实例
+     */
     static FileTransfer &Instance();
 
     static ObjectPool<FileTransferTask> &TaskPool()
@@ -148,10 +170,32 @@ public:
         return pool;
     }
 
-    // 由外部指定 task_id 创建路由记录（用于 P2P 转发）
+    /**
+     * @brief 创建并注册文件传输任务（由外部指定 task_id）
+     * @param task_id 任务 ID（来自客户端请求）
+     * @param from_uid 发送方 UID
+     * @param to_uid 接收方 UID
+     * @param filename 文件名
+     * @param total_size 文件总大小
+     */
     void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
+
+    /**
+     * @brief 按 task_id 查询传输任务
+     * @param task_id 任务 ID
+     * @return 任务对象指针，不存在时返回 nullptr
+     */
     std::shared_ptr<FileTransferTask> GetTask(int64_t task_id);
+
+    /**
+     * @brief 按 task_id 移除传输任务
+     */
     void RemoveTask(int64_t task_id);
+
+    /**
+     * @brief 移除指定用户的所有传输任务（用于会话断开清理）
+     * @param uid 用户 UID
+     */
     void RemoveTaskBySession(int uid);
 
 

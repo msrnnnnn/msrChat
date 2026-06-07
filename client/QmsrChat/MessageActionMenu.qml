@@ -12,28 +12,34 @@
  */
 import QtQuick
 
+// 右键消息操作菜单 — 深色主题，6 项操作 + 分隔符，2 分钟内可撤回/编辑
 Rectangle {
     id: menuRoot
 
+    // 菜单上下文：图片/文字、己方消息、消息时间戳、是否有文字说明
     property bool isImage: false
     property bool isOwn: false
     property double messageTimestamp: 0  // 毫秒（QML 不支持 qint64，用 double；JS Number 53-bit 精度足够毫秒时间戳）
     property bool hasCaption: true
 
+    // 撤回窗口：发送后 120 秒内可撤回/编辑
     readonly property int recallWindowSec: 120   // 2 分钟
+    // 计算消息距今的秒数
     readonly property int messageAgeSec: {
         if (messageTimestamp <= 0) return recallWindowSec + 1  // 异常值视为超时
         return Math.floor((Date.now() - messageTimestamp) / 1000)
     }
+    // 是否在撤回窗口内（己方 && 2 分钟内）
     readonly property bool isWithinRecallWindow: isOwn && messageAgeSec < recallWindowSec
 
+    // 深色背景，圆角 8px
     color: "#2b2b2b"
     radius: 8
     width: 180
     height: column.implicitHeight + 12
     visible: opacity > 0
 
-    // 菜单项模型：6 项 + 3 分隔符
+    // 菜单项数据模型 — 6 项操作 + 3 条分隔符，部分项根据条件控制可见性
     property var items: [
         { kind: "item", icon: "↩",  label: qsTr("回复"),       enabled: true,                sig: "replyRequested" },
         { kind: "item", icon: "📋", label: qsTr("复制文字"),   enabled: true,                sig: "copyTextRequested", visible: hasCaption },

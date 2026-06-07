@@ -25,6 +25,7 @@ ResetDialog::ResetDialog(QWidget *parent)
     connect(TcpMgr::Instance(), &TcpMgr::sig_verify_code_rsp, this, &ResetDialog::slot_verify_code_rsp);
     connect(TcpMgr::Instance(), &TcpMgr::sig_reset_pwd_rsp, this, &ResetDialog::slot_reset_pwd_rsp);
 
+    // 连接各输入框的 editingFinished 信号，实时校验输入合法性
     connect(ui->user_edit, &QLineEdit::editingFinished, this, [this]() { checkUserValid(); });
     connect(ui->email_edit, &QLineEdit::editingFinished, this, [this]() { checkEmailValid(); });
     connect(ui->pwd_edit, &QLineEdit::editingFinished, this, [this]() { checkPassValid(); });
@@ -117,11 +118,16 @@ void ResetDialog::on_sure_btn_clicked()
     ResetPwdReqStruct req;
     req.user = ui->user_edit->text();
     req.email = ui->email_edit->text();
+    // 密码使用 SHA-256 哈希后发送
     req.passwd = Utils::hashPassword(ui->pwd_edit->text());
     req.varifycode = ui->varify_edit->text();
     TcpMgr::Instance()->slot_send_reset_pwd_req(req);
 }
 
+/**
+ * @brief 处理验证码响应
+ * @param rsp 验证码响应结构体
+ */
 void ResetDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
 {
     if (!this->isVisible())
@@ -139,6 +145,10 @@ void ResetDialog::slot_verify_code_rsp(const VerifyCodeRspStruct &rsp)
     ui->varify_btn->startCountdown(10);
 }
 
+/**
+ * @brief 处理重置密码响应
+ * @param rsp 重置密码响应结构体
+ */
 void ResetDialog::slot_reset_pwd_rsp(const ResetPwdRspStruct &rsp)
 {
     if (!this->isVisible())
@@ -148,6 +158,7 @@ void ResetDialog::slot_reset_pwd_rsp(const ResetPwdRspStruct &rsp)
 
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS))
     {
+        // 错误码映射到用户可见的中文提示
         QString errStr = tr("重置失败");
         switch (static_cast<ERRORCODES>(rsp.error))
         {

@@ -1,15 +1,27 @@
+/**
+ * @file    FileSendMgr.cpp
+ * @brief   文件发送管理器实现
+ * @details 管理文件分片发送任务，支持断点续传。使用 QMutex 保护 _tasks 映射表，
+ *          每次发送 64KB 分片，通过 protobuf 序列化后经 TcpMgr 长连接发送。
+ */
 #include "FileSendMgr.h"
 #include "TcpMgr.h"
 #include "Message.pb.h"
 #include <QDebug>
 #include <QFileInfo>
 
+/**
+ * @brief 获取单例实例（Meyers' Singleton）
+ */
 FileSendMgr &FileSendMgr::Instance()
 {
     static FileSendMgr instance;
     return instance;
 }
 
+/**
+ * @brief 构造与析构（单例，无特殊初始化/清理逻辑）
+ */
 FileSendMgr::FileSendMgr() {}
 FileSendMgr::~FileSendMgr() {}
 
@@ -23,7 +35,9 @@ FileSendMgr::~FileSendMgr() {}
 void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath)
 {
     qDebug() << "[FileSendMgr] StartSend called, task_id:" << task_id << "to_uid:" << to_uid << "filepath:" << filepath;
+    // RAII 加锁，保护 _tasks 映射表
     QMutexLocker locker(&_mutex);
+    // 防止重复启动同一任务
     if (_tasks.find(task_id) != _tasks.end())
     {
         qDebug() << "Send task already exists:" << task_id;
@@ -34,6 +48,7 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     newTask.task_id = task_id;
     newTask.to_uid = to_uid;
     newTask.filepath = filepath;
+    // unique_ptr 管理 QFile 生命周期，RAII 确保文件句柄最终被释放
     newTask.file = std::make_unique<QFile>(filepath);
     if (!newTask.file->open(QIODevice::ReadOnly))
     {
@@ -58,6 +73,7 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
 {
     qDebug() << "[FileSendMgr] OnRecvReady called, task_id:" << task_id << "offset:" << offset;
     QMutexLocker locker(&_mutex);
+    // 查找任务；任务不存在或已标记为非活跃则忽略
     auto it = _tasks.find(task_id);
     if (it == _tasks.end() || !it->second.active)
     {
@@ -76,8 +92,10 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
         task.sent_size = offset;
     }
 
+    // 发送下一分片（同步读取 + TCP 发送）
     SendNextChunk(task);
 
+    // 若发送过程中任务被标记为非活跃（已完成或失败），从映射表移除
     if (!task.active)
     {
         _tasks.erase(it);
@@ -143,10 +161,12 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
         return;
     }
 
+    // 通过 TcpMgr 长连接发送 protobuf 序列化后的分片数据
     TcpMgr::Instance()->slot_send_data(
         RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     task.sent_size += data.size();
 
+    // 发射进度信号，供 UI 层更新进度条
     int progress = static_cast<int>((task.sent_size * 100) / task.total_size);
     emit sigSendProgress(task.task_id, progress, task.sent_size, task.total_size);
 }

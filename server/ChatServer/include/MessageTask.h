@@ -14,6 +14,11 @@
 
 class CSession;
 
+/**
+ * @brief 消息任务 —— 封装从网络层接收的一条消息及所属会话
+ * @details 使用 weak_ptr 持有会话引用，防止任务持有期间阻止会话析构。
+ *          仅支持移动语义，不可拷贝。timestamp 记录任务生成时间。
+ */
 struct MessageTask
 {
     std::weak_ptr<CSession> session;
@@ -55,11 +60,18 @@ struct MessageTask
         return *this;
     }
 
+    /**
+     * @brief 检查任务是否有效（会话未断开且 msg_id 非零）
+     */
     bool IsValid() const
     {
         return !session.expired() && msg_id != 0;
     }
 
+    /**
+     * @brief 尝试锁定会话 shared_ptr（仅当会话仍存活时成功）
+     * @return 会话 shared_ptr，若已失效则返回 nullptr
+     */
     std::shared_ptr<CSession> LockSession() const
     {
         return session.lock();

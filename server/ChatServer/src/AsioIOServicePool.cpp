@@ -4,8 +4,6 @@
  * @details 负责创建 io_context 列表、工作守护对象和工作线程。
  */
 #include "AsioIOServicePool.h"
-#include <algorithm>
-#include <iostream>
 
 /**
  * @brief 构造函数
@@ -41,6 +39,7 @@ AsioIOServicePool::~AsioIOServicePool()
  */
 boost::asio::io_context &AsioIOServicePool::GetIOService()
 {
+    // 原子递增实现轮询负载均衡，relaxed 排序即可（仅需原子性）
     std::size_t index = nextIOService_.fetch_add(1, std::memory_order_relaxed);
     return *(ioServices_[index % ioServices_.size()]);
 }
@@ -50,10 +49,13 @@ boost::asio::io_context &AsioIOServicePool::GetIOService()
  */
 void AsioIOServicePool::Stop()
 {
+    // 先释放 work guard，让 io_context::run() 可以自然退出
     for (auto &work : works_)
         work.reset();
+    // 再显式停止，唤醒所有阻塞在 run() 上的线程
     for (auto &service : ioServices_)
         service->stop();
+    // 等待所有工作线程结束
     for (auto &t : threads_)
     {
         if (t.joinable())

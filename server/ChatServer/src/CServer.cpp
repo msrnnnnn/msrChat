@@ -13,6 +13,12 @@
 #include <spdlog/spdlog.h>
 #include <string>
 
+/**
+ * @brief 构造函数
+ * @param io_context Boost.Asio I/O 上下文
+ * @param port 监听端口号
+ * @details 初始化 acceptor 和内部线程池
+ */
 CServer::CServer(boost::asio::io_context &io_context, short port)
     : _io_context(io_context),
       _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
@@ -21,6 +27,9 @@ CServer::CServer(boost::asio::io_context &io_context, short port)
     spdlog::info("[CServer] Server initialized on port {}", port);
 }
 
+/**
+ * @brief 析构函数，关闭线程池
+ */
 CServer::~CServer()
 {
     _thread_pool.Shutdown();
@@ -163,6 +172,10 @@ void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &sess
         });
 }
 
+/**
+ * @brief 优雅停止服务器
+ * @details 原子标记防止重复调用，按顺序关闭 acceptor → 会话 → 线程池
+ */
 void CServer::Stop()
 {
     if (_stopped.exchange(true))
@@ -184,6 +197,7 @@ void CServer::Stop()
         spdlog::info("[CServer] Acceptor closed successfully");
     }
 
+    // 先关闭所有会话再清理映射，防止中途被 DoAccept 加入新会话
     SessionManager::Instance().ForEachSession([](int /*uid*/, const std::shared_ptr<CSession> &session) {
         session->Close();
     });
@@ -194,6 +208,12 @@ void CServer::Stop()
     spdlog::info("[CServer] Server stopped");
 }
 
+/**
+ * @brief 刷新撤回通知
+ * @param uid 用户 ID
+ * @param session 目标会话
+ * @details 在 strand 上批量发送待投递的撤回通知，发送完毕后清空
+ */
 void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session)
 {
     auto self = shared_from_this();

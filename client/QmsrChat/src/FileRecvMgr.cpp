@@ -1,3 +1,7 @@
+/**
+ * @file    FileRecvMgr.cpp
+ * @brief   文件接收管理器实现（分片接收、MD5 校验、临时文件管理）
+ */
 #include "FileRecvMgr.h"
 #include <QCryptographicHash>
 #include <QDir>
@@ -8,8 +12,16 @@
 #include <QDebug>
 #include <QUuid>
 
+/**
+ * @brief 匿名命名空间：内部辅助函数与 QRunnable
+ */
 namespace
 {
+/**
+ * @brief 同步计算文件 MD5 值
+ * @param filepath 文件路径
+ * @return MD5 十六进制字符串（失败返回空）
+ */
 QString CalcMd5Sync(const QString &filepath)
 {
     QFile file(filepath);
@@ -22,6 +34,11 @@ QString CalcMd5Sync(const QString &filepath)
     return QString::fromLatin1(hash.result().toHex());
 }
 
+/**
+ * @brief 异步 MD5 计算任务（QRunnable）
+ * @details 在 QThreadPool 中执行 MD5 计算，完成后通过 QMetaObject::invokeMethod
+ *          跨线程回调 FileRecvMgr::OnMd5Computed
+ */
 class Md5Runnable : public QRunnable
 {
 public:
@@ -45,11 +62,18 @@ private:
 };
 }  // namespace
 
+/**
+ * @brief 构造函数
+ */
 FileRecvMgr::FileRecvMgr()
     : QObject(nullptr)
 {
 }
 
+/**
+ * @brief 析构函数，清理所有接收任务
+ * @details 关闭文件、删除临时 .part 文件、释放内存
+ */
 FileRecvMgr::~FileRecvMgr()
 {
     QMutexLocker lock(&_mutex);
@@ -65,6 +89,10 @@ FileRecvMgr::~FileRecvMgr()
     _tasks.clear();
 }
 
+/**
+ * @brief 获取单例实例
+ * @return FileRecvMgr 引用
+ */
 FileRecvMgr &FileRecvMgr::Instance()
 {
     static FileRecvMgr instance;
@@ -225,6 +253,11 @@ void FileRecvMgr::CancelRecv(int64_t task_id)
     _tasks.erase(it);
 }
 
+/**
+ * @brief 获取指定 task 的已接收大小
+ * @param task_id 任务 ID
+ * @return 已接收字节数（任务不存在返回 0）
+ */
 int64_t FileRecvMgr::GetReceivedSize(int64_t task_id) const
 {
     QMutexLocker lock(&_mutex);
@@ -276,6 +309,13 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
     return true;
 }
 
+/**
+ * @brief 失败处理：写错误信息并发射 SigRecvComplete(false)
+ * @param task_id 任务 ID
+ * @param error 错误信息输出参数
+ * @param message 错误消息
+ * @return false
+ */
 bool FileRecvMgr::FailAndEmit(int64_t task_id, QString *error, const char *message)
 {
     if (error)
@@ -286,6 +326,12 @@ bool FileRecvMgr::FailAndEmit(int64_t task_id, QString *error, const char *messa
     return false;
 }
 
+/**
+ * @brief 失败处理（仅写错误信息，不发射信号）
+ * @param error 错误信息输出参数
+ * @param message 错误消息
+ * @return false
+ */
 bool FileRecvMgr::Fail(QString *error, const char *message) const
 {
     if (error)
@@ -295,11 +341,21 @@ bool FileRecvMgr::Fail(QString *error, const char *message) const
     return false;
 }
 
+/**
+ * @brief 计算接收进度百分比
+ * @param received 已接收字节
+ * @param total 总字节
+ * @return 0-100 百分比
+ */
 int FileRecvMgr::CalcProgress(int64_t received, int64_t total) const
 {
     return total == 0 ? 0 : static_cast<int>((received * 100) / total);
 }
 
+/**
+ * @brief 获取临时文件目录
+ * @return 临时目录路径（<Temp>/msrchat）
+ */
 QString FileRecvMgr::GetTempDir() const
 {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/msrchat";
@@ -307,6 +363,13 @@ QString FileRecvMgr::GetTempDir() const
     return base;
 }
 
+/**
+ * @brief 根据文件名确定最终保存路径
+ * @param filename 文件名
+ * @return 最终路径
+ * @details 如果文件名主干是合法 UUID → 判定为图片，落入 client_image_cache/ 目录；
+ *          否则落入 DownloadLocation/msrchat/ 目录
+ */
 QString FileRecvMgr::GetFinalPath(const QString &filename) const
 {
     // Image mode detection: filename stem is a UUID → 落到 client_image_cache/
@@ -330,11 +393,22 @@ QString FileRecvMgr::GetFinalPath(const QString &filename) const
     return base + "/" + filename;
 }
 
+/**
+ * @brief 构建临时文件路径
+ * @param task_id 任务 ID
+ * @param fileName 文件名
+ * @return 临时文件完整路径（含 .part 后缀）
+ */
 QString FileRecvMgr::BuildTempPath(int64_t task_id, const QString &fileName) const
 {
     return GetTempDir() + "/" + QString::number(task_id) + "_" + fileName + ".part";
 }
 
+/**
+ * @brief 构建最终文件路径
+ * @param fileName 文件名
+ * @return 最终文件完整路径
+ */
 QString FileRecvMgr::BuildFinalPath(const QString &fileName) const
 {
     return GetFinalPath(fileName);

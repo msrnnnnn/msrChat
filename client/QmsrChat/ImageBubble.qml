@@ -6,29 +6,39 @@
  */
 import QtQuick
 
+// 图片消息气泡 — 含缩略图、加载/失败占位、caption、已编辑徽章、撤回占位
 Item {
     id: imageBubble
 
+    // 视图宽度和气泡/缩略图尺寸
     property real viewWidth: 400
     property int maxBubbleWidth: Math.min(viewWidth * 0.7, 300)
     property int thumbnailSize: 240
 
+    // 是否为当前用户发送
     property bool isSelf: false
+    // 图片本地文件路径（"error" 表示加载失败）
     property string imagePath: ""
+    // 图片说明文字
     property string caption: ""
+    // 图片原始尺寸（用于计算缩略图比例）
     property int imageWidth: 0
     property int imageHeight: 0
+    // 加载状态标志
     property bool loaded: imagePath !== "" && imagePath !== "error"
     property bool failed: imagePath === "error"
+    // 是否已编辑 / 已撤回
     property bool edited: false
     property bool recalled: false
+    // 时间戳和显示时间
     property var timestamp: 0
     property string displayTime: ""
 
     width: parent ? parent.width : 0
+    // 根据撤回状态切换高度来源
     height: recalled ? recalledRow.height + 8 : bubbleRect.height + 8
 
-    // 撤回占位（居中灰色胶囊）
+    // 撤回占位 — 居中灰色胶囊，区分己方/对方文字
     Item {
         id: recalledRow
         anchors.horizontalCenter: parent.horizontalCenter
@@ -54,7 +64,7 @@ Item {
         }
     }
 
-    // 气泡
+    // 图片气泡主体 — 己方蓝/对方白，撤回时隐藏
     Rectangle {
         id: bubbleRect
         anchors.top: recalledRow.bottom
@@ -70,11 +80,13 @@ Item {
         visible: !imageBubble.recalled
         opacity: 0
 
+        // 渐显动画
         Behavior on opacity {
             NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
         }
     }
 
+    // 图片列布局：缩略图 + caption + 时间/编辑标签
     Column {
         id: imageColumn
         anchors.top: bubbleRect.top
@@ -83,7 +95,7 @@ Item {
         spacing: 4
         visible: !imageBubble.recalled
 
-        // 缩略图 / 加载中
+        // 缩略图容器 — 按原始比例缩放
         Item {
             id: thumbnailContainer
             width: {
@@ -95,7 +107,7 @@ Item {
                     ? (width * imageBubble.imageHeight / imageBubble.imageWidth)
                     : (width * 0.66)
 
-            // 加载占位（灰色渐变 + "加载中…"）
+            // 加载中占位 — 灰色背景 + "加载中…"
             Rectangle {
                 anchors.fill: parent
                 color: "#d8dde3"
@@ -111,7 +123,7 @@ Item {
                 }
             }
 
-            // 加载失败占位
+            // 加载失败占位 — 浅红背景 + 错误提示
             Rectangle {
                 anchors.fill: parent
                 color: "#e8e0e0"
@@ -127,7 +139,7 @@ Item {
                 }
             }
 
-            // 实际图片
+            // 实际缩略图 — 异步加载、裁剪填充、可点击
             Image {
                 id: thumbnailImage
                 anchors.fill: parent
@@ -148,7 +160,7 @@ Item {
             }
         }
 
-        // caption
+        // 图片说明文字 — 仅 caption 非空时显示
         Text {
             visible: imageBubble.caption !== ""
             text: imageBubble.caption
@@ -159,7 +171,7 @@ Item {
             width: Math.min(imageBubble.thumbnailSize, imageBubble.imageWidth > 0 ? imageBubble.imageWidth : imageBubble.thumbnailSize)
         }
 
-        // 时间 + 已编辑徽章
+        // 时间 + 已编辑徽章 — 己方右对齐，对方左对齐
         Row {
             spacing: 4
             layoutDirection: imageBubble.isSelf ? Qt.RightToLeft : Qt.LeftToRight
@@ -180,6 +192,7 @@ Item {
         }
     }
 
+    // 组件完成时触发渐显动画（撤回时跳过）
     Component.onCompleted: {
         if (!imageBubble.recalled) {
             bubbleRect.opacity = 1

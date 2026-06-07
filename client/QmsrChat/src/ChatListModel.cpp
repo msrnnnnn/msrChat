@@ -1,21 +1,36 @@
+/**
+ * @file    ChatListModel.cpp
+ * @brief   聊天消息列表模型实现（QAbstractListModel 子类，供 QML ListView 使用）
+ */
 #include "ChatListModel.h"
 #include "DbWorker.h"
 #include <QDateTime>
 #include <QDebug>
 #include <climits>
-#include <cstdio>
-#include <ctime>
 
+/**
+ * @brief 构造函数
+ * @param parent 父 QObject
+ */
 ChatListModel::ChatListModel(QObject *parent)
     : QAbstractListModel(parent),
       _current_uid(0)
 {
 }
 
+/**
+ * @brief 析构函数
+ */
 ChatListModel::~ChatListModel()
 {
 }
 
+/**
+ * @brief 获取模型行数（QAbstractListModel 接口）
+ * @param parent 父索引（列表模型忽略）
+ * @return 消息总数
+ * @details 加锁读取 _messages，保证跨线程安全
+ */
 int ChatListModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
@@ -27,6 +42,13 @@ int ChatListModel::rowCount(const QModelIndex &parent) const
     return _messages.size();
 }
 
+/**
+ * @brief 获取指定索引的数据（QAbstractListModel 接口）
+ * @param index 模型索引
+ * @param role 数据角色（对应 roleNames() 定义的属性名）
+ * @return 对应角色的 QVariant 值
+ * @details 加锁读取，跨线程安全。IsSelfRole 通过对比 from_uid 与 _current_uid 判断
+ */
 QVariant ChatListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid())
@@ -79,6 +101,10 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
     }
 }
 
+/**
+ * @brief 返回 QML 角色名映射（QAbstractListModel 接口）
+ * @return role int → QML 属性名字符串 的哈希表
+ */
 QHash<int, QByteArray> ChatListModel::roleNames() const
 {
     QHash<int, QByteArray> roles;
@@ -99,11 +125,23 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
     return roles;
 }
 
+/**
+ * @brief 添加一条消息到模型
+ * @param msg 消息结构体
+ * @details 按时间戳二分插入保持有序
+ */
 void ChatListModel::AddMessage(const ChatMessage &msg)
 {
     InsertMessageSorted(msg);
 }
 
+/**
+ * @brief 插入或更新消息（幂等 upsert）
+ * @param msg 消息结构体
+ * @details 优先通过 client_msg_id 哈希索引查找（O(1)），
+ *          其次通过 server_msg_id 线性扫描（O(n)），
+ *          找到则原地更新，未找到则二分插入
+ */
 void ChatListModel::UpsertMessage(const ChatMessage &msg)
 {
     int changedRow = -1;
@@ -158,6 +196,11 @@ void ChatListModel::UpsertMessage(const ChatMessage &msg)
     InsertMessageSorted(msg);
 }
 
+/**
+ * @brief 按时间戳二分查找插入位置并插入
+ * @param msg 消息结构体
+ * @details 插入后重建 _clientIdIndex 哈希索引，发射 scrollToBottomRequested 信号
+ */
 void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
 {
     ChatMessage copy = msg;
@@ -185,6 +228,11 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
     emit scrollToBottomRequested();
 }
 
+/**
+ * @brief 在列表头部批量插入历史消息
+ * @param messages 消息列表（时间升序）
+ * @details 倒序遍历 prepend 保证插入后时间顺序正确，走 beginInsertRows/endInsertRows 通知 QML
+ */
 void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
 {
     if (messages.isEmpty())
@@ -210,6 +258,12 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     endInsertRows();
 }
 
+/**
+ * @brief 更新消息状态并通知 QML
+ * @param client_msg_id 客户端消息 ID
+ * @param status 新状态（0=发送中，1=已送达，2=已存储，-1=失败）
+ * @details 通过 _clientIdIndex 哈希索引 O(1) 查找，发射 dataChanged 仅通知 StatusRole
+ */
 void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     int changedRow = -1;
@@ -232,6 +286,10 @@ void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status
     }
 }
 
+/**
+ * @brief 清空所有消息
+ * @details 走 beginResetModel/endResetModel 通知 QML 整体刷新
+ */
 void ChatListModel::ClearMessages()
 {
     beginResetModel();
@@ -245,12 +303,23 @@ void ChatListModel::ClearMessages()
     endResetModel();
 }
 
+/**
+ * @brief 设置当前登录用户 UID
+ * @param uid 用户 ID
+ * @details 用于 IsSelfRole 判断消息是否来自自己
+ */
 void ChatListModel::SetCurrentUid(int uid)
 {
     QMutexLocker locker(&_mutex);
     _current_uid = uid;
 }
 
+/**
+ * @brief 获取指定位置的消息（加锁拷贝）
+ * @param index 消息在列表中的位置
+ * @param out 输出参数，存储找到的消息
+ * @return 是否获取成功
+ */
 bool ChatListModel::TryGetMessageAt(int index, ChatMessage &out) const
 {
     QMutexLocker locker(&_mutex);
@@ -264,23 +333,22 @@ bool ChatListModel::TryGetMessageAt(int index, ChatMessage &out) const
     return true;
 }
 
+/**
+ * @brief 获取所有消息的拷贝
+ * @return 消息列表（时间升序）
+ * @details 返回拷贝而非引用，避免调用方持有锁期间意外阻塞
+ */
 QVector<ChatMessage> ChatListModel::GetAllMessages() const
 {
     QMutexLocker locker(&_mutex);
     return _messages;
 }
 
-QVector<ChatMessage> ChatListModel::GetMessagesAtomic(int start, int count) const
-{
-    QMutexLocker locker(&_mutex);
-    QVector<ChatMessage> result;
-    int end = qMin(start + count, _messages.size());
-    for (int i = start; i < end; ++i) {
-        result.append(_messages[i]);
-    }
-    return result;
-}
-
+/**
+ * @brief 获取最早消息的时间戳
+ * @return 时间戳（列表为空返回 LLONG_MAX）
+ * @details 用于 loadMoreHistory 计算 before_time 分页参数
+ */
 qint64 ChatListModel::GetEarliestTimestamp() const
 {
     QMutexLocker locker(&_mutex);
@@ -291,6 +359,11 @@ qint64 ChatListModel::GetEarliestTimestamp() const
     return _messages.first().timestamp;
 }
 
+/**
+ * @brief 重建 client_msg_id → 行号 的哈希索引
+ * @details 在 InsertMessageSorted 及 PrependMessages 后调用，
+ *          保证 UpsertMessage 和 UpdateMessageStatus 的 O(1) 查找有效
+ */
 void ChatListModel::RebuildIndex()
 {
     _clientIdIndex.clear();
@@ -303,6 +376,12 @@ void ChatListModel::RebuildIndex()
     }
 }
 
+/**
+ * @brief 格式化时间戳为显示字符串
+ * @param timestamp 毫秒级时间戳
+ * @return 格式化的时间字符串
+ * @details 今天 → hh:mm:ss，昨天 → "昨天 hh:mm:ss"，今年 → MM-dd hh:mm:ss，跨年 → yyyy-MM-dd hh:mm:ss
+ */
 QString ChatListModel::FormatTime(qint64 timestamp) const
 {
     QDateTime dateTime = QDateTime::fromMSecsSinceEpoch(timestamp);
@@ -326,6 +405,12 @@ QString ChatListModel::FormatTime(qint64 timestamp) const
     }
 }
 
+/**
+ * @brief 按时间戳原地修改消息
+ * @param ts 消息时间戳
+ * @param mutator 修改函数（lambda），接收 ChatMessage& 引用
+ * @details 加锁遍历并应用修改后解锁，再发射 dataChanged（避免持锁 emit）
+ */
 void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
         const std::function<void(ChatMessage &)> &mutator)
 {
@@ -343,6 +428,12 @@ void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
     }
 }
 
+/**
+ * @brief 更新图片的本地路径
+ * @param image_id 图片 UUID
+ * @param local_path 本地文件路径
+ * @details 文件下载完成后调用，通知 QML 更新 ImagePathRole
+ */
 void ChatListModel::UpdateImagePath(const QString &image_id, const QString &local_path)
 {
     QMutexLocker lock(&_mutex);
@@ -352,13 +443,19 @@ void ChatListModel::UpdateImagePath(const QString &image_id, const QString &loca
         {
             _messages[i].image_path = local_path;
             lock.unlock();
-            beginResetModel();
-            endResetModel();
+            QModelIndex idx = index(i);
+            emit dataChanged(idx, idx, {ImagePathRole});
             return;
         }
     }
 }
 
+/**
+ * @brief 标记消息为已撤回
+ * @param ts 消息时间戳
+ * @param current_uid 当前用户 ID（用于 DB 作用域）
+ * @details 先异步写 DB 再改内存，防止刷新后 DB 中 recalled=0 导致消息"复活"
+ */
 void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
 {
     // 先写 DB（异步），再改内存。修复"假撤回"bug：刷新界面后 DB 仍是 recalled=0 导致图片复活
@@ -369,6 +466,12 @@ void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
     });
 }
 
+/**
+ * @brief 标记消息为已编辑
+ * @param ts 消息时间戳
+ * @param new_content 编辑后内容
+ * @param edit_ts 编辑时间
+ */
 void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts)
 {
     UpdateMessageByTimestamp(ts, [&](ChatMessage &m) {
@@ -420,6 +523,11 @@ bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
     return false;
 }
 
+/**
+ * @brief 按时间戳获取消息内容（便捷方法）
+ * @param ts 消息时间戳
+ * @return 消息内容字符串，未找到返回空
+ */
 QString ChatListModel::GetContentByTimestamp(qint64 ts) const
 {
     ChatMessage m;

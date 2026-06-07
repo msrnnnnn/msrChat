@@ -1,5 +1,11 @@
+/**
+ * @file    MessageDispatcher.cpp
+ * @brief   消息分发器实现
+ * @details 注册并路由各类 protobuf 消息到对应的处理函数，
+ *          涵盖登录认证、聊天文本、文件传输、图片消息、撤回/编辑等协议。
+ */
+
 #include "MessageDispatcher.h"
-#include "Base64.h"
 #include "CServer.h"
 #include "CSession.h"
 #include "FileTransfer.h"
@@ -108,6 +114,7 @@ bool HandleLoginRequest(CSession &session, const std::string &body_data)
         return true;
     }
 
+    // CAS 原子操作：防止同一连接并发重复登录
     bool expected = false;
     if (!session.TrySetLoginInProgress(expected))
     {
@@ -403,6 +410,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
     std::string client_msg_id;
     try
     {
+        // 解析 protobuf ChatTextMsg，失败则继续读取
         qmsrchat::ChatTextMsg chatMsg;
         if (!chatMsg.ParseFromString(body_data))
         {
@@ -467,6 +475,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         }
 
         std::string forward_data = forward.dump();
+        // 尝试在线转发，失败则存为离线消息
         auto server = session.GetServer();
         bool delivered = false;
         bool stored = false;
@@ -583,10 +592,13 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
             return true;
         }
 
-        // 记录 P2P 路由映射，用于后续转发
+        // 记录 P2P 路由映射，用于后续 chunk/ack 转发
         FileTransfer::Instance().AddTask(
             task_id, session.GetUserUid(), to_uid, filename, total_size);
 
+        // ===== 图片模式检测 =====
+        // 客户端以 "{uuid}.{ext}" 格式传 filename，image_id 即 UUID 部分
+        // 匹配 UUID 格式后，预插入 ImageStorage 记录
         // Image mode detection: filename is "{uuid}.{ext}" → seed ImageStorage
         // (client uses image_id as task_id and encodes format in filename)
         if (filename.find('.') != std::string::npos)
@@ -736,6 +748,10 @@ bool HandleFileRsp(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 文件分片处理（string 重载）
+ * @details 薄包装，将 string 转 string_view 后委托给实际处理函数
+ */
 bool HandleFileChunk(CSession &session, const std::string &body_data)
 {
     return HandleFileChunk(session, std::string_view(body_data));
@@ -787,6 +803,7 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
         // Image mode: write chunk bytes to image_storage (in addition to forwarding)
         if (task->IsImage())
         {
+            // 写入分片数据到 ImageStorage
             const std::string &data = chunk.data();
             if (!data.empty())
             {
@@ -932,6 +949,11 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 聊天图片消息处理
+ * @details 解析 ImageMsg protobuf，在线则转发给接收方，
+ *          离线则存入 SQLite（body_data 以 blob 存储），同时持久化到 messages 表
+ */
 bool HandleChatImage(CSession &session, const std::string &body_data)
 {
     qmsrchat::ImageMsg msg;
@@ -1012,6 +1034,10 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     return true;
 }
 
+/**
+ * @brief 图片下载请求处理
+ * @details 查找 ImageStorage 记录，验证合法/未撤回后，以 FileReq + FileChunk + FileAck 协议推送图片数据
+ */
 bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
 {
     qmsrchat::ImageDownloadReq req;
@@ -1083,6 +1109,7 @@ bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
                  req.image_id(), rec->size, rec->ext);
 
     // === 服务端主动推送文件（FileReq + FileChunk + FileAck）===
+    // 生成唯一 task_id：对 image_id 取哈希，避免与其他传输任务冲突
     int64_t task_id = static_cast<int64_t>(std::hash<std::string>{}(req.image_id()) & 0x7FFFFFFFFFFFFFFFLL);
     std::string filename = req.image_id() + "." + rec->ext;
     int requester_uid = session.GetUserUid();

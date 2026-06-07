@@ -62,15 +62,6 @@ void ThreadPool::Shutdown()
 }
 
 /**
- * @brief 获取当前待处理任务数
- * @return 任务计数
- */
-size_t ThreadPool::GetTaskCount() const
-{
-    return _task_count.load();
-}
-
-/**
  * @brief 工作线程主循环
  * @details 等待条件变量，有任务时出队执行；停止标志置起且队列空时退出
  */
@@ -80,14 +71,16 @@ void ThreadPool::WorkerThread()
         Task task;
         {
             std::unique_lock<std::mutex> lock(_mutex);
-            _cv.wait(lock, [this] {
+             _cv.wait(lock, [this] {
                 return _stop || !_tasks.empty();
             });
             
+            // 停止且队列为空时退出工作线程
             if (_stop && _tasks.empty()) {
                 return;
             }
             
+            // 取出队首任务并递减计数器（锁内操作，线程安全）
             task = std::move(_tasks.front());
             _tasks.pop();
             --_task_count;

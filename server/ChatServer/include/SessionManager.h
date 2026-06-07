@@ -1,3 +1,9 @@
+/**
+ * @file SessionManager.h
+ * @brief 会话管理器 —— 维护在线用户的会话映射
+ * @details 使用 ShardedMap 存储 uid->session 和 uuid->session 的双向映射，
+ *          支持按 uid 或 uuid 查找、添加、移除会话。分片锁设计保证高并发读写性能。
+ */
 #ifndef SESSION_MANAGER_H
 #define SESSION_MANAGER_H
 
@@ -12,6 +18,13 @@
 
 class CSession;
 
+/**
+ * @brief 会话管理器（单例）
+ * @details 持有两个分片映射表：
+ *          - `_uid_sessions`：按用户 ID 查找会话
+ *          - `_uuid_sessions`：按连接 UUID 查找会话
+ *          用户上线时 AddSession，离线时 RemoveSession。
+ */
 class SessionManager
 {
 public:
@@ -21,13 +34,32 @@ public:
         return instance;
     }
 
+    /**
+     * @brief 添加会话（同时写入 uid 和 uuid 两个映射表）
+     */
     void AddSession(int uid, std::shared_ptr<CSession> session);
+
+    /**
+     * @brief 按 uid 移除会话（同时清理对应的 uuid 映射）
+     */
     void RemoveSession(int uid);
+
+    /**
+     * @brief 按连接 uuid 移除会话（同时清理对应的 uid 映射）
+     */
     void RemoveSessionByUuid(const std::string &uuid);
+
     std::shared_ptr<CSession> GetSession(int uid) const;
     std::shared_ptr<CSession> GetSessionByUuid(const std::string &uuid) const;
+
+    /**
+     * @brief 清空全部会话映射
+     */
     void ClearAll();
 
+    /**
+     * @brief 遍历全部在线会话（逐个分片加锁，回调中不应阻塞或操作同一 ShardedMap）
+     */
     template <typename Func>
     void ForEachSession(Func &&func)
     {

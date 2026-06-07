@@ -91,9 +91,11 @@ void TimerBtn::stopCountdown()
 /**
  * @brief 鼠标释放事件
  * @param e 鼠标事件
+ * @details 左键释放时若启用了自动启动，则自动开始10秒倒计时。
  */
 void TimerBtn::mouseReleaseEvent(QMouseEvent *e)
 {
+    // 自动启动模式：点击即开始倒计时
     if (e->button() == Qt::LeftButton && _autoStart)
     {
         startCountdown(10);

@@ -15,14 +15,14 @@
  */
 enum class RequestType
 {
-    MSG_HELLO = 1000,
-    ID_GET_VARIFY_CODE = 1001, ///< 获取验证码
+    MSG_HELLO = 1000,             ///< 连接问候
+    ID_GET_VARIFY_CODE = 1001,  ///< 获取验证码
     ID_REGISTER_USER = 1002,   ///< 用户注册
     ID_RESET_PWD = 1003,       ///< 重置密码
     ID_LOGIN_USER = 1004,      ///< 用户登录
-    MSG_CHAT_LOGIN = 1005,
-    MSG_CHAT_TEXT = 1006,
-    MSG_CHAT_ACK = 1007,
+    MSG_CHAT_LOGIN = 1005,         ///< 聊天登录
+    MSG_CHAT_TEXT = 1006,          ///< 聊天文本消息
+    MSG_CHAT_ACK = 1007,           ///< 消息确认
     MSG_OFFLINE_ACK = 1008,       ///< 离线消息分页确认
     MSG_CHAT_IMAGE = 1009,          ///< 图片消息
     MSG_IMAGE_DOWNLOAD_RSP = 1010,  ///< 图片下载响应

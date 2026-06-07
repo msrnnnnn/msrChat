@@ -1,3 +1,9 @@
+/**
+ * @file MessageRouter.h
+ * @brief 消息路由 —— 将消息转发到目标用户的会话
+ * @details 通过 SessionManager 查找目标会话，如果在线则直接发送；
+ *          如果不在线则写入离线消息队列。每条服务端生成的消息附带全局递增的 msg_id。
+ */
 #ifndef MESSAGE_ROUTER_H
 #define MESSAGE_ROUTER_H
 
@@ -8,6 +14,11 @@
 
 class CSession;
 
+/**
+ * @brief 消息路由器（单例）
+ * @details 负责将服务端产生的消息（如系统通知、转发消息）路由到目标用户会话。
+ *          同时维护全局递增的消息 ID 计数器 `_next_server_msg_id`。
+ */
 class MessageRouter
 {
 public:
@@ -17,9 +28,21 @@ public:
         return instance;
     }
 
+    /**
+     * @brief 转发消息到目标用户
+     * @param target_uid 目标用户 ID
+     * @param msg_data 已序列化的消息数据
+     * @return true 目标在线且发送成功；false 目标不在线（消息已写入离线队列）
+     */
     bool ForwardMessage(int target_uid, const std::string &msg_data);
-    bool BroadcastMessage(const std::string &msg_data, int exclude_uid = 0);
 
+    /**
+     * @brief 向指定会话直接发送消息
+     * @param session 目标会话
+     * @param msg_data 已序列化的消息数据
+     * @param msg_id 消息 ID
+     * @return true 发送成功
+     */
     bool SendToSession(const std::shared_ptr<CSession> &session, const std::string &msg_data, short msg_id);
 
 private:

@@ -35,6 +35,31 @@ ChatController::~ChatController()
     _cleanup_timer->stop();
 }
 
+/**
+ * @brief 清理并标准化文件路径
+ * @param rawPath 原始路径（可能带 file:/// URL 前缀或 Unix 风格前缀）
+ * @return 标准化后的本地文件路径
+ * @details 兼容 QML FileDialog 返回的 file:/// 格式及部分平台在路径首添加 '/' 的情况
+ */
+QString ChatController::normalizeFilePath(const QString &rawPath)
+{
+    QString cleanPath = rawPath;
+    if (cleanPath.startsWith("file:///")) {
+        cleanPath = cleanPath.mid(8);
+    } else if (cleanPath.startsWith("file://")) {
+        cleanPath = cleanPath.mid(7);
+    }
+    if (cleanPath.startsWith("/") && cleanPath.length() >= 3 && cleanPath[2] == ':') {
+        cleanPath = cleanPath.mid(1);
+    }
+    return cleanPath;
+}
+
+/**
+ * @brief 将缓冲的消息批量灌入 slotOnChatTextMsg
+ * @param msgs 缓存的聊天消息列表
+ * @details 用于重连后 flush 积压消息，逐条走正常流程（DB 持久化 + UI 更新）
+ */
 void ChatController::drainBufferedMessages(const QVector<ChatTextMsgStruct> &msgs)
 {
     for (const ChatTextMsgStruct &msg : msgs)
@@ -43,6 +68,10 @@ void ChatController::drainBufferedMessages(const QVector<ChatTextMsgStruct> &msg
     }
 }
 
+/**
+ * @brief 初始化控制器状态
+ * @details 从 UserMgr / TcpMgr 拉取当前 uid 和连接状态并发射信号通知 QML
+ */
 void ChatController::initialize()
 {
     _current_uid = UserMgr::Instance()->GetUid();
@@ -51,6 +80,10 @@ void ChatController::initialize()
     emit sigConnectionStatusChanged();
 }
 
+/**
+ * @brief 绑定聊天列表数据模型
+ * @param model ChatListModel 实例指针
+ */
 void ChatController::setChatModel(ChatListModel *model)
 {
     _chat_model = model;
@@ -281,16 +314,7 @@ void ChatController::sendFile(const QString &filePath)
     }
 
     // 跨平台处理 URL 前缀 (兼容 QML 传入的 file:/// 或 file:///)
-    QString cleanPath = filePath;
-    if (cleanPath.startsWith("file:///")) {
-        cleanPath = cleanPath.mid(8);  // 删除 "file:///"
-    } else if (cleanPath.startsWith("file://")) {
-        cleanPath = cleanPath.mid(7);  // 删除 "file://"
-    }
-    // 处理 Windows 盘符前的多余斜杠，如 /C:/ → C:/
-    if (cleanPath.startsWith("/") && cleanPath.length() >= 3 && cleanPath[2] == ':') {
-        cleanPath = cleanPath.mid(1);
-    }
+    QString cleanPath = normalizeFilePath(filePath);
 
     qDebug() << "[ChatController] cleanPath after processing:" << cleanPath;
 
@@ -326,6 +350,12 @@ void ChatController::sendFile(const QString &filePath)
     emit sigFileSendStarted(task_id, fileInfo.fileName(), total_size);
 }
 
+/**
+ * @brief 发送图片消息
+ * @param imagePath 图片本地路径
+ * @param caption 图片说明文字
+ * @details 生成 UUID 作为 image_id，通过 FileSendMgr 分片传输文件，同时发送 ImageMsg 元数据
+ */
 void ChatController::sendImage(const QString &imagePath, const QString &caption)
 {
     qDebug() << "[ChatController] sendImage called, path:" << imagePath << "caption_len:" << caption.size();
@@ -337,15 +367,7 @@ void ChatController::sendImage(const QString &imagePath, const QString &caption)
     }
 
     // URL 前缀清理
-    QString cleanPath = imagePath;
-    if (cleanPath.startsWith("file:///")) {
-        cleanPath = cleanPath.mid(8);
-    } else if (cleanPath.startsWith("file://")) {
-        cleanPath = cleanPath.mid(7);
-    }
-    if (cleanPath.startsWith("/") && cleanPath.length() >= 3 && cleanPath[2] == ':') {
-        cleanPath = cleanPath.mid(1);
-    }
+    QString cleanPath = normalizeFilePath(imagePath);
 
     QFileInfo fileInfo(cleanPath);
     if (!fileInfo.exists() || !fileInfo.isFile())
@@ -418,6 +440,11 @@ void ChatController::sendImage(const QString &imagePath, const QString &caption)
     emit sigFileSendStarted(task_id, filename, total_size);
 }
 
+/**
+ * @brief 收到图片元数据消息
+ * @param msg 图片消息结构体（含 image_id, 尺寸, 格式等）
+ * @details 持久化到 DB → UI 更新 → 若本地无缓存则触发自动下载
+ */
 void ChatController::slotOnChatImage(const ChatImageStruct &msg)
 {
     ChatMessage m;
@@ -458,6 +485,11 @@ void ChatController::slotOnChatImage(const ChatImageStruct &msg)
     }
 }
 
+/**
+ * @brief 收到图片下载响应
+ * @param rsp 下载响应结构体
+ * @details 转发给 ImageDownloadMgr 处理分片数据接收
+ */
 void ChatController::slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp)
 {
     if (!_chat_model) return;
@@ -468,6 +500,11 @@ void ChatController::slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp)
     }
 }
 
+/**
+ * @brief 收到撤回响应（服务端确认）
+ * @param ack 撤回回执
+ * @details 成功时标记本地消息为已撤回
+ */
 void ChatController::slotOnChatRecallRsp(const ChatEditAckStruct &ack)
 {
     if (ack.error != 0) {
@@ -481,6 +518,11 @@ void ChatController::slotOnChatRecallRsp(const ChatEditAckStruct &ack)
     }
 }
 
+/**
+ * @brief 收到编辑响应（服务端确认）
+ * @param ack 编辑回执
+ * @details 成功时本地更新消息内容并标记编辑时间
+ */
 void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
 {
     if (ack.error != 0) {
@@ -494,6 +536,11 @@ void ChatController::slotOnChatEditAck(const ChatEditAckStruct &ack)
     }
 }
 
+/**
+ * @brief 收到对端撤回通知（推送）
+ * @param n 撤回通知结构体
+ * @details 加锁写入 pending 队列防止竞态，同时立即 MarkRecalled
+ */
 void ChatController::slotOnChatRecallNotify(const ChatRecallNotifyStruct &n)
 {
     QMutexLocker lock(&_pending_mutex);
@@ -525,6 +572,10 @@ void ChatController::FlushPendingRecalls()
     }
 }
 
+/**
+ * @brief 收到对端编辑通知（推送）
+ * @param n 编辑通知结构体
+ */
 void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
 {
     if (!_chat_model) return;
@@ -581,6 +632,11 @@ void ChatController::clearHistory()
     emit sigHistoryCleared();
 }
 
+/**
+ * @brief 搜索当前会话的消息
+ * @param keyword 搜索关键词
+ * @details 通过 DbThreadManager 异步查询，结果由 sig_messages_loaded 返回
+ */
 void ChatController::searchMessages(const QString &keyword)
 {
     if (_current_uid <= 0 || _target_uid <= 0 || keyword.trimmed().isEmpty())
@@ -682,6 +738,11 @@ void ChatController::slotOnOfflineProgress(const OfflineAckStruct &ack)
     }
 }
 
+/**
+ * @brief 收到聊天登录响应
+ * @param rsp 登录响应结构体
+ * @details 登录失败时标记断连并通知 UI
+ */
 void ChatController::slotOnChatLoginRsp(const ChatLoginRspStruct &rsp)
 {
     if (rsp.error != 0)

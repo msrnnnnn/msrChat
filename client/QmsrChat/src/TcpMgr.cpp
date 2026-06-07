@@ -13,6 +13,11 @@
 #include <mutex>
 
 namespace {
+/**
+ * @brief 将 JSON 对象转换为紧凑格式的 QByteArray
+ * @param obj JSON 对象
+ * @return QByteArray 紧凑 JSON 字节数组
+ */
 QByteArray MakeJsonPayload(const QJsonObject &obj)
 {
     return QJsonDocument(obj).toJson(QJsonDocument::Compact);
@@ -21,6 +26,11 @@ QByteArray MakeJsonPayload(const QJsonObject &obj)
 
 TcpMgr *TcpMgr::_instance = nullptr;
 
+/**
+ * @brief 获取 TcpMgr 单例实例
+ * @return TcpMgr* 单例指针
+ * @note 使用 std::call_once 保证多线程环境下的单例安全
+ */
 TcpMgr *TcpMgr::Instance()
 {
     static std::once_flag flag;
@@ -28,11 +38,17 @@ TcpMgr *TcpMgr::Instance()
     return _instance;
 }
 
+/**
+ * @brief 初始化单例（无操作，仅触发构造）
+ */
 void TcpMgr::Init()
 {
     Instance();
 }
 
+/**
+ * @brief 销毁单例，释放资源
+ */
 void TcpMgr::Destroy()
 {
     delete _instance;
@@ -101,6 +117,10 @@ TcpMgr::~TcpMgr()
     _worker = nullptr;
 }
 
+/**
+ * @brief 获取当前 TCP 连接状态
+ * @return true 已连接, false 未连接
+ */
 bool TcpMgr::IsConnected() const
 {
     return _is_connected;
@@ -159,18 +179,31 @@ void TcpMgr::slot_send_data(RequestType reqId, const QByteArray &data)
     emit sig_send_data_worker(reqId, data);
 }
 
+/**
+ * @brief 发送登录请求（JSON 格式）
+ * @param req 登录请求结构体（用户名、密码）
+ */
 void TcpMgr::slot_send_login_req(const LoginReqStruct &req)
 {
     slot_send_data(RequestType::ID_LOGIN_USER, MakeJsonPayload({{"user", req.user}, {"passwd", req.passwd}}));
 }
 
+/**
+ * @brief 发送聊天服务登录请求（JSON 格式）
+ * @param req 聊天登录请求结构体（uid、token）
+ */
 void TcpMgr::slot_send_chat_login_req(const ChatLoginReqStruct &req)
 {
     slot_send_data(RequestType::MSG_CHAT_LOGIN, MakeJsonPayload({{"uid", req.uid}, {"token", req.token}}));
 }
 
+/**
+ * @brief 发送聊天文本消息（Protobuf 序列化）
+ * @param req 聊天文本请求结构体
+ */
 void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
 {
+    // 构建 Protobuf 消息并序列化
     qmsrchat::ChatTextMsg chatMsg;
     chatMsg.set_from_uid(req.from_uid);
     chatMsg.set_to_uid(req.to_uid);
@@ -185,28 +218,48 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     }
 }
 
+/**
+ * @brief 发送验证码请求
+ * @param req 验证码请求结构体（邮箱）
+ */
 void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 {
     slot_send_data(RequestType::ID_GET_VARIFY_CODE, MakeJsonPayload({{"email", req.email}}));
 }
 
+/**
+ * @brief 发送注册请求
+ * @param req 注册请求结构体
+ */
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
     slot_send_data(RequestType::ID_REGISTER_USER,
                    MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
+/**
+ * @brief 发送重置密码请求
+ * @param req 重置密码请求结构体
+ */
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
     slot_send_data(RequestType::ID_RESET_PWD,
                    MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
 }
 
+/**
+ * @brief 发送离线消息确认请求
+ * @param req 离线确认请求结构体
+ */
 void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
 {
     slot_send_data(RequestType::MSG_OFFLINE_ACK, MakeJsonPayload({{"received", req.received}}));
 }
 
+/**
+ * @brief 发送文件传输请求（Protobuf 序列化）
+ * @param req 文件请求结构体（task_id、文件名、MD5 等）
+ */
 void TcpMgr::slot_send_file_req(const FileReqStruct &req)
 {
     qDebug() << "[TcpMgr] slot_send_file_req called, task_id:" << req.task_id << "from:" << req.from_uid << "to:" << req.to_uid << "filename:" << req.filename;
@@ -228,6 +281,10 @@ void TcpMgr::slot_send_file_req(const FileReqStruct &req)
 
 // === Phase 6 — 撤回 / 编辑发送（套用 slot_send_chat_text_req 模板）===
 
+/**
+ * @brief 发送撤回消息请求（Protobuf 序列化）
+ * @param req 撤回消息结构体
+ */
 void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
 {
     qmsrchat::RecallMsg msg;
@@ -242,6 +299,10 @@ void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
     }
 }
 
+/**
+ * @brief 发送编辑消息请求（Protobuf 序列化）
+ * @param req 编辑消息结构体
+ */
 void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
 {
     qmsrchat::EditMsg msg;
@@ -256,6 +317,10 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
     }
 }
 
+/**
+ * @brief 发送图片消息（Protobuf 序列化，含宽高、MD5 等元数据）
+ * @param msg 图片消息结构体
+ */
 void TcpMgr::slot_send_chat_image(const ChatImageStruct &msg)
 {
     qmsrchat::ImageMsg imgMsg;
@@ -278,6 +343,10 @@ void TcpMgr::slot_send_chat_image(const ChatImageStruct &msg)
     }
 }
 
+/**
+ * @brief 发送图片下载请求
+ * @param image_id 图片唯一 ID
+ */
 void TcpMgr::slot_send_image_download_req(const QString &image_id)
 {
     qmsrchat::ImageDownloadReq req;
@@ -291,6 +360,12 @@ void TcpMgr::slot_send_image_download_req(const QString &image_id)
     }
 }
 
+/**
+ * @brief 根据消息类型分发数据包到对应的解析器
+ * @param msg_id 消息 ID
+ * @param data 原始数据
+ * @details 登录相关走 JSON 解析器，聊天消息走 Protobuf 解析器，文件传输走专用文件处理流程。
+ */
 void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
 {
     const auto req_type = static_cast<RequestType>(msg_id);
@@ -325,8 +400,16 @@ void TcpMgr::slot_dispatch_packet(quint16 msg_id, const QByteArray &data)
     }
 }
 
+/**
+ * @brief 处理文件传输相关的数据包
+ * @param req_type 请求类型
+ * @param data 数据内容
+ * @details 分发逻辑：MSG_FILE_CHUNK（接收分片并回复 ACK）、MSG_FILE_REQ（请求确认并回复 RSP）、
+ *          MSG_FILE_RSP（通知发送方可以传输）、MSG_FILE_ACK（确认已接收分片或传输完成）。
+ */
 void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
 {
+    // MSG_FILE_CHUNK：接收文件分片，写入磁盘后回复 ACK 确认
     if (req_type == RequestType::MSG_FILE_CHUNK)
     {
         qmsrchat::FileChunk chunk;

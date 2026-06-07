@@ -112,9 +112,9 @@ private:
 
     Ui::RegisterDialog *ui;
 
-    QMap<TipErr, QString> _tip_errs;
-    QTimer *_countdown_timer;
-    int _countdown;
+    QMap<TipErr, QString> _tip_errs; ///< 错误提示映射表：错误类型 → 提示文本
+    QTimer *_countdown_timer;         ///< 验证码倒计时定时器
+    int _countdown;                   ///< 倒计时剩余秒数
 };
 
 #endif // REGISTERDIALOG_H

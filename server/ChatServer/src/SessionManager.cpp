@@ -8,6 +8,12 @@
 #include <spdlog/spdlog.h>
 #include <utility>
 
+/**
+ * @brief 添加或替换用户会话
+ * @param uid 用户 ID
+ * @param session 会话智能指针（所有权转移至此）
+ * @details 若用户已有旧连接，先关闭旧连接；同步更新 UID 和 UUID 两个索引
+ */
 void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
 {
     if (!session)

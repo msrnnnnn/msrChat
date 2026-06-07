@@ -8,20 +8,21 @@
 import QtQuick
 import QtQuick.Controls
 
+// 全屏图片查看器 — 支持缩放/翻页/旋转/另存为，Esc 或点击外区关闭
 Rectangle {
     id: viewer
     color: "#111111"
     focus: true
 
-    // 公共输入
+    // 公共输入：图片列表、当前索引、缩放比例
     property var imageList: []        // [{imageId, imagePath, caption}, ...]
     property int currentIndex: 0
     property real scaleFactor: 1.0
 
-    // 内部状态
+    // 内部状态：旋转角度（每次 90°）
     property int rotationAngle: 0
 
-    // 键盘快捷键
+    // 键盘快捷键：Esc 关闭、← → 翻页、+ - 缩放、0 复位
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) {
             viewer.closeRequested()
@@ -45,12 +46,14 @@ Rectangle {
         }
     }
 
+    // 获取当前图片条目
     function currentItem() {
         if (imageList.length === 0) return null
         if (currentIndex < 0 || currentIndex >= imageList.length) return null
         return imageList[currentIndex]
     }
 
+    // 切换到下一张图片，重置缩放和旋转
     function next() {
         if (currentIndex < imageList.length - 1) {
             currentIndex++
@@ -59,6 +62,7 @@ Rectangle {
         }
     }
 
+    // 切换到上一张图片，重置缩放和旋转
     function prev() {
         if (currentIndex > 0) {
             currentIndex--
@@ -67,18 +71,19 @@ Rectangle {
         }
     }
 
+    // 缩放函数 — 范围 0.25x ~ 8x
     function zoom(f) {
         viewer.scaleFactor = Math.max(0.25, Math.min(8.0, viewer.scaleFactor * f))
     }
 
-    // 透明背景层（点击图片外区域关闭）
+    // 透明背景层 — 点击图片外区域关闭查看器
     MouseArea {
         anchors.fill: parent
         z: 0
         onClicked: viewer.closeRequested()
     }
 
-    // 居中图片
+    // 居中显示图片 — 缩放、旋转通过 transformOrigin: Item.Center 控制
     Image {
         id: img
         anchors.centerIn: parent
@@ -96,7 +101,7 @@ Rectangle {
         smooth: true
         visible: status === Image.Ready || status === Image.Loading
 
-        // 滚轮缩放
+        // 滚轮缩放 — 支持鼠标和触控板
         WheelHandler {
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             onWheel: function(event) {
@@ -109,7 +114,7 @@ Rectangle {
             }
         }
 
-        // 双击切换 1:1 / 2x（v1 简化：1.0 ↔ 2.0）
+        // 双击切换 1x / 2x；单击拦截（防止穿透关闭）
         MouseArea {
             anchors.fill: parent
             onDoubleClicked: {
@@ -122,7 +127,7 @@ Rectangle {
         }
     }
 
-    // 加载中占位
+    // 加载中占位 — 深色圆角矩形
     Rectangle {
         anchors.centerIn: parent
         z: 1
@@ -141,7 +146,7 @@ Rectangle {
         }
     }
 
-    // 加载失败占位
+    // 加载失败占位 — 显示错误信息和关闭提示
     Rectangle {
         anchors.centerIn: parent
         z: 1
@@ -171,7 +176,7 @@ Rectangle {
         }
     }
 
-    // 标题（左上）
+    // 标题 — 左上角显示图片 caption
     Text {
         id: titleText
         anchors.top: parent.top
@@ -189,7 +194,7 @@ Rectangle {
         width: Math.min(implicitWidth, parent.width - 200)
     }
 
-    // 关闭按钮（右上）
+    // 关闭按钮 — 右上角圆形按钮，hover 变色
     Rectangle {
         anchors.top: parent.top
         anchors.right: parent.right
@@ -216,7 +221,7 @@ Rectangle {
         }
     }
 
-    // 翻页左箭头
+    // 翻页左箭头 — 有上一张时可用
     Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: 18
@@ -246,7 +251,7 @@ Rectangle {
         }
     }
 
-    // 翻页右箭头
+    // 翻页右箭头 — 有下一张时可用
     Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 18
@@ -276,7 +281,7 @@ Rectangle {
         }
     }
 
-    // 提示（工具栏上方）
+    // 操作提示文字 — 工具栏上方居中显示快捷键说明
     Text {
         anchors.bottom: toolbar.top
         anchors.bottomMargin: 12
@@ -288,7 +293,7 @@ Rectangle {
         font.family: "Microsoft YaHei"
     }
 
-    // 底部工具栏
+    // 底部工具栏 — 缩放/旋转/另存为/关闭等按钮
     Rectangle {
         id: toolbar
         anchors.bottom: parent.bottom

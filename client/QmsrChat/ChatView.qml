@@ -9,24 +9,30 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQml
 
+// 聊天视图根组件，承载消息列表、输入区、操作菜单等全部子组件
 Rectangle {
     id: chatViewRoot
     objectName: "chatViewRoot"   // Phase B — MessageBubble.mapToItem 上溯查找
     color: "#F5F5F5"
 
+    // 核心数据属性 — 由外部注入的数据模型、控制器和对话框引用
     property var chatModel: null
     property var chatController: null
     property var chatDialog: null
 
+    // 当前用户 ID 和目标用户 ID，由 chatController 驱动
     property int currentUid: chatController ? chatController.currentUid : 0
     property int targetUid: chatController ? chatController.targetUid : 0
+    // 连接状态，影响发送按钮可用性和连接指示器显示
     property bool isConnected: chatController ? chatController.isConnected : false
     property string pendingImagePath: ""  // 待发送图片路径（选中后内嵌预览）
 
+    // 主布局：消息列表 + 图片预览条 + 输入区，纵向排列
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
+        // 消息列表 — 使用 Loader 按消息类型（文字/图片）动态选择气泡组件
         ListView {
             id: messageListView
             Layout.fillWidth: true
@@ -39,11 +45,13 @@ Rectangle {
 
             model: chatModel
 
+            // 根据消息类型选择气泡：type=1 图片气泡，否则文字气泡
             delegate: Loader {
                 width: messageListView.width - 12
                 sourceComponent: model.messageType === 1 ? imageBubbleComponent : textBubbleComponent
                 property bool _recalled: model.recalled
                 property bool _edited: model.edited
+                // 当模型 recalled 字段变更时，同步到 Loader 内部的 item 实例
                 on_RecalledChanged: {
                     console.log("[RECALL-LOADER] _recalled=" + _recalled + " item=" + (item ? "valid" : "null"))
                     if (item) item.recalled = _recalled
@@ -52,6 +60,7 @@ Rectangle {
                     if (item) item.edited = _edited
                 }
 
+                // 文字消息气泡组件
                 Component {
                     id: textBubbleComponent
                     MessageBubble {
@@ -69,6 +78,7 @@ Rectangle {
                         }
                     }
                 }
+                // 图片消息气泡组件
                 Component {
                     id: imageBubbleComponent
                     ImageBubble {
@@ -91,6 +101,7 @@ Rectangle {
                 }
             }
 
+            // 垂直滚动条 — 浅灰配色，自动显示/隐藏
             ScrollBar.vertical: ScrollBar {
                 width: 8
                 anchors.right: parent.right
@@ -106,6 +117,7 @@ Rectangle {
                 }
             }
 
+            // 新消息到达时自动滚动到底部
             onCountChanged: {
                 Qt.callLater(function() {
                     positionViewAtEnd()
@@ -113,7 +125,7 @@ Rectangle {
             }
         }
 
-        // 图片内嵌预览条（选图后显示在输入区上方）
+        // 图片内嵌预览条 — 用户选择图片后显示缩略图、说明输入和发送/取消按钮
         Rectangle {
             id: imagePreviewBar
             Layout.fillWidth: true
@@ -192,6 +204,7 @@ Rectangle {
             }
         }
 
+        // 消息输入区域 — 包含文本输入、发送/图片/文件按钮
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
@@ -221,6 +234,7 @@ Rectangle {
                     border.color: "#E0E0E0"
                 }
 
+                // 回车发送（Shift+Enter 换行）
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
                         event.accepted = true
@@ -229,6 +243,7 @@ Rectangle {
                 }
             }
 
+            // 发送按钮 — 连接状态且输入非空时可用
             Button {
                 id: sendButton
                 anchors.right: parent.right
@@ -263,6 +278,7 @@ Rectangle {
                 }
             }
 
+            // 图片选择按钮 — 打开图片文件对话框
             Button {
                 id: imageButton
                 anchors.right: fileButton.left
@@ -294,6 +310,7 @@ Rectangle {
                 }
             }
 
+            // 文件选择按钮 — 打开通用文件对话框
             Button {
                 id: fileButton
                 anchors.right: sendButton.left
@@ -327,6 +344,7 @@ Rectangle {
         }
     }
 
+    // 通用文件选择对话框 — 选中后直接发送文件
     FileDialog {
         id: fileDialog
         title: "选择文件"
@@ -339,6 +357,7 @@ Rectangle {
         }
     }
 
+    // 图片文件选择对话框 — 选中后存入 pendingImagePath 触发内嵌预览
     FileDialog {
         id: imageFileDialog
         title: "选择图片"
@@ -348,6 +367,7 @@ Rectangle {
         }
     }
 
+    // 错误横幅 — 从底部滑入显示错误信息，4 秒后自动消失
     Rectangle {
         id: errorBanner
         anchors.left: parent.left
@@ -380,6 +400,7 @@ Rectangle {
         }
     }
 
+    // 连接状态指示器 — 断开时显示红点闪烁动画
     Rectangle {
         id: connectionIndicator
         width: 10
@@ -399,6 +420,7 @@ Rectangle {
         }
     }
 
+    // 连接状态文字提示
     Label {
         id: connectionLabel
         text: isConnected ? "" : qsTr("连接断开")
@@ -410,10 +432,12 @@ Rectangle {
         visible: !isConnected
     }
 
+    // 文件传输进度数据模型
     ListModel {
         id: fileProgressModel
     }
 
+    // 文件传输进度面板 — 右上角浮层，有任务时显示
     Rectangle {
         id: fileProgressPanel
         anchors.top: parent.top
@@ -440,7 +464,7 @@ Rectangle {
                 height: 40
                 color: "transparent"
 
-                // 关闭按钮
+                // 关闭按钮 — 点击移除该任务条目
                 Rectangle {
                     id: closeBtn
                     anchors.right: parent.right
@@ -503,9 +527,9 @@ Rectangle {
         }
     }
 
+    // 绑定 chatController 信号
     Connections {
         target: chatController
-
         function onSigError(errorMsg) {
             console.error("[Chat]: " + errorMsg)
             errorBanner.show(errorMsg)
@@ -566,6 +590,7 @@ Rectangle {
         }
     }
 
+    // 绑定 chatModel 信号 — 响应滚动到底部/顶部请求
     Connections {
         target: chatModel
 
@@ -578,7 +603,7 @@ Rectangle {
         }
     }
 
-    // 临时状态显示栏
+    // 调试用状态显示栏 — 显示当前 UID 和目标 UID
     Text {
         text: "当前UID: " + (chatController ? chatController.currentUid : "未知")
               + " | 目标UID: " + (chatController ? chatController.targetUid : "未选择")

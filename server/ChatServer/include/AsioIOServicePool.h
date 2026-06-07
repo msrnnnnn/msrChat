@@ -54,7 +54,6 @@ private:
     std::vector<WorkGuard> works_;                       ///< work guard 列表
     std::vector<std::thread> threads_;                   ///< 线程列表
     std::atomic<std::size_t> nextIOService_;             ///< 下一个 io_context 索引
-    std::size_t poolSize_;                               ///< 线程池大小
 };
 
 #endif // ASIOIOSERVICEPOOL_H

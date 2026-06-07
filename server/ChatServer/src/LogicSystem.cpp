@@ -7,12 +7,18 @@
 #include "MessageDispatcher.h"
 #include <spdlog/spdlog.h>
 
+/**
+ * @brief 构造函数，初始化工作线程池
+ */
 LogicSystem::LogicSystem()
     : _thread_pool(DEFAULT_THREAD_NUM)
 {
     spdlog::info("[LogicSystem] Initialized with {} worker threads", DEFAULT_THREAD_NUM);
 }
 
+/**
+ * @brief 析构函数，确保线程池安全退出
+ */
 LogicSystem::~LogicSystem()
 {
     Shutdown();
@@ -73,6 +79,10 @@ void LogicSystem::ProcessTask(MessageTask task)
     }
 }
 
+/**
+ * @brief 关闭逻辑处理系统
+ * @details 原子标记防止重复关闭，设置标志后线程池停止接受新任务并等待已入队任务完成
+ */
 void LogicSystem::Shutdown()
 {
     bool expected = false;
@@ -85,10 +95,5 @@ void LogicSystem::Shutdown()
     spdlog::info("[LogicSystem] Shutting down...");
     _thread_pool.Shutdown();
     spdlog::info("[LogicSystem] Shutdown complete");
-}
-
-bool LogicSystem::IsShuttingDown() const
-{
-    return _shutting_down.load();
 }
 

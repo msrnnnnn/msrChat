@@ -41,6 +41,10 @@ void FileTransferTask::SetStatus(Status status)
     _status.store(status);
 }
 
+/**
+ * @brief 获取单例实例
+ * @return FileTransfer& 全局唯一实例
+ */
 FileTransfer &FileTransfer::Instance()
 {
     static FileTransfer instance;
@@ -89,6 +93,11 @@ void FileTransfer::RemoveTask(int64_t task_id)
     _tasks.erase(task_id);
 }
 
+/**
+ * @brief 按用户 ID 清理传输任务
+ * @param uid 用户 ID
+ * @details 会话断开时调用，遍历并移除所有与该用户相关的任务
+ */
 void FileTransfer::RemoveTaskBySession(int uid)
 {
     std::lock_guard<std::mutex> lock(_task_mutex);

@@ -1,3 +1,9 @@
+/**
+ * @file    RingBuffer.h
+ * @brief   环形缓冲区
+ * @details 线程不安全的环形缓冲区，支持动态扩容。
+ *          写入空间不足时自动翻倍扩容，上限为 kMaxCapacity (4 MiB)。
+ */
 #ifndef RINGBUFFER_H
 #define RINGBUFFER_H
 
@@ -7,6 +13,11 @@
 #include <cstring>
 #include <memory>
 
+/**
+ * @brief 环形缓冲区（线程不安全）
+ * @details 基于循环数组的字节流缓冲区，支持动态扩容、随机窥探和消费标记。
+ *          禁止拷贝，支持移动构造。
+ */
 class RingBuffer
 {
 public:
