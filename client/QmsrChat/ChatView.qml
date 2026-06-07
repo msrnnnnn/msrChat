@@ -23,9 +23,16 @@ Rectangle {
     // 当前用户 ID 和目标用户 ID，由 chatController 驱动
     property int currentUid: chatController ? chatController.currentUid : 0
     property int targetUid: chatController ? chatController.targetUid : 0
-    // 连接状态，影响发送按钮可用性和连接指示器显示
-    property bool isConnected: chatController ? chatController.isConnected : false
+    // 连接状态，通过 Connections 监听信号更新
+    property bool isConnected: false
     property string pendingImagePath: ""  // 待发送图片路径（选中后内嵌预览）
+
+    // 监听 chatController 信号
+    Connections {
+        target: chatController
+        enabled: chatController !== null
+        function onSigConnectionStatusChanged() { if (chatController) isConnected = chatController.isConnected }
+    }
 
     // 主布局：消息列表 + 图片预览条 + 输入区，纵向排列
     ColumnLayout {
@@ -108,6 +115,8 @@ Rectangle {
                         if (uidText.length === 0) return
                         var uid = parseInt(uidText)
                         if (isNaN(uid) || uid <= 0) return
+                        if (!chatController) return
+                        if (chatController.currentUid <= 0) chatController.initialize()
 
                         connectBtn.isConnecting = true
                         connectBtn.text = qsTr("…")

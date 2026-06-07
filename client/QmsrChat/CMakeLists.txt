@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(QmsrChat VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-# 锁定 UI 文件的真实物理搜索路径
-set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ui")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -86,20 +84,10 @@ set(PROJECT_SOURCES
         src/main.cpp
         ${PROTO_SOURCES}
 
-        # UI 相关 (锁定在 ui 子目录)
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/mainwindow.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/logindialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/registerdialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/resetdialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/chatdialog.ui
+        # UI 相关
         resources.qrc
 
         # 头文件
-        include/MainWindow.h
-        include/LoginDialog.h
-        include/RegisterDialog.h
-        include/ResetDialog.h
-        include/ChatDialog.h
         include/Global.h
         include/UserMgr.h
         include/TcpMgr.h
@@ -110,7 +98,15 @@ set(PROJECT_SOURCES
         include/Singleton.h
         include/DPIHelper.h
         include/Utils.h
-        include/TimerBtn.h
+        include/ClickedLabel.h
+        include/ChatListModel.h
+        include/ImageDownloadMgr.h
+        include/DbService.h
+        include/DbWorker.h
+        include/RingBuffer.h
+        include/ChatController.h
+        include/ProtocolStructs.h
+        include/AuthController.h
         include/ClickedLabel.h
         include/ChatListModel.h
         include/ImageDownloadMgr.h
@@ -120,6 +116,7 @@ set(PROJECT_SOURCES
         include/ChatController.h
         include/AuthUiHelpers.h
         include/ProtocolStructs.h
+        include/AuthController.h
 
         # QML 视图 (严格锁定在根目录)
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
@@ -128,20 +125,18 @@ set(PROJECT_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MainWindow.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/LoginView.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/RegisterView.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ResetView.qml
 
         # 实现文件
-        src/MainWindow.cpp
-        src/LoginDialog.cpp
-        src/RegisterDialog.cpp
-        src/ResetDialog.cpp
-        src/ChatDialog.cpp
         src/UserMgr.cpp
         src/TcpMgr.cpp
         src/TcpProtocolParser.cpp
         src/TcpWorker.cpp
         src/FileRecvMgr.cpp
         src/FileSendMgr.cpp
-        src/TimerBtn.cpp
         src/ClickedLabel.cpp
         src/ChatListModel.cpp
         src/ImageDownloadMgr.cpp
@@ -149,6 +144,7 @@ set(PROJECT_SOURCES
         src/DbWorker.cpp
         src/ChatController.cpp
         src/Utils.cpp
+        src/AuthController.cpp
 )
 
 # Windows 平台：添加可执行文件图标

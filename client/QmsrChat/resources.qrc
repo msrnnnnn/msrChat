@@ -10,5 +10,9 @@
         <file>ImageViewer.qml</file>
         <file>MessageActionMenu.qml</file>
         <file>EditMessageDialog.qml</file>
+        <file>MainWindow.qml</file>
+        <file>LoginView.qml</file>
+        <file>RegisterView.qml</file>
+        <file>ResetView.qml</file>
     </qresource>
 </RCC>

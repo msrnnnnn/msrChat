@@ -588,12 +588,13 @@ void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
 void ChatController::loadHistory()
 {
     _has_more_history = true;
-    if (_current_uid <= 0 || _target_uid <= 0)
+    int currentUid = UserMgr::Instance()->GetUid();
+    if (currentUid <= 0 || _target_uid <= 0)
     {
         return;
     }
 
-    DbThreadManager::Instance().GetMessages(_current_uid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
+    DbThreadManager::Instance().GetMessages(currentUid, _target_uid, LLONG_MAX, HISTORY_PAGE_SIZE);
 }
 
 /**
@@ -601,7 +602,8 @@ void ChatController::loadHistory()
  */
 void ChatController::loadMoreHistory()
 {
-    if (_current_uid <= 0 || _target_uid <= 0 || !_has_more_history)
+    int currentUid = UserMgr::Instance()->GetUid();
+    if (currentUid <= 0 || _target_uid <= 0 || !_has_more_history)
     {
         return;
     }
@@ -612,7 +614,7 @@ void ChatController::loadMoreHistory()
         before_time = _chat_model->GetEarliestTimestamp();
     }
 
-    DbThreadManager::Instance().GetMessages(_current_uid, _target_uid, before_time, HISTORY_PAGE_SIZE);
+    DbThreadManager::Instance().GetMessages(currentUid, _target_uid, before_time, HISTORY_PAGE_SIZE);
 }
 
 /**
@@ -620,11 +622,12 @@ void ChatController::loadMoreHistory()
  */
 void ChatController::clearHistory()
 {
-    if (_current_uid <= 0 || _target_uid <= 0)
+    int currentUid = UserMgr::Instance()->GetUid();
+    if (currentUid <= 0 || _target_uid <= 0)
     {
         return;
     }
-    DbThreadManager::Instance().DeleteMessages(_current_uid, _target_uid);
+    DbThreadManager::Instance().DeleteMessages(currentUid, _target_uid);
     if (_chat_model != nullptr)
     {
         _chat_model->ClearMessages();
@@ -752,6 +755,11 @@ void ChatController::slotOnChatLoginRsp(const ChatLoginRspStruct &rsp)
         emit sigConnectionStatusChanged();
         emit sigError(rsp.message.isEmpty() ? QStringLiteral("聊天会话恢复失败") : rsp.message);
         return;
+    }
+    if (!_is_connected)
+    {
+        _is_connected = true;
+        emit sigConnectionStatusChanged();
     }
 }
 
