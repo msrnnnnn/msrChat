@@ -69,8 +69,8 @@ endif()
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets QuickControls2 QuickLayouts)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts Test)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Network Quick Sql QuickControls2 QuickLayouts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network Core Quick Qml Sql QuickControls2 QuickLayouts Test)
 
 find_package(Protobuf REQUIRED)
 
@@ -98,23 +98,12 @@ set(PROJECT_SOURCES
         include/Singleton.h
         include/DPIHelper.h
         include/Utils.h
-        include/ClickedLabel.h
         include/ChatListModel.h
         include/ImageDownloadMgr.h
         include/DbService.h
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
-        include/ProtocolStructs.h
-        include/AuthController.h
-        include/ClickedLabel.h
-        include/ChatListModel.h
-        include/ImageDownloadMgr.h
-        include/DbService.h
-        include/DbWorker.h
-        include/RingBuffer.h
-        include/ChatController.h
-        include/AuthUiHelpers.h
         include/ProtocolStructs.h
         include/AuthController.h
 
@@ -137,7 +126,6 @@ set(PROJECT_SOURCES
         src/TcpWorker.cpp
         src/FileRecvMgr.cpp
         src/FileSendMgr.cpp
-        src/ClickedLabel.cpp
         src/ChatListModel.cpp
         src/ImageDownloadMgr.cpp
         src/DbService.cpp
@@ -170,13 +158,11 @@ else()
 endif()
 
 target_link_libraries(QmsrChat PRIVATE
-    Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Quick
     Qt${QT_VERSION_MAJOR}::Qml
     Qt${QT_VERSION_MAJOR}::Sql
-    Qt${QT_VERSION_MAJOR}::QuickWidgets
     Qt${QT_VERSION_MAJOR}::QuickControls2
     Qt${QT_VERSION_MAJOR}::QuickLayouts
     protobuf::libprotobuf

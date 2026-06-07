@@ -8,11 +8,10 @@
 #define UTILS_H
 
 #include <QString>
-#include <QWidget>
 
 /**
  * @brief 通用工具类（全局单例）
- * @details 提供密码哈希、样式刷新等全局工具函数。
+ * @details 提供密码哈希等全局工具函数。
  */
 class Utils
 {
@@ -26,12 +25,6 @@ public:
      * @return SHA-256 哈希后的十六进制字符串
      */
     static QString hashPassword(const QString &input);
-    /**
-     * @brief 强制刷新控件的 QSS 样式
-     * @details 通过移除并重新设置样式表来触发 Qt 样式重绘
-     * @param w 目标控件
-     */
-    static void repolish(QWidget *w);
 
     static Utils &instance()
     {

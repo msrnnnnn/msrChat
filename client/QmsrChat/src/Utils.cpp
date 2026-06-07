@@ -5,7 +5,6 @@
 
 #include "Utils.h"
 #include <QCryptographicHash>
-#include <QStyle>
 
 /**
  * @brief 获取密码盐值（静态常量，编译期确定）
@@ -28,18 +27,4 @@ QString Utils::hashPassword(const QString &input)
     QString salted = input + salt();
     QByteArray data = QCryptographicHash::hash(salted.toUtf8(), QCryptographicHash::Sha256);
     return salt() + data.toHex();
-}
-
-/**
- * @brief 强制刷新控件样式
- * @param w 目标控件
- * @details 先 unpolish 再 polish 触发 QStyle 重新计算，常用于动态切换样式表后刷新界面。
- */
-void Utils::repolish(QWidget *w)
-{
-    if (w)
-    {
-        w->style()->unpolish(w);
-        w->style()->polish(w);
-    }
 }
