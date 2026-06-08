@@ -13,6 +13,9 @@ Item {
     property int verifyCountdown: 0
     property int successCountdown: 5
     property int currentPage: 1
+    property real preferredHeight: currentPage === 1
+        ? formColumn.implicitHeight + 64
+        : successCol.implicitHeight + 64
 
     Rectangle {
         visible: currentPage === 1
@@ -21,19 +24,33 @@ Item {
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+
         clip: true
 
-        // 顶部渐变装饰条（由父级 clip 裁切圆角）
-        Rectangle {
+        // 顶部渐变装饰条 — Canvas 绘制，跟随卡片圆角裁切
+        Canvas {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 4
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#4F46E5" }
-                GradientStop { position: 0.5; color: "#818CF8" }
-                GradientStop { position: 1.0; color: "#4F46E5" }
+            height: 16
+            z: 1
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                ctx.beginPath()
+                ctx.moveTo(0, 16)
+                ctx.arcTo(0, 0, 16, 0, 16)
+                ctx.lineTo(width - 16, 0)
+                ctx.arcTo(width, 0, width, 16, 16)
+                ctx.lineTo(width, 16)
+                ctx.closePath()
+                ctx.clip()
+                var grad = ctx.createLinearGradient(0, 0, width, 0)
+                grad.addColorStop(0, "#4F46E5")
+                grad.addColorStop(0.5, "#818CF8")
+                grad.addColorStop(1, "#4F46E5")
+                ctx.fillStyle = grad
+                ctx.fillRect(0, 0, width, 3)
             }
         }
 
@@ -231,22 +248,37 @@ Item {
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+
         clip: true
 
-        // 顶部渐变装饰条（由父级 clip 裁切圆角）
-        Rectangle {
+        // 顶部渐变装饰条 — Canvas 绘制，跟随卡片圆角裁切
+        Canvas {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 4
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#4F46E5" }
-                GradientStop { position: 0.5; color: "#818CF8" }
-                GradientStop { position: 1.0; color: "#4F46E5" }
+            height: 16
+            z: 1
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                ctx.beginPath()
+                ctx.moveTo(0, 16)
+                ctx.arcTo(0, 0, 16, 0, 16)
+                ctx.lineTo(width - 16, 0)
+                ctx.arcTo(width, 0, width, 16, 16)
+                ctx.lineTo(width, 16)
+                ctx.closePath()
+                ctx.clip()
+                var grad = ctx.createLinearGradient(0, 0, width, 0)
+                grad.addColorStop(0, "#4F46E5")
+                grad.addColorStop(0.5, "#818CF8")
+                grad.addColorStop(1, "#4F46E5")
+                ctx.fillStyle = grad
+                ctx.fillRect(0, 0, width, 3)
             }
         }
         ColumnLayout {
+            id: successCol
             anchors.fill: parent
             anchors.margins: 32
             spacing: 12

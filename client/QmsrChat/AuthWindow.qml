@@ -12,10 +12,15 @@ ApplicationWindow {
     id: authWindow
     visible: true
     width: 376
-    height: 620
+    height: pageStack.currentItem && pageStack.currentItem.preferredHeight
+            ? pageStack.currentItem.preferredHeight : 540
     flags: Qt.FramelessWindowHint | Qt.Window
     color: "transparent"
     title: "msrChat"
+
+    Behavior on height {
+        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+    }
 
     // 预创建页面实例 — 避免首次切换时编译+创建的卡顿
     // 所有页面作为 StackView 子项，StackView 管理可见性

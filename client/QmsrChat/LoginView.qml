@@ -9,6 +9,7 @@ Item {
     property bool isSubmitting: false
     property string errorMessage: ""
     property string successMessage: ""
+    property real preferredHeight: cardColumn.implicitHeight + 64  // 32px top + 32px bottom margin
 
     Rectangle {
         id: card
@@ -17,19 +18,35 @@ Item {
         radius: 16
         border.width: 1
         border.color: "#EAE9F2"
+
         clip: true
 
-        // 顶部渐变装饰条（由父级 clip 裁切圆角）
-        Rectangle {
+        // 顶部渐变装饰条 — Canvas 绘制，跟随卡片圆角裁切
+        Canvas {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 4
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.0; color: "#4F46E5" }
-                GradientStop { position: 0.5; color: "#818CF8" }
-                GradientStop { position: 1.0; color: "#4F46E5" }
+            height: 16  // 与卡片 radius 一致
+            z: 1
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                // 裁切路径：仅保留卡片圆角内区域
+                ctx.beginPath()
+                ctx.moveTo(0, 16)  // 左下角（圆角下方）
+                ctx.arcTo(0, 0, 16, 0, 16)  // 左上圆角
+                ctx.lineTo(width - 16, 0)
+                ctx.arcTo(width, 0, width, 16, 16)  // 右上圆角
+                ctx.lineTo(width, 16)
+                ctx.closePath()
+                ctx.clip()
+                // 水平渐变填充
+                var grad = ctx.createLinearGradient(0, 0, width, 0)
+                grad.addColorStop(0, "#4F46E5")
+                grad.addColorStop(0.5, "#818CF8")
+                grad.addColorStop(1, "#4F46E5")
+                ctx.fillStyle = grad
+                ctx.fillRect(0, 0, width, 3)
             }
         }
 

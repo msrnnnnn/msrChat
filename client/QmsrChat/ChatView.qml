@@ -96,6 +96,7 @@ Rectangle {
                     id: connectBtn
                     text: qsTr("连接")
                     Layout.preferredHeight: 32
+                    Layout.preferredWidth: 72
                     font.pixelSize: 12
                     font.family: "Microsoft YaHei"
                     font.weight: Font.DemiBold
@@ -176,14 +177,14 @@ Rectangle {
         Rectangle {
             id: statusBar
             Layout.fillWidth: true
-            Layout.preferredHeight: 24
+            Layout.preferredHeight: 26
             color: "#F8F9FE"
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 12
+                anchors.leftMargin: 8
                 anchors.rightMargin: 24
-                spacing: 4
+                spacing: 2
 
                 Rectangle {
                     width: 6; height: 6; radius: 3
@@ -292,14 +293,14 @@ Rectangle {
             }
         }
 
-        // 图片内嵌预览条 — 用户选择图片后显示缩略图、说明输入和发送/取消按钮（对齐 HTML .ipb）
-        ColumnLayout {
-            id: imagePreviewWrapper
+        // 图片内嵌预览条 — 对齐 HTML .ipb：72px 高 (12 + 48 + 12)，缩略图用 Canvas 圆角裁切
+        Rectangle {
+            id: imagePreviewBar
             Layout.fillWidth: true
-            Layout.preferredHeight: pendingImagePath !== "" ? 65 : 0
+            Layout.preferredHeight: pendingImagePath !== "" ? 72 : 0
             visible: pendingImagePath !== ""
             clip: true
-            spacing: 0
+            color: "#EEF2FF"
 
             Behavior on Layout.preferredHeight {
                 NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
@@ -307,133 +308,158 @@ Rectangle {
 
             // 顶部紫色分隔线
             Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 1
                 color: "#E0E7FF"
             }
 
-            Rectangle {
-                id: imagePreviewBar
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#EEF2FF"
+            RowLayout {
+                anchors.fill: parent
+                anchors.topMargin: 12
+                anchors.bottomMargin: 12
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                spacing: 12
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 12
+                // 缩略图（48x48，圆角 8，紫色边框 — Canvas 裁切）
+                Item {
+                    Layout.preferredWidth: 48
+                    Layout.preferredHeight: 48
 
-                    // 缩略图（48x48，圆角 8，紫色边框 — clip 裁切）
-                    Item {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 8
-                            clip: true
-                            color: "#EEF2FF"
-
-                            Image {
-                                anchors.fill: parent
-                                source: pendingImagePath
-                                fillMode: Image.PreserveAspectCrop
+                    // Canvas: 绘制圆角裁切的缩略图
+                    Canvas {
+                        id: thumbCanvas
+                        anchors.fill: parent
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+                            // 圆角裁切路径
+                            ctx.beginPath()
+                            var r = 8
+                            ctx.moveTo(r, 0)
+                            ctx.lineTo(width - r, 0)
+                            ctx.arcTo(width, 0, width, r, r)
+                            ctx.lineTo(width, height - r)
+                            ctx.arcTo(width, height, width - r, height, r)
+                            ctx.lineTo(r, height)
+                            ctx.arcTo(0, height, 0, height - r, r)
+                            ctx.lineTo(0, r)
+                            ctx.arcTo(0, 0, r, 0, r)
+                            ctx.closePath()
+                            ctx.clip()
+                            // 绘制图片
+                            var img = imageSource
+                            if (img && img.status === Image.Ready) {
+                                ctx.drawImage(img, 0, 0, width, height)
                             }
-                        }
-
-                        // 紫色边框 overlay
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 8
-                            color: "transparent"
-                            border.width: 1
-                            border.color: "#E0E7FF"
                         }
                     }
 
-                    // Caption 输入框（34px 高，圆角 8，紫色系边框）
-                    TextField {
-                        id: inlineCaptionInput
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 34
-                        placeholderText: qsTr("添加图片说明（可选）")
-                        maximumLength: 200
-                        font.pixelSize: 13
+                    // 图片源（隐藏，仅作为 Canvas 绘制源）
+                    Image {
+                        id: imageSource
+                        anchors.fill: parent
+                        source: pendingImagePath
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                        onStatusChanged: if (status === Image.Ready) thumbCanvas.requestPaint()
+                    }
+
+                    // 紫色边框 overlay
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 8
+                        color: "transparent"
+                        border.width: 1
+                        border.color: "#E0E7FF"
+                    }
+                }
+
+                // Caption 输入框（34px 高，圆角 8，紫色系边框）
+                TextField {
+                    id: inlineCaptionInput
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 34
+                    placeholderText: qsTr("添加图片说明（可选）")
+                    maximumLength: 200
+                    font.pixelSize: 13
+                    font.family: "Microsoft YaHei"
+                    color: "#1A1A2E"
+                    background: Rectangle {
+                        color: "#FFFFFF"
+                        radius: 8
+                        border.width: 1
+                        border.color: inlineCaptionInput.activeFocus ? "#4F46E5" : "#E0E7FF"
+                    }
+                }
+
+                // 发送图片按钮
+                Button {
+                    id: imgPreviewSendBtn
+                    text: qsTr("发送")
+                    Layout.preferredWidth: 60
+                    Layout.preferredHeight: 34
+
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#FFFFFF"
+                        font.pixelSize: 12
                         font.family: "Microsoft YaHei"
-                        color: "#1A1A2E"
-                        background: Rectangle {
-                            color: "#FFFFFF"
-                            radius: 8
-                            border.width: 1
-                            border.color: inlineCaptionInput.activeFocus ? "#4F46E5" : "#E0E7FF"
-                        }
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: imgPreviewSendBtn.hovered ? "#3730A3" : "#4F46E5"
+                        radius: 8
                     }
 
-                    // 发送图片按钮（紫色，34px 高，白字）
-                    Button {
-                        id: imgPreviewSendBtn
-                        text: qsTr("发送")
-                        Layout.preferredWidth: 60
-                        Layout.preferredHeight: 34
+                    onClicked: {
+                        if (chatController) {
+                            chatController.sendImage(pendingImagePath, inlineCaptionInput.text)
+                        }
+                        pendingImagePath = ""
+                        inlineCaptionInput.text = ""
+                    }
+                }
 
-                        contentItem: Text {
-                            text: parent.text
-                            color: "#FFFFFF"
-                            font.pixelSize: 12
-                            font.family: "Microsoft YaHei"
-                            font.weight: Font.DemiBold
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        background: Rectangle {
-                            color: imgPreviewSendBtn.hovered ? "#3730A3" : "#4F46E5"
-                            radius: 8
-                        }
+                // 取消按钮
+                Button {
+                    id: imgPreviewCancelBtn
+                    text: qsTr("✕")
+                    Layout.preferredWidth: 34
+                    Layout.preferredHeight: 34
+                    flat: true
 
-                        onClicked: {
-                            if (chatController) {
-                                chatController.sendImage(pendingImagePath, inlineCaptionInput.text)
-                            }
-                            pendingImagePath = ""
-                            inlineCaptionInput.text = ""
-                        }
+                    contentItem: Text {
+                        text: parent.text
+                        color: imgPreviewCancelBtn.hovered ? "#1A1A2E" : "#9C9AAA"
+                        font.pixelSize: 12
+                        font.family: "Microsoft YaHei"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: "transparent"
+                        radius: 8
                     }
 
-                    // 取消按钮（透明背景，灰色文字，hover 变深色）
-                    Button {
-                        id: imgPreviewCancelBtn
-                        text: qsTr("✕")
-                        Layout.preferredWidth: 34
-                        Layout.preferredHeight: 34
-                        flat: true
-
-                        contentItem: Text {
-                            text: parent.text
-                            color: imgPreviewCancelBtn.hovered ? "#1A1A2E" : "#9C9AAA"
-                            font.pixelSize: 12
-                            font.family: "Microsoft YaHei"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        background: Rectangle {
-                            color: "transparent"
-                            radius: 8
-                        }
-
-                        onClicked: {
-                            pendingImagePath = ""
-                            inlineCaptionInput.text = ""
-                        }
+                    onClicked: {
+                        pendingImagePath = ""
+                        inlineCaptionInput.text = ""
                     }
                 }
             }
         }
 
-        // 消息输入区域 — 参照 HTML .ia：工具栏(左) | TextArea(flex) | 发送按钮(右)
+        // 消息输入区域 — 参照 HTML .ia：工具栏(左) | Flickable+TextArea(flex) | 发送按钮(右)
         Rectangle {
             id: inputArea
             Layout.fillWidth: true
-            Layout.preferredHeight: messageInput.implicitHeight + 28
+            Layout.preferredHeight: Math.min(Math.max(44, messageInput.implicitHeight), 120) + 16
+            Layout.maximumHeight: 136  // 120 max text + 16 padding
             color: "#FFFFFF"
             border.width: 1
             border.color: "#EAE9F2"
@@ -496,29 +522,39 @@ Rectangle {
                     }
                 }
 
-                // 消息输入框（flex:1，无边框，高度 44~120 自适应）
-                TextArea {
-                    id: messageInput
+                // 消息输入框 — Flickable + TextArea 实现长文本可鼠标滚动
+                Flickable {
+                    id: messageFlickable
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignBottom
-                    Layout.preferredHeight: Math.min(Math.max(44, implicitHeight), 120)
-                    placeholderText: qsTr("输入消息… (Enter 发送, Shift+Enter 换行)")
-                    placeholderTextColor: "#9C9AAA"
-                    wrapMode: TextArea.Wrap
-                    font.pixelSize: 14
-                    font.family: "Microsoft YaHei"
-                    padding: 10
-                    color: "#1A1A2E"
+                    Layout.preferredHeight: Math.min(Math.max(44, messageInput.implicitHeight), 120)
+                    Layout.maximumHeight: 120
+                    Layout.minimumHeight: 44
+                    clip: true
+                    contentHeight: messageInput.implicitHeight
+                    boundsMovement: Flickable.StopAtBounds
+                    flickableDirection: Flickable.VerticalFlick
 
-                    background: Rectangle {
-                        color: messageInput.activeFocus ? "#EEF2FF" : "#F8F9FE"
-                        radius: 10
-                    }
+                    TextArea.flickable: TextArea {
+                        id: messageInput
+                        placeholderText: qsTr("输入消息… (Enter 发送, Shift+Enter 换行)")
+                        placeholderTextColor: "#9C9AAA"
+                        wrapMode: TextArea.Wrap
+                        font.pixelSize: 14
+                        font.family: "Microsoft YaHei"
+                        padding: 10
+                        color: "#1A1A2E"
 
-                    Keys.onPressed: function(event) {
-                        if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
-                            event.accepted = true
-                            sendButton.clicked()
+                        background: Rectangle {
+                            color: messageInput.activeFocus ? "#EEF2FF" : "#F8F9FE"
+                            radius: 10
+                        }
+
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Return && !(event.modifiers & Qt.ShiftModifier)) {
+                                event.accepted = true
+                                sendButton.clicked()
+                            }
                         }
                     }
                 }
@@ -669,6 +705,22 @@ Rectangle {
         id: fileProgressModel
     }
 
+    // 文件传输超时检测 — 如果 10 秒后 progress 仍为 0，标记为等待状态
+    Timer {
+        id: fileTransferTimeout
+        interval: 10000
+        repeat: false
+        onTriggered: {
+            for (var i = 0; i < fileProgressModel.count; i++) {
+                var item = fileProgressModel.get(i)
+                if (item.progress === 0 && item.error === "") {
+                    console.log("[ChatView] File transfer timeout for task " + item.task_id)
+                    fileProgressModel.setProperty(i, "error", "waiting")
+                }
+            }
+        }
+    }
+
     // 文件传输进度面板 — 右上角浮层，对齐 HTML .fp-panel，自定义渐变进度条 + 入场动画
     Item {
         id: fileProgressPanel
@@ -799,6 +851,7 @@ Rectangle {
                                 if (model.progress < 0) {
                                     return (model.error && model.error !== "") ? model.error : qsTr("失败")
                                 }
+                                if (model.progress === 0 && model.error === "waiting") return qsTr("等待对方响应...")
                                 return model.progress + "%"
                             }
                             font.pixelSize: 10
@@ -829,13 +882,17 @@ Rectangle {
         }
 
         function onSigFileSendStarted(task_id, filename, total_size) {
-            console.log("[ChatView] FileSendStarted: task=" + task_id + " file=" + filename + " size=" + total_size)
-            fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0, "error": ""})
+            var tid = String(task_id)
+            console.log("[ChatView] FileSendStarted: task=" + tid + " file=" + filename + " size=" + total_size)
+            fileProgressModel.append({"task_id": tid, "filename": filename, "progress": 0, "error": ""})
+            fileTransferTimeout.restart()  // 启动 10 秒超时检测
         }
 
         function onSigFileSendProgress(task_id, prog, sent, total) {
+            var tid = String(task_id)
+            console.log("[ChatView] FileSendProgress: task=" + tid + " prog=" + prog + "% sent=" + sent + "/" + total)
             for (var i = 0; i < fileProgressModel.count; i++) {
-                if (fileProgressModel.get(i).task_id === task_id) {
+                if (fileProgressModel.get(i).task_id === tid) {
                     fileProgressModel.setProperty(i, "progress", prog)
                     break
                 }
@@ -843,10 +900,10 @@ Rectangle {
         }
 
         function onSigFileSendComplete(task_id, success, error) {
-            console.log("[Chat] FileSendComplete, task_id:" + task_id + " success:" + success)
-            // 找到并更新为完成状态，不立即移除，让用户看清
+            var tid = String(task_id)
+            console.log("[ChatView] FileSendComplete: task=" + tid + " success=" + success + " error=" + error)
             for (var i = 0; i < fileProgressModel.count; i++) {
-                if (fileProgressModel.get(i).task_id === task_id) {
+                if (fileProgressModel.get(i).task_id === tid) {
                     if (success) {
                         fileProgressModel.setProperty(i, "filename", "已发送: " + fileProgressModel.get(i).filename)
                         fileProgressModel.setProperty(i, "progress", 100)
@@ -862,17 +919,18 @@ Rectangle {
         }
 
         function onSigFileRecvProgress(task_id, prog, received, total) {
-            // 接收进度暂不显示在发送进度面板，可由独立 UI 处理
-            console.log("[FileRecv] task=" + task_id + " progress=" + prog + "%")
+            var tid = String(task_id)
+            console.log("[FileRecv] task=" + tid + " progress=" + prog + "%")
         }
 
         function onSigFileRecvComplete(task_id, filepath, success, error) {
+            var tid = String(task_id)
             if (success) {
                 console.log("[FileRecv] Complete: " + filepath)
-                fileProgressModel.append({"task_id": task_id, "filename": "已保存: " + filepath, "progress": 100, "error": ""})
+                fileProgressModel.append({"task_id": tid, "filename": "已保存: " + filepath, "progress": 100, "error": ""})
             } else {
                 console.error("[FileRecv] Failed: " + error)
-                fileProgressModel.append({"task_id": task_id, "filename": "接收失败", "progress": -1, "error": error})
+                fileProgressModel.append({"task_id": tid, "filename": "接收失败", "progress": -1, "error": error})
             }
         }
 
