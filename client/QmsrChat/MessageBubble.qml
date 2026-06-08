@@ -111,15 +111,14 @@ Item {
         }
     }
 
-    // 时间与状态行 — 己方从气泡左缘延伸到右边缘（近滚动条），对方左对齐气泡
+    // 时间与状态行 — 放在气泡下方，己方右对齐，对方左对齐
     RowLayout {
         id: metaRow
         anchors.top: bubbleRect.bottom
         anchors.topMargin: 2
-        anchors.left: bubbleRect.left
-        anchors.right: isSelf ? parent.right : undefined
-        anchors.rightMargin: isSelf ? 8 : 0
-        width: isSelf ? undefined : bubbleRect.width
+        anchors.right: isSelf ? bubbleRect.right : undefined
+        anchors.left: isSelf ? undefined : bubbleRect.left
+        width: bubbleRect.width
         spacing: 4
         visible: !recalled
 
