@@ -182,9 +182,9 @@ Rectangle {
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 8
+                anchors.leftMargin: 24
                 anchors.rightMargin: 24
-                spacing: 2
+                spacing: 0
 
                 Rectangle {
                     width: 6; height: 6; radius: 3
@@ -323,48 +323,18 @@ Rectangle {
                 anchors.rightMargin: 16
                 spacing: 12
 
-                // 缩略图（48x48，圆角 8，紫色边框 — Canvas 裁切）
-                Item {
+                // 缩略图（48x48，圆角 8，紫色边框 — clip 裁切）
+                Rectangle {
                     Layout.preferredWidth: 48
                     Layout.preferredHeight: 48
+                    radius: 8
+                    clip: true
+                    color: "#EEF2FF"
 
-                    // Canvas: 绘制圆角裁切的缩略图
-                    Canvas {
-                        id: thumbCanvas
-                        anchors.fill: parent
-                        onPaint: {
-                            var ctx = getContext("2d")
-                            ctx.reset()
-                            // 圆角裁切路径
-                            ctx.beginPath()
-                            var r = 8
-                            ctx.moveTo(r, 0)
-                            ctx.lineTo(width - r, 0)
-                            ctx.arcTo(width, 0, width, r, r)
-                            ctx.lineTo(width, height - r)
-                            ctx.arcTo(width, height, width - r, height, r)
-                            ctx.lineTo(r, height)
-                            ctx.arcTo(0, height, 0, height - r, r)
-                            ctx.lineTo(0, r)
-                            ctx.arcTo(0, 0, r, 0, r)
-                            ctx.closePath()
-                            ctx.clip()
-                            // 绘制图片
-                            var img = imageSource
-                            if (img && img.status === Image.Ready) {
-                                ctx.drawImage(img, 0, 0, width, height)
-                            }
-                        }
-                    }
-
-                    // 图片源（隐藏，仅作为 Canvas 绘制源）
                     Image {
-                        id: imageSource
                         anchors.fill: parent
                         source: pendingImagePath
                         fillMode: Image.PreserveAspectCrop
-                        visible: false
-                        onStatusChanged: if (status === Image.Ready) thumbCanvas.requestPaint()
                     }
 
                     // 紫色边框 overlay
