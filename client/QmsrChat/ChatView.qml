@@ -278,12 +278,20 @@ Rectangle {
                 }
             }
 
-            // 垂直滚动条 — 浅灰配色，自动显示/隐藏
-            ScrollBar.vertical: ScrollBar {
+            // 垂直滚动条 — 使用独立 ScrollBar 避免被 ListView clip 裁切
+            ScrollBar {
+                id: messageListScrollBar
+                z: 2
                 width: 8
-                anchors.right: parent.right
-                anchors.rightMargin: -2
+                anchors {
+                    top: messageListView.top
+                    right: chatViewRoot.right
+                    bottom: messageListView.bottom
+                }
                 policy: ScrollBar.AsNeeded
+                orientation: Qt.Vertical
+                size: messageListView.visibleArea.heightRatio
+                position: messageListView.visibleArea.yPosition
                 background: Rectangle {
                     color: "#EAE9F2"
                     radius: 4
@@ -661,13 +669,12 @@ Rectangle {
         }
     }
 
-    // 错误横幅 — 从底部滑入显示错误信息，4 秒后自动消失
+    // 错误横幅 — 紧贴输入框上方，4 秒后自动消失
     Rectangle {
         id: errorBanner
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 130  // inputArea height
+        anchors.bottom: inputArea.top
         height: 0
         color: "#EF4444"
         visible: height > 0
