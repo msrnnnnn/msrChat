@@ -728,43 +728,45 @@ Rectangle {
         opacity: 0
         z: 20
 
-        Behavior on opacity {
-            NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
+        // 入场动画
+        NumberAnimation {
+            id: entryAnim
+            target: fileProgressPanel
+            property: "opacity"
+            from: 0; to: 1
+            duration: 300
+            easing.type: Easing.OutCubic
         }
 
-        SequentialAnimation {
-            id: entryAnim
-            NumberAnimation { target: fileProgressPanel; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutCubic }
+        // 淡出动画
+        NumberAnimation {
+            id: fadeAnim
+            target: fileProgressPanel
+            property: "opacity"
+            to: 0
+            duration: 500
+            easing.type: Easing.OutCubic
+            onStopped: {
+                fileProgressModel.clear()
+                fileProgressPanel.visible = false
+            }
         }
 
         Timer {
             id: fadeDelayTimer
             interval: 3000
             onTriggered: {
-                console.log("[ProgressPanel] Starting fade-out")
-                fileProgressPanel.opacity = 0
-                fadeCleanTimer.restart()
-            }
-        }
-
-        Timer {
-            id: fadeCleanTimer
-            interval: 600
-            onTriggered: {
-                fileProgressModel.clear()
-                fileProgressPanel.visible = false
-                fileProgressPanel.opacity = 0
+                console.log("[ProgressPanel] Starting fade-out animation")
+                fadeAnim.start()
             }
         }
 
         function showPanel() {
-            if (!visible) {
-                visible = true
-                opacity = 0
-                entryAnim.restart()
-            }
             fadeDelayTimer.stop()
-            fadeCleanTimer.stop()
+            fadeAnim.stop()
+            visible = true
+            opacity = 0
+            entryAnim.start()
         }
 
         function checkAllComplete() {
@@ -773,9 +775,9 @@ Rectangle {
                 var p = fileProgressModel.get(i).progress
                 if (p >= 0 && p < 100) return
             }
-            console.log("[ProgressPanel] All transfers done, scheduling fade")
-            if (!fadeDelayTimer.running && !fadeCleanTimer.running) {
-                fadeDelayTimer.restart()
+            console.log("[ProgressPanel] All transfers done, scheduling fade in 3s")
+            if (!fadeDelayTimer.running && !fadeAnim.running) {
+                fadeDelayTimer.start()
             }
         }
 
