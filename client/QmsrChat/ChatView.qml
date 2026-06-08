@@ -724,20 +724,12 @@ Rectangle {
         anchors.rightMargin: 16
         width: 240
         height: Math.max(60, fileProgressList.contentHeight)
-        property bool isFading: false
-        visible: fileProgressModel.count > 0 || isFading
+        visible: false
         opacity: 0
         z: 20
 
         Behavior on opacity {
             NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
-        }
-
-        onVisibleChanged: {
-            if (visible && !isFading) {
-                opacity = 0
-                entryAnim.restart()
-            }
         }
 
         SequentialAnimation {
@@ -749,9 +741,9 @@ Rectangle {
             id: fadeDelayTimer
             interval: 3000
             onTriggered: {
-                fileProgressPanel.isFading = true
+                console.log("[ProgressPanel] Starting fade-out")
                 fileProgressPanel.opacity = 0
-                fadeCleanTimer.start()
+                fadeCleanTimer.restart()
             }
         }
 
@@ -760,8 +752,19 @@ Rectangle {
             interval: 600
             onTriggered: {
                 fileProgressModel.clear()
-                fileProgressPanel.isFading = false
+                fileProgressPanel.visible = false
+                fileProgressPanel.opacity = 0
             }
+        }
+
+        function showPanel() {
+            if (!visible) {
+                visible = true
+                opacity = 0
+                entryAnim.restart()
+            }
+            fadeDelayTimer.stop()
+            fadeCleanTimer.stop()
         }
 
         function checkAllComplete() {
@@ -770,7 +773,10 @@ Rectangle {
                 var p = fileProgressModel.get(i).progress
                 if (p >= 0 && p < 100) return
             }
-            if (!fadeDelayTimer.running) fadeDelayTimer.restart()
+            console.log("[ProgressPanel] All transfers done, scheduling fade")
+            if (!fadeDelayTimer.running && !fadeCleanTimer.running) {
+                fadeDelayTimer.restart()
+            }
         }
 
         // 主体卡片
@@ -912,6 +918,7 @@ Rectangle {
             var tid = String(task_id)
             console.log("[ChatView] FileSendStarted: task=" + tid + " file=" + filename + " size=" + total_size)
             fileProgressModel.append({"task_id": tid, "filename": filename, "progress": 0, "error": ""})
+            fileProgressPanel.showPanel()
             fileTransferTimeout.restart()  // 启动 10 秒超时检测
         }
 
@@ -953,6 +960,7 @@ Rectangle {
 
         function onSigFileRecvComplete(task_id, filepath, success, error) {
             var tid = String(task_id)
+            fileProgressPanel.showPanel()
             if (success) {
                 console.log("[FileRecv] Complete: " + filepath)
                 fileProgressModel.append({"task_id": tid, "filename": "已保存: " + filepath, "progress": 100, "error": ""})

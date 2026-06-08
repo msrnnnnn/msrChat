@@ -30,8 +30,8 @@ Item {
     property int maxBubbleWidth: Math.floor(viewWidth * 0.5)
 
     width: parent ? parent.width : 0
-    // 根据撤回状态切换显示区域高度
-    height: recalled ? recalledRect.height : bubbleRect.height
+    // 根据撤回状态切换显示区域高度（气泡 + 底部元信息）
+    height: recalled ? recalledRect.height : bubbleRect.height + 18
 
     // 已撤回状态显示 — 居中灰色胶囊
     Rectangle {
@@ -78,7 +78,7 @@ Item {
         opacity: recalled ? 0.5 : 1.0
         visible: !recalled
 
-        // 气泡内容布局：消息文本 + 已编辑标签 + 时间/状态行
+        // 气泡内容布局：消息文本 + 已编辑标签
         ColumnLayout {
             id: bubbleContent
             x: 8
@@ -108,44 +108,48 @@ Item {
                 font.italic: true
                 Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
             }
+        }
+    }
 
-            // 时间与状态行 — 己方右对齐（时间左，状态右），对方左对齐
-            RowLayout {
-                Layout.alignment: isSelf ? Qt.AlignRight : Qt.AlignLeft
+    // 时间与状态行 — 放在气泡下方，己方右对齐，对方左对齐
+    RowLayout {
+        id: metaRow
+        anchors.top: bubbleRect.bottom
+        anchors.topMargin: 2
+        anchors.right: isSelf ? bubbleRect.right : undefined
+        anchors.left: isSelf ? undefined : bubbleRect.left
+        width: bubbleRect.width
+        spacing: 4
+        visible: !recalled
 
-                // 时间文字
-                Text {
-                    id: timeText
-                    text: displayTime
-                    color: isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.55) : Qt.rgba(0.0, 0.0, 0.0, 0.45)
-                    font.pixelSize: 10
-                    font.family: "Microsoft YaHei"
+        Text {
+            id: timeText
+            text: displayTime
+            color: "#9C9AAA"
+            font.pixelSize: 10
+            font.family: "Microsoft YaHei"
+        }
+
+        Text {
+            id: statusIcon
+            visible: isSelf
+            font.pixelSize: 10
+            font.family: "Microsoft YaHei"
+            color: {
+                switch (status) {
+                    case -1: return "#EF4444"
+                    case 2:  return "#F59E0B"
+                    default: return "#9C9AAA"
                 }
-
-                // 状态图标 — 仅己方消息显示，根据状态分色
-                Text {
-                    id: statusIcon
-                    visible: isSelf
-                    font.pixelSize: 10
-                    color: {
-                        switch (status) {
-                            case -1: return "#EF4444"       // 失败 → 红色
-                            case 2:  return "#F59E0B"       // 离线 → 橙色
-                            default: return Qt.rgba(1.0, 1.0, 1.0, 0.55)  // 发送中/已送达 → 白色半透明
-                        }
-                    }
-                    opacity: status === 0 ? 0.5 : 1.0
-
-                    // 根据 status 值映射为中文状态文本
-                    text: {
-                        switch (status) {
-                            case 0: return "发送中"
-                            case 1: return "已送达"
-                            case 2: return "离线"
-                            case -1: return "失败"
-                            default: return ""
-                        }
-                    }
+            }
+            opacity: status === 0 ? 0.5 : 1.0
+            text: {
+                switch (status) {
+                    case 0: return "发送中"
+                    case 1: return "已送达"
+                    case 2: return "离线"
+                    case -1: return "失败"
+                    default: return ""
                 }
             }
         }
