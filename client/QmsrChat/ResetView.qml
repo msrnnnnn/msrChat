@@ -173,10 +173,7 @@ Item {
                         onClicked: {
                             errorMessage = ""
                             successMessage = ""
-                            var code = Math.floor(100000 + Math.random() * 900000)
-                            successMessage = "验证码: " + code
-                            verifyCountdown = 60
-                            verifyTimer.start()
+                            authController.sendResetVerifyCode(resetEmail.text.trim())
                         }
                     }
                 }
