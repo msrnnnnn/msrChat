@@ -224,7 +224,7 @@ Rectangle {
 
             // 根据消息类型选择气泡：type=1 图片气泡，否则文字气泡
             delegate: Loader {
-                width: messageListView.width - 12
+                width: messageListView.width - 16
                 sourceComponent: model.messageType === 1 ? imageBubbleComponent : textBubbleComponent
                 property bool _recalled: model.recalled
                 property bool _edited: model.edited
@@ -282,7 +282,7 @@ Rectangle {
             ScrollBar.vertical: ScrollBar {
                 width: 8
                 anchors.right: parent.right
-                anchors.rightMargin: 2
+                anchors.rightMargin: -2
                 policy: ScrollBar.AsNeeded
                 background: Rectangle {
                     color: "#EAE9F2"
