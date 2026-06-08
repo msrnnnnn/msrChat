@@ -198,6 +198,15 @@ Rectangle {
                     font.family: "Microsoft YaHei"
                 }
             }
+
+            // 底部分隔线
+            Rectangle {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 1
+                color: "#EAE9F2"
+            }
         }
 
         // 消息列表 — 使用 Loader 按消息类型（文字/图片）动态选择气泡组件
@@ -525,6 +534,21 @@ Rectangle {
                                 event.accepted = true
                                 sendButton.clicked()
                             }
+                        }
+                    }
+
+                    ScrollBar.vertical: ScrollBar {
+                        width: 6
+                        anchors.right: parent.right
+                        anchors.rightMargin: 2
+                        policy: ScrollBar.AsNeeded
+                        background: Rectangle {
+                            color: "transparent"
+                        }
+                        contentItem: Rectangle {
+                            color: "#C4C4D4"
+                            radius: 3
+                            implicitWidth: 6
                         }
                     }
                 }

@@ -12,7 +12,7 @@ Item {
 
     // 视图宽度和气泡/缩略图尺寸
     property real viewWidth: 400
-    property int maxBubbleWidth: Math.min(viewWidth * 0.7, 300)
+    property int maxBubbleWidth: Math.floor(viewWidth * 0.5)
     property int thumbnailSize: 240
 
     // 是否为当前用户发送

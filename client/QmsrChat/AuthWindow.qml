@@ -55,6 +55,52 @@ ApplicationWindow {
         }
     }
 
+    // 窗口控制按钮 — 最小化(左) + 关闭(右)，z 高于拖拽区域
+    Row {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 8
+        anchors.rightMargin: 8
+        spacing: 4
+        z: 101
+
+        Button {
+            id: minimizeBtn
+            width: 32; height: 28
+            flat: true
+            contentItem: Text {
+                text: "─"
+                color: minimizeBtn.hovered ? "#1A1A2E" : "#9C9AAA"
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                color: minimizeBtn.hovered ? "#EEF2FF" : "transparent"
+                radius: 6
+            }
+            onClicked: authWindow.showMinimized()
+        }
+
+        Button {
+            id: closeBtn
+            width: 32; height: 28
+            flat: true
+            contentItem: Text {
+                text: "✕"
+                color: closeBtn.hovered ? "#EF4444" : "#9C9AAA"
+                font.pixelSize: 13
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                color: closeBtn.hovered ? "#FEE2E2" : "transparent"
+                radius: 6
+            }
+            onClicked: authWindow.close()
+        }
+    }
+
     // 顶部拖拽区域 — 无边框窗口需要手动实现拖动
     MouseArea {
         anchors.top: parent.top

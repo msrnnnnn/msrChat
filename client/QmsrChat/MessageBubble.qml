@@ -25,9 +25,9 @@ Item {
     // 是否已编辑
     property bool edited: false
 
-    // 视图宽度和气泡最大宽度（70% 视图宽，上限 300px）
+    // 视图宽度和气泡最大宽度（50% 视图宽，短文本自动适配）
     property real viewWidth: 400
-    property int maxBubbleWidth: Math.min(viewWidth * 0.7, 300)
+    property int maxBubbleWidth: Math.floor(viewWidth * 0.5)
 
     width: parent ? parent.width : 0
     // 根据撤回状态切换显示区域高度
