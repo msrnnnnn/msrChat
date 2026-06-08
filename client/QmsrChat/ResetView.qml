@@ -25,7 +25,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 3
+            height: 4
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0.0; color: "#4F46E5" }
@@ -76,7 +76,7 @@ Item {
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("用户名"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.Medium }
+                Text { text: qsTr("用户名"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
                 TextField {
                     id: resetUser
                     Layout.fillWidth: true
@@ -89,7 +89,7 @@ Item {
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("邮箱"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.Medium }
+                Text { text: qsTr("邮箱"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
                 TextField {
                     id: resetEmail
                     Layout.fillWidth: true
@@ -102,7 +102,7 @@ Item {
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("新密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.Medium }
+                Text { text: qsTr("新密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
                 TextField {
                     id: resetPass
                     Layout.fillWidth: true
@@ -132,7 +132,7 @@ Item {
                 Layout.fillWidth: true
                 spacing: 8
                 ColumnLayout { spacing: 4; Layout.fillWidth: true
-                    Text { text: qsTr("验证码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.Medium }
+                    Text { text: qsTr("验证码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
                     TextField {
                         id: resetCode
                         Layout.fillWidth: true
@@ -174,8 +174,8 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 42
                     enabled: !isSubmitting
-                    contentItem: Text { text: qsTr("确认重置"); color: parent.enabled ? "#FFFFFF" : "#9C9AAA"; font.pixelSize: 14; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                    background: Rectangle { color: parent.enabled ? "#4F46E5" : "#EAE9F2"; radius: 8 }
+                    contentItem: Text { text: qsTr("确认重置"); color: parent.enabled ? "#FFFFFF" : "#9C9AAA"; font.pixelSize: 14; font.weight: Font.DemiBold; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle { color: !parent.enabled ? "#EAE9F2" : parent.hovered ? "#3730A3" : "#4F46E5"; radius: 8 }
                     onClicked: {
                         errorMessage = ""
                         successMessage = ""
@@ -184,10 +184,10 @@ Item {
                     }
                 }
                 Button {
-                    Layout.preferredWidth: 80
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 42
-                    contentItem: Text { text: qsTr("返回"); color: parent.hovered ? "#EF4444" : "#6B6A7F"; font.pixelSize: 14; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                    background: Rectangle { color: parent.hovered ? "#FEF2F2" : "#F8F9FE"; radius: 8; border.width: 1; border.color: parent.hovered ? "#FECACA" : "#EAE9F2" }
+                    contentItem: Text { text: qsTr("返回"); color: parent.hovered ? "#4F46E5" : "#6B6A7F"; font.pixelSize: 14; font.weight: Font.DemiBold; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle { color: parent.hovered ? "#EEF2FF" : "#F8F9FE"; radius: 8; border.width: 1; border.color: parent.hovered ? "#E0E7FF" : "#EAE9F2" }
                     onClicked: resetRoot.switchToLogin()
                 }
             }

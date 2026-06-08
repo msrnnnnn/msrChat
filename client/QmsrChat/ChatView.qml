@@ -64,7 +64,7 @@ Rectangle {
                     color: "#9C9AAA"
                     font.pixelSize: 12
                     font.family: "Microsoft YaHei"
-                    font.weight: Font.Medium
+                    font.weight: Font.DemiBold
                 }
 
                 TextField {
@@ -111,7 +111,7 @@ Rectangle {
                         font: parent.font
                     }
                     background: Rectangle {
-                        color: parent.enabled ? "#4F46E5" : "#EAE9F2"
+                        color: parent.enabled ? (parent.hovered ? "#3730A3" : "#4F46E5") : "#EAE9F2"
                         radius: 6
                     }
 
@@ -176,16 +176,14 @@ Rectangle {
         Rectangle {
             id: statusBar
             Layout.fillWidth: true
-            Layout.preferredHeight: 26
+            Layout.preferredHeight: 24
             color: "#F8F9FE"
-            border.color: "#EAE9F2"
-            border.width: 1
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 24
+                anchors.leftMargin: 12
                 anchors.rightMargin: 24
-                spacing: 6
+                spacing: 4
 
                 Rectangle {
                     width: 6; height: 6; radius: 3
@@ -298,7 +296,7 @@ Rectangle {
         ColumnLayout {
             id: imagePreviewWrapper
             Layout.fillWidth: true
-            Layout.preferredHeight: pendingImagePath !== "" ? 73 : 0
+            Layout.preferredHeight: pendingImagePath !== "" ? 65 : 0
             visible: pendingImagePath !== ""
             clip: true
             spacing: 0
@@ -322,7 +320,7 @@ Rectangle {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.margins: 8
                     spacing: 12
 
                     // 缩略图（48x48，圆角 8，紫色边框 — clip 裁切）
@@ -548,8 +546,8 @@ Rectangle {
                     background: Rectangle {
                         radius: 8
                         gradient: Gradient {
-                            GradientStop { position: 0.0; color: sendButton.enabled ? "#4F46E5" : "#EAE9F2" }
-                            GradientStop { position: 1.0; color: sendButton.enabled ? "#6366F1" : "#EAE9F2" }
+                            GradientStop { position: 0.0; color: sendButton.enabled ? (sendButton.hovered ? "#3730A3" : "#4F46E5") : "#EAE9F2" }
+                            GradientStop { position: 1.0; color: sendButton.enabled ? (sendButton.hovered ? "#4338CA" : "#6366F1") : "#EAE9F2" }
                         }
                     }
 
@@ -831,7 +829,8 @@ Rectangle {
         }
 
         function onSigFileSendStarted(task_id, filename, total_size) {
-            fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0})
+            console.log("[ChatView] FileSendStarted: task=" + task_id + " file=" + filename + " size=" + total_size)
+            fileProgressModel.append({"task_id": task_id, "filename": filename, "progress": 0, "error": ""})
         }
 
         function onSigFileSendProgress(task_id, prog, sent, total) {

@@ -12,7 +12,7 @@ ApplicationWindow {
     id: authWindow
     visible: true
     width: 376
-    height: 540
+    height: 620
     flags: Qt.FramelessWindowHint | Qt.Window
     color: "transparent"
     title: "msrChat"
