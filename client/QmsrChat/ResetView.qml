@@ -163,13 +163,14 @@ Item {
                     Layout.preferredHeight: 40
                     Layout.alignment: Qt.AlignBottom
                     Button {
+                        id: resetVerifyBtn
                         anchors.fill: parent
                         text: verifyCountdown > 0 ? verifyCountdown + "s" : qsTr("获取")
                         enabled: verifyCountdown === 0
                         font.pixelSize: 12
                         font.weight: Font.Medium
                         contentItem: Text { text: parent.text; color: parent.enabled ? "#4F46E5" : "#9C9AAA"; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        background: Rectangle { color: parent.enabled ? "#EEF2FF" : "#F8F9FE"; radius: 8; border.width: 1; border.color: parent.enabled ? "#4F46E5" : "#EAE9F2" }
+                        background: Rectangle { color: parent.enabled ? (parent.hovered ? "#DBEAFE" : "#EEF2FF") : "#F8F9FE"; radius: 8; border.width: 1; border.color: parent.enabled ? "#4F46E5" : "#EAE9F2" }
                         onClicked: {
                             errorMessage = ""
                             successMessage = ""

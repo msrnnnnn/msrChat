@@ -715,7 +715,7 @@ Rectangle {
         }
     }
 
-    // 文件传输进度面板 — 右上角浮层，对齐 HTML .fp-panel，自定义渐变进度条 + 入场动画
+    // 文件传输进度面板 — 右上角浮层，自定义渐变进度条 + 入场动画 + 完成后 3 秒淡化
     Item {
         id: fileProgressPanel
         anchors.top: parent.top
@@ -724,12 +724,17 @@ Rectangle {
         anchors.rightMargin: 16
         width: 240
         height: Math.max(60, fileProgressList.contentHeight)
-        visible: fileProgressModel.count > 0
+        property bool isFading: false
+        visible: fileProgressModel.count > 0 || isFading
         opacity: 0
         z: 20
 
+        Behavior on opacity {
+            NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
+        }
+
         onVisibleChanged: {
-            if (visible) {
+            if (visible && !isFading) {
                 opacity = 0
                 entryAnim.restart()
             }
@@ -738,6 +743,34 @@ Rectangle {
         SequentialAnimation {
             id: entryAnim
             NumberAnimation { target: fileProgressPanel; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutCubic }
+        }
+
+        Timer {
+            id: fadeDelayTimer
+            interval: 3000
+            onTriggered: {
+                fileProgressPanel.isFading = true
+                fileProgressPanel.opacity = 0
+                fadeCleanTimer.start()
+            }
+        }
+
+        Timer {
+            id: fadeCleanTimer
+            interval: 600
+            onTriggered: {
+                fileProgressModel.clear()
+                fileProgressPanel.isFading = false
+            }
+        }
+
+        function checkAllComplete() {
+            if (fileProgressModel.count === 0) return
+            for (var i = 0; i < fileProgressModel.count; i++) {
+                var p = fileProgressModel.get(i).progress
+                if (p >= 0 && p < 100) return
+            }
+            if (!fadeDelayTimer.running) fadeDelayTimer.restart()
         }
 
         // 主体卡片
@@ -910,6 +943,7 @@ Rectangle {
                     break
                 }
             }
+            fileProgressPanel.checkAllComplete()
         }
 
         function onSigFileRecvProgress(task_id, prog, received, total) {
@@ -926,6 +960,7 @@ Rectangle {
                 console.error("[FileRecv] Failed: " + error)
                 fileProgressModel.append({"task_id": tid, "filename": "接收失败", "progress": -1, "error": error})
             }
+            fileProgressPanel.checkAllComplete()
         }
 
         // Phase 6 — "回复"菜单项触发：在输入框插入"回复 XXX: "前缀并 focus

@@ -91,7 +91,7 @@ Item {
                 id: messageText
                 text: content
                 color: isSelf ? "#FFFFFF" : "#1A1A2E"
-                font.pixelSize: 16
+                font.pixelSize: 14
                 font.family: "Microsoft YaHei"
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                 Layout.fillWidth: true

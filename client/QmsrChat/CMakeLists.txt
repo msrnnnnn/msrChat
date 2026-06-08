@@ -115,6 +115,8 @@ set(PROJECT_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MainWindow.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthWindow.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ChatWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/LoginView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/RegisterView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ResetView.qml
