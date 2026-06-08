@@ -36,7 +36,7 @@ Item {
 
     width: parent ? parent.width : 0
     // 根据撤回状态切换高度来源
-    height: recalled ? recalledRow.height + 8 : bubbleRect.height + 8
+    height: recalled ? recalledRow.height + 8 : bubbleRect.height + 18
 
     // 撤回占位 — 居中灰色胶囊，区分己方/对方文字
     Item {
@@ -177,25 +177,31 @@ Item {
             width: Math.min(imageBubble.thumbnailSize, imageBubble.imageWidth > 0 ? imageBubble.imageWidth : imageBubble.thumbnailSize)
         }
 
-        // 时间 + 已编辑徽章 — 己方右对齐，对方左对齐
-        Row {
-            spacing: 4
-            layoutDirection: imageBubble.isSelf ? Qt.RightToLeft : Qt.LeftToRight
+    }
 
-            Text {
-                text: imageBubble.displayTime
-                color: imageBubble.isSelf ? Qt.rgba(1.0, 1.0, 1.0, 0.55) : "#9C9AAA"
-                font.pixelSize: 11
-                font.family: "Microsoft YaHei"
-            }
-            Text {
-                visible: imageBubble.edited
-                text: qsTr("已编辑")
-                color: "#9C9AAA"
-                font.pixelSize: 11
-                font.family: "Microsoft YaHei"
-                font.italic: true
-            }
+    // 时间 + 已编辑徽章 — 己方右对齐（紧贴右侧滚动条），对方左对齐
+    Row {
+        id: imageMetaRow
+        anchors.top: bubbleRect.bottom
+        anchors.topMargin: 2
+        anchors.right: imageBubble.isSelf ? parent.right : undefined
+        anchors.left: imageBubble.isSelf ? undefined : bubbleRect.left
+        spacing: 4
+        visible: !imageBubble.recalled
+
+        Text {
+            text: imageBubble.displayTime
+            color: imageBubble.isSelf ? "#9C9AAA" : "#9C9AAA"
+            font.pixelSize: 10
+            font.family: "Microsoft YaHei"
+        }
+        Text {
+            visible: imageBubble.edited
+            text: qsTr("(已编辑)")
+            color: "#9C9AAA"
+            font.pixelSize: 10
+            font.family: "Microsoft YaHei"
+            font.italic: true
         }
     }
 
