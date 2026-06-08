@@ -730,6 +730,8 @@ Rectangle {
         opacity: 0
         z: 20
 
+        property bool _timerActive: fadeDelayTimer.running
+
         // 入场动画
         NumberAnimation {
             id: entryAnim
@@ -749,6 +751,7 @@ Rectangle {
             duration: 500
             easing.type: Easing.OutCubic
             onStopped: {
+                console.log("[DIAG] fadeAnim stopped, fading complete")
                 fileProgressModel.clear()
                 fileProgressPanel.visible = false
             }
@@ -772,9 +775,12 @@ Rectangle {
         }
 
         function checkAllComplete() {
+            console.log("[DIAG] checkAllComplete called, count=" + fileProgressModel.count)
             if (fileProgressModel.count === 0) return
             for (var i = 0; i < fileProgressModel.count; i++) {
-                var p = fileProgressModel.get(i).progress
+                var item = fileProgressModel.get(i)
+                console.log("[DIAG]   item[" + i + "] progress=" + item.progress + " error=" + item.error)
+                var p = item.progress
                 if (p >= 0 && p < 100) return
             }
             console.log("[ProgressPanel] All transfers done, scheduling fade in 3s")
@@ -884,19 +890,30 @@ Rectangle {
                             }
                         }
 
-                        // 百分比 / 状态文字
-                        Text {
-                            text: {
-                                if (model.progress >= 100) return qsTr("已完成")
-                                if (model.progress < 0) {
-                                    return (model.error && model.error !== "") ? model.error : qsTr("失败")
-                                }
-                                if (model.progress === 0 && model.error === "waiting") return qsTr("等待对方响应...")
-                                return model.progress + "%"
+                        // 百分比 / 状态文字 + 诊断圆点
+                        Row {
+                            spacing: 4
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 6; height: 6; radius: 3
+                                color: fileProgressPanel._timerActive ? "#F59E0B"
+                                     : (model.progress >= 100 || model.progress < 0 ? "#10B981" : "#D1D5DB")
                             }
-                            font.pixelSize: 10
-                            font.family: "Microsoft YaHei"
-                            color: model.progress < 0 ? "#EF4444" : "#9C9AAA"
+
+                            Text {
+                                text: {
+                                    if (model.progress >= 100) return qsTr("已完成")
+                                    if (model.progress < 0) {
+                                        return (model.error && model.error !== "") ? model.error : qsTr("失败")
+                                    }
+                                    if (model.progress === 0 && model.error === "waiting") return qsTr("等待对方响应...")
+                                    return model.progress + "%"
+                                }
+                                font.pixelSize: 10
+                                font.family: "Microsoft YaHei"
+                                color: model.progress < 0 ? "#EF4444" : "#9C9AAA"
+                            }
                         }
                     }
 
@@ -935,6 +952,9 @@ Rectangle {
             for (var i = 0; i < fileProgressModel.count; i++) {
                 if (fileProgressModel.get(i).task_id === tid) {
                     fileProgressModel.setProperty(i, "progress", prog)
+                    if (prog === 100) {
+                        fileProgressPanel.checkAllComplete()
+                    }
                     break
                 }
             }
