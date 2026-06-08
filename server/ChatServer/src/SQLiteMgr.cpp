@@ -931,10 +931,11 @@ std::vector<ChatMessage> SQLiteMgr::GetOfflineMessages(int uid, int limit, int64
 
     std::vector<ChatMessage> messages;
     ScopedStmt stmt(db, R"(
-        SELECT id, from_uid, to_uid, content, timestamp, status, client_msg_id, type, image_id
-        FROM offline_messages
-        WHERE to_uid = ? AND id > ?
-        ORDER BY id ASC
+        SELECT om.id, om.from_uid, om.to_uid, om.content, om.timestamp, om.status, om.client_msg_id, om.type, om.image_id
+        FROM offline_messages om
+        LEFT JOIN messages m ON m.timestamp = om.timestamp AND m.from_uid = om.from_uid
+        WHERE om.to_uid = ? AND om.id > ? AND (m.recalled IS NULL OR m.recalled = 0)
+        ORDER BY om.id ASC
         LIMIT ?
     )");
     if (!stmt)
@@ -996,7 +997,11 @@ int64_t SQLiteMgr::GetOfflineMessageCount(int uid)
     }
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db, "SELECT COUNT(*) FROM offline_messages WHERE to_uid = ?");
+    ScopedStmt stmt(db, R"(
+        SELECT COUNT(*) FROM offline_messages om
+        LEFT JOIN messages m ON m.timestamp = om.timestamp AND m.from_uid = om.from_uid
+        WHERE om.to_uid = ? AND (m.recalled IS NULL OR m.recalled = 0)
+    )");
     if (!stmt)
     {
         return 0;

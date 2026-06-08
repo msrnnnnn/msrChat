@@ -356,7 +356,7 @@ bool DbService::SaveMessage(const ChatMessage &msg)
         query.prepare(
             "UPDATE messages "
             "SET client_msg_id = ?, server_msg_id = ?, from_uid = ?, to_uid = ?, content = ?, timestamp = ?, status = "
-            "?, type = ?, image_id = ?, image_path = ?, image_width = ?, image_height = ?, image_ext = ?, edited = ?, edited_at = ?, recalled = ?, recalled_at = ? "
+            "?, type = ?, image_id = ?, image_path = ?, image_width = ?, image_height = ?, image_ext = ?, edited = ?, edited_at = ?, recalled = MAX(recalled, ?), recalled_at = CASE WHEN recalled = 1 THEN recalled_at ELSE ? END "
             "WHERE id = ?");
         query.bindValue(17, existingId);
     }
