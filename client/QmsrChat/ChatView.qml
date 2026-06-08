@@ -847,6 +847,9 @@ Rectangle {
                                                 break
                                             }
                                         }
+                                        if (fileProgressModel.count === 0) {
+                                            fadeAnim.start()
+                                        }
                                     }
                                 }
                             }
