@@ -282,7 +282,7 @@ Rectangle {
             ScrollBar.vertical: ScrollBar {
                 width: 8
                 anchors.right: parent.right
-                anchors.rightMargin: -2
+                anchors.rightMargin: 0
                 policy: ScrollBar.AsNeeded
                 background: Rectangle {
                     color: "#EAE9F2"
@@ -299,6 +299,41 @@ Rectangle {
                 Qt.callLater(function() {
                     positionViewAtEnd()
                 })
+            }
+        }
+
+        // 错误横幅 — 位于消息列表和输入框之间，紧贴输入框上方
+        Rectangle {
+            id: errorBanner
+            Layout.fillWidth: true
+            Layout.preferredHeight: _errorHeight
+            color: "#EF4444"
+            visible: _errorHeight > 0
+            clip: true
+
+            property int _errorHeight: 0
+
+            Behavior on Layout.preferredHeight {
+                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+            }
+
+            Text {
+                id: errorBannerText
+                anchors.centerIn: parent
+                color: "#FFFFFF"
+                font.pixelSize: 13
+            }
+
+            Timer {
+                id: errorBannerTimer
+                interval: 4000
+                onTriggered: errorBanner._errorHeight = 0
+            }
+
+            function show(msg) {
+                errorBannerText.text = msg
+                _errorHeight = 32
+                errorBannerTimer.restart()
             }
         }
 
@@ -658,39 +693,6 @@ Rectangle {
         nameFilters: ["图片文件 (*.png *.jpg *.jpeg *.bmp *.gif *.webp)"]
         onAccepted: {
             pendingImagePath = selectedFile.toString()
-        }
-    }
-
-    // 错误横幅 — 从底部滑入显示错误信息，4 秒后自动消失
-    Rectangle {
-        id: errorBanner
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 130  // inputArea height
-        height: 0
-        color: "#EF4444"
-        visible: height > 0
-        clip: true
-        Behavior on height { NumberAnimation { duration: 300 } }
-
-        Text {
-            id: errorBannerText
-            anchors.centerIn: parent
-            color: "#FFFFFF"
-            font.pixelSize: 13
-        }
-
-        Timer {
-            id: errorBannerTimer
-            interval: 4000
-            onTriggered: errorBanner.height = 0
-        }
-
-        function show(msg) {
-            errorBannerText.text = msg
-            errorBanner.height = 32
-            errorBannerTimer.restart()
         }
     }
 

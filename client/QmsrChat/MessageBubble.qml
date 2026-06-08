@@ -116,9 +116,8 @@ Item {
         id: metaRow
         anchors.top: bubbleRect.bottom
         anchors.topMargin: 2
-        anchors.right: isSelf ? bubbleRect.right : undefined
+        anchors.right: isSelf ? parent.right : undefined
         anchors.left: isSelf ? undefined : bubbleRect.left
-        width: bubbleRect.width
         spacing: 4
         visible: !recalled
 
