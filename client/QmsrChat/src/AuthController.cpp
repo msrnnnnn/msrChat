@@ -65,10 +65,9 @@ void AuthController::slotLoginRsp(const LoginRspStruct &rsp) {
 void AuthController::slotChatLoginRsp(const ChatLoginRspStruct &rsp) {
     if (rsp.error != 0) {
         _uid = 0; _token.clear(); UserMgr::Instance()->SetToken("");
-        _chat_login_ready = false; emit sigChatLoginReadyChanged();
         emit tokenInvalid(rsp.message.isEmpty() ? tr("聊天登录失败") : rsp.message); return;
     }
-    if (!_chat_login_ready) { _chat_login_ready = true; emit sigChatLoginReadyChanged(); emit chatLoginSuccess(); }
+    emit chatLoginSuccess();
 }
 
 QVector<ChatTextMsgStruct> AuthController::TakeBufferedMessages() {
@@ -119,8 +118,6 @@ void AuthController::slotRegisterRsp(const RegisterRspStruct &rsp) {
     }
     emit registerResult(true, tr("注册成功！"));
 }
-
-void AuthController::sendResetVerifyCode(const QString &email) { sendRegisterVerifyCode(email); }
 
 void AuthController::resetPassword(const QString &username, const QString &email, const QString &newPassword, const QString &verifyCode) {
     QString err;

@@ -1071,7 +1071,6 @@ Rectangle {
                 editDialogLoader.active = true
                 actionMenuLoader.active = false
             }
-            onSaveAsRequested: { chatController.actionSaveAs(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
             onDeleteRequested: { chatController.actionDelete(actionMenuLoader.menuTimestamp); actionMenuLoader.active = false }
         }
         property real menuX: 0

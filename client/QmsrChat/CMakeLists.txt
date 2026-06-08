@@ -67,8 +67,6 @@ elseif(APPLE)
     endif()
 endif()
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
-
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Network Quick Sql QuickControls2 QuickLayouts)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network Core Quick Qml Sql QuickControls2 QuickLayouts Test)
 
@@ -96,7 +94,6 @@ set(PROJECT_SOURCES
         include/FileRecvMgr.h
         include/FileSendMgr.h
         include/Singleton.h
-        include/DPIHelper.h
         include/Utils.h
         include/ChatListModel.h
         include/ImageDownloadMgr.h
@@ -108,13 +105,13 @@ set(PROJECT_SOURCES
         include/AuthController.h
 
         # QML 视图 (严格锁定在根目录)
+        ${CMAKE_CURRENT_SOURCE_DIR}/CardTopAccent.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageBubble.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageBubble.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
-        ${CMAKE_CURRENT_SOURCE_DIR}/MainWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/AuthWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/LoginView.qml

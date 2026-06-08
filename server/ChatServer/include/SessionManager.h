@@ -50,7 +50,6 @@ public:
     void RemoveSessionByUuid(const std::string &uuid);
 
     std::shared_ptr<CSession> GetSession(int uid) const;
-    std::shared_ptr<CSession> GetSessionByUuid(const std::string &uuid) const;
 
     /**
      * @brief 清空全部会话映射
@@ -67,8 +66,6 @@ public:
             func(uid, session);
         });
     }
-
-    std::size_t SessionCount() const;
 
 private:
     SessionManager() = default;

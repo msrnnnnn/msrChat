@@ -14,26 +14,19 @@
 
 class CSession;
 
-/**
- * @brief 消息任务 —— 封装从网络层接收的一条消息及所属会话
- * @details 使用 weak_ptr 持有会话引用，防止任务持有期间阻止会话析构。
- *          仅支持移动语义，不可拷贝。timestamp 记录任务生成时间。
- */
 struct MessageTask
 {
     std::weak_ptr<CSession> session;
     uint16_t msg_id;
     std::string body_data;
-    int64_t timestamp;
 
     MessageTask()
-        : msg_id(0), timestamp(0)
+        : msg_id(0)
     {
     }
 
     MessageTask(std::weak_ptr<CSession> sess, uint16_t id, std::string data)
-        : session(sess), msg_id(id), body_data(std::move(data)),
-          timestamp(std::chrono::steady_clock::now().time_since_epoch().count())
+        : session(sess), msg_id(id), body_data(std::move(data))
     {
     }
 
@@ -43,8 +36,7 @@ struct MessageTask
     MessageTask(MessageTask &&other) noexcept
         : session(std::move(other.session)),
           msg_id(other.msg_id),
-          body_data(std::move(other.body_data)),
-          timestamp(other.timestamp)
+          body_data(std::move(other.body_data))
     {
     }
 
@@ -55,7 +47,6 @@ struct MessageTask
             session = std::move(other.session);
             msg_id = other.msg_id;
             body_data = std::move(other.body_data);
-            timestamp = other.timestamp;
         }
         return *this;
     }

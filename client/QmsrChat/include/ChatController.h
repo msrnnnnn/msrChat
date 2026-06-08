@@ -50,9 +50,6 @@ public:
      * @brief 加载更早的历史消息（向上分页）
      */
     Q_INVOKABLE void loadMoreHistory();
-    Q_PROPERTY(bool hasMoreHistory READ hasMoreHistory NOTIFY sigHasMoreHistoryChanged)
-    Q_INVOKABLE void clearHistory();
-    Q_INVOKABLE void searchMessages(const QString &keyword);
     /**
      * @brief 初始化：连接信号槽、启动心跳定时器等
      */
@@ -65,7 +62,6 @@ public:
     Q_INVOKABLE void actionCopyText(qint64 timestamp);
     Q_INVOKABLE void actionRecall(qint64 timestamp);
     Q_INVOKABLE void actionEdit(qint64 timestamp, const QString &newContent);
-    Q_INVOKABLE void actionSaveAs(qint64 timestamp);
     Q_INVOKABLE void actionDelete(qint64 timestamp);
 
     /**
@@ -76,7 +72,6 @@ public:
     int GetCurrentUid() const;
     int GetTargetUid() const;
     bool IsConnected() const;
-    bool hasMoreHistory() const { return _has_more_history; }
     void setChatModel(ChatListModel *model);
 
 signals:
@@ -89,15 +84,12 @@ signals:
     void sigFileSendComplete(int64_t task_id, bool success, QString error);
     void sigFileRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     void sigFileRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
-    void sigHistoryCleared();
-    void sigHasMoreHistoryChanged();
     void sigSendImageMsg(const ChatImageStruct &msg);
     void sigSendEditMsg(const ChatEditMsgStruct &msg);
     void sigShowImageViewer(QVariantList imageList, int currentIndex);
     // Phase 6 — 菜单 action signals
     void sigSendRecallMsg(const ChatRecallMsgStruct &msg);
     void sigSetReplyContext(const QString &prefix);
-    void sigShowSaveAsDialog(const QString &imagePath);
 
 public slots:
     void slotOnChatTextMsg(const ChatTextMsgStruct &msg);
@@ -139,7 +131,6 @@ private:
     QHash<qint64, qint64> _pending_recall;  // msg_timestamp → recall_ts
     qint64 _last_offline_received = -1;
     qint64 _max_received_timestamp = 0;
-    bool _has_more_history = true;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
     static constexpr int HISTORY_PAGE_SIZE = 50;

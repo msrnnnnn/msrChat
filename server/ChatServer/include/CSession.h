@@ -5,7 +5,6 @@
  */
 #ifndef CSESSION_H
 #define CSESSION_H
-#include "FileDescriptor.h"
 #include "FileTransferState.h"
 #include "ObjectPool.h"
 #include "OfflineSendState.h"
@@ -150,15 +149,10 @@ public:
      * @param total_size 文件总大小
      * @details 设置 _file_recv_state 并预分配内存，由 _file_mutex 保护
      */
-    void PrepareFileReceive(int64_t task_id, int to_uid, const std::string &filename, int64_t total_size)
+    void PrepareFileReceive(int64_t task_id, int64_t total_size)
     {
         std::lock_guard<std::mutex> lock(_file_mutex);
         _file_recv_state.task_id = task_id;
-        _file_recv_state.from_uid = _user_uid;
-        _file_recv_state.to_uid = to_uid;
-        _file_recv_state.filename = filename;
-        _file_recv_state.total_size = total_size;
-        _file_recv_state.received_size = 0;
         _file_recv_state.data.clear();
         _file_recv_state.data.reserve(static_cast<size_t>(total_size));
         _file_recv_state.transfer_ready = true;
@@ -199,7 +193,6 @@ public:
             const auto old_size = _file_recv_state.data.size();
             _file_recv_state.data.resize(old_size + size);
             std::memcpy(_file_recv_state.data.data() + old_size, data, size);
-            _file_recv_state.received_size += size;
         }
     }
 

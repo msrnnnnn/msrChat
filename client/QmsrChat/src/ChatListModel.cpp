@@ -224,7 +224,6 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
     RebuildIndex();
     endInsertRows();
 
-    emit messageAdded(copy);
     emit scrollToBottomRequested();
 }
 

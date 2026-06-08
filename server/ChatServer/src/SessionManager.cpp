@@ -84,27 +84,6 @@ std::shared_ptr<CSession> SessionManager::GetSession(int uid) const
 }
 
 /**
- * @brief 通过 UUID 获取会话
- * @param uuid 会话 UUID
- * @return 会话智能指针，不存在则返回 nullptr
- */
-std::shared_ptr<CSession> SessionManager::GetSessionByUuid(const std::string &uuid) const
-{
-    auto session = _uuid_sessions.Find(uuid);
-    return session.value_or(nullptr);
-}
-
-/**
- * @brief 获取当前会话总数
- * @return 会话总数
- * @details 遍历所有分片累计计数
- */
-std::size_t SessionManager::SessionCount() const
-{
-    return _uid_sessions.Size();
-}
-
-/**
  * @brief 清空所有会话
  */
 void SessionManager::ClearAll()

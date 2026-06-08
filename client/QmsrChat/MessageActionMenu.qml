@@ -49,7 +49,6 @@ Rectangle {
         { kind: "item", icon: "↶",  label: qsTr("撤回"),       enabled: isWithinRecallWindow, sig: "recallRequested" },
         { kind: "item", icon: "✎",  label: qsTr("编辑"),       enabled: isWithinRecallWindow, sig: "editRequested" },
         { kind: "sep" },
-        { kind: "item", icon: "💾", label: qsTr("另存为…"),    enabled: true,                sig: "saveAsRequested", visible: isImage },
         { kind: "sep" },
         { kind: "item", icon: "🗑", label: qsTr("删除"),       enabled: true,                sig: "deleteRequested", danger: true }
     ]
@@ -128,7 +127,6 @@ Rectangle {
                                 else if (sig === "copyTextRequested") menuRoot.copyTextRequested()
                                 else if (sig === "recallRequested")   menuRoot.recallRequested()
                                 else if (sig === "editRequested")     menuRoot.editRequested()
-                                else if (sig === "saveAsRequested")   menuRoot.saveAsRequested()
                                 else if (sig === "deleteRequested")   menuRoot.deleteRequested()
                             }
                         }
@@ -142,6 +140,5 @@ Rectangle {
     signal copyTextRequested()
     signal recallRequested()
     signal editRequested()
-    signal saveAsRequested()
     signal deleteRequested()
 }

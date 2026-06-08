@@ -10,7 +10,6 @@ class AuthController : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool isLoggingIn READ isLoggingIn NOTIFY sigIsLoggingInChanged)
-    Q_PROPERTY(bool chatLoginReady READ chatLoginReady NOTIFY sigChatLoginReadyChanged)
 
 public:
     explicit AuthController(QObject *parent = nullptr);
@@ -27,12 +26,10 @@ public:
     Q_INVOKABLE void registerUser(const QString &username, const QString &email,
                                    const QString &password, const QString &confirmPassword,
                                    const QString &verifyCode);
-    Q_INVOKABLE void sendResetVerifyCode(const QString &email);
     Q_INVOKABLE void resetPassword(const QString &username, const QString &email,
                                     const QString &newPassword, const QString &verifyCode);
 
     bool isLoggingIn() const { return _is_logging_in; }
-    bool chatLoginReady() const { return _chat_login_ready; }
 
     Q_INVOKABLE QVector<ChatTextMsgStruct> TakeBufferedMessages();
 
@@ -44,7 +41,6 @@ signals:
     void verifyCodeResult(bool success, const QString &message);
     void resetPasswordResult(bool success, const QString &message);
     void sigIsLoggingInChanged();
-    void sigChatLoginReadyChanged();
 
 private slots:
     void slotLoginRsp(const LoginRspStruct &rsp);
@@ -56,7 +52,6 @@ private slots:
 private:
     void ConnectTcpSignals();
     bool _is_logging_in = false;
-    bool _chat_login_ready = false;
     int _uid = 0;
     QString _token;
     QVector<ChatTextMsgStruct> _buffered_messages;

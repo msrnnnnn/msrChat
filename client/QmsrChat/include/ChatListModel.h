@@ -134,8 +134,6 @@ public:
     void UpdateImagePath(const QString &image_id, const QString &local_path);
 
 signals:
-    void messageAdded(const ChatMessage &msg);
-    void messagesLoaded(int count);
     void scrollToBottomRequested();
     void scrollToTopRequested();
 

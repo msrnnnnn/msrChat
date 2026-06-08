@@ -594,7 +594,6 @@ void ChatController::slotOnChatEditNotify(const ChatEditNotifyStruct &n)
  */
 void ChatController::loadHistory()
 {
-    _has_more_history = true;
     int currentUid = UserMgr::Instance()->GetUid();
     if (currentUid <= 0 || _target_uid <= 0)
     {
@@ -610,7 +609,7 @@ void ChatController::loadHistory()
 void ChatController::loadMoreHistory()
 {
     int currentUid = UserMgr::Instance()->GetUid();
-    if (currentUid <= 0 || _target_uid <= 0 || !_has_more_history)
+    if (currentUid <= 0 || _target_uid <= 0)
     {
         return;
     }
@@ -622,39 +621,6 @@ void ChatController::loadMoreHistory()
     }
 
     DbThreadManager::Instance().GetMessages(currentUid, _target_uid, before_time, HISTORY_PAGE_SIZE);
-}
-
-/**
- * @brief 清空聊天历史记录
- */
-void ChatController::clearHistory()
-{
-    int currentUid = UserMgr::Instance()->GetUid();
-    if (currentUid <= 0 || _target_uid <= 0)
-    {
-        return;
-    }
-    DbThreadManager::Instance().DeleteMessages(currentUid, _target_uid);
-    if (_chat_model != nullptr)
-    {
-        _chat_model->ClearMessages();
-    }
-    emit sigHistoryCleared();
-}
-
-/**
- * @brief 搜索当前会话的消息
- * @param keyword 搜索关键词
- * @details 通过 DbThreadManager 异步查询，结果由 sig_messages_loaded 返回
- */
-void ChatController::searchMessages(const QString &keyword)
-{
-    if (_current_uid <= 0 || _target_uid <= 0 || keyword.trimmed().isEmpty())
-    {
-        return;
-    }
-
-    DbThreadManager::Instance().SearchMessages(_current_uid, _target_uid, keyword.trimmed(), 50);
 }
 
 /**
@@ -807,9 +773,6 @@ void ChatController::slotOnHistoryLoaded(const QVector<ChatMessage> &messages)
     {
         _chat_model->PrependMessages(messages);
     }
-    _has_more_history = (messages.size() >= HISTORY_PAGE_SIZE);
-    emit sigHasMoreHistoryChanged();
-
     // 对加载的历史图片消息，检查本地缓存状态
     for (const auto &msg : messages)
     {
@@ -1015,24 +978,6 @@ void ChatController::actionEdit(qint64 timestamp, const QString &newContent)
             req.msg_timestamp = timestamp;
             req.new_content = newContent;
             emit sigSendEditMsg(req);  // P3 已有的 signal
-            return;
-        }
-    }
-}
-
-/**
- * @brief 菜单项：另存为（仅图片，v1 stub 只 emit signal）
- * @details QML 端 onSigShowSaveAsDialog 接住，弹 FileDialog 选目标路径
- *          实际 copy 逻辑 v1 暂省略，事件 P8 / v2 补
- */
-void ChatController::actionSaveAs(qint64 timestamp)
-{
-    if (_chat_model == nullptr) return;
-    for (const auto &m : _chat_model->GetAllMessages())
-    {
-        if (m.timestamp == timestamp && m.type == 1)
-        {
-            emit sigShowSaveAsDialog(m.image_path);
             return;
         }
     }
