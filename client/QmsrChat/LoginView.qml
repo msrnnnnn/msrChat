@@ -21,34 +21,7 @@ Item {
 
         clip: true
 
-        // 顶部渐变装饰条 — Canvas 绘制，跟随卡片圆角裁切
-        Canvas {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 16  // 与卡片 radius 一致
-            z: 1
-            onPaint: {
-                var ctx = getContext("2d")
-                ctx.reset()
-                // 裁切路径：仅保留卡片圆角内区域
-                ctx.beginPath()
-                ctx.moveTo(0, 16)  // 左下角（圆角下方）
-                ctx.arcTo(0, 0, 16, 0, 16)  // 左上圆角
-                ctx.lineTo(width - 16, 0)
-                ctx.arcTo(width, 0, width, 16, 16)  // 右上圆角
-                ctx.lineTo(width, 16)
-                ctx.closePath()
-                ctx.clip()
-                // 水平渐变填充
-                var grad = ctx.createLinearGradient(0, 0, width, 0)
-                grad.addColorStop(0, "#4F46E5")
-                grad.addColorStop(0.5, "#818CF8")
-                grad.addColorStop(1, "#4F46E5")
-                ctx.fillStyle = grad
-                ctx.fillRect(0, 0, width, 3)
-            }
-        }
+        CardTopAccent {}
 
         ColumnLayout {
             id: cardColumn
@@ -56,53 +29,33 @@ Item {
             anchors.margins: 32
             spacing: 16
 
-            ColumnLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 8
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 52; height: 52; radius: 14
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#4F46E5" }
-                        GradientStop { position: 1.0; color: "#818CF8" }
-                    }
-                    Text { anchors.centerIn: parent; text: "mC"; color: "#FFFFFF"; font.pixelSize: 20; font.weight: Font.Bold }
-                }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("欢迎回来"); color: "#1A1A2E"; font.pixelSize: 19; font.family: "Microsoft YaHei"; font.weight: Font.DemiBold }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("登录你的 msrChat 账户"); color: "#9C9AAA"; font.pixelSize: 13 }
+            AuthCardHeader {
+                iconText: "mC"
+                title: qsTr("欢迎回来")
+                subtitle: qsTr("登录你的 msrChat 账户")
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: errorLabel.visible ? errorLabel.implicitHeight + 16 : 0
-                visible: errorMessage !== "" || successMessage !== ""
-                radius: 6
-                color: successMessage !== "" ? "#F0FDF4" : "#FEF2F2"
-                border.width: 1
-                border.color: successMessage !== "" ? "#BBF7D0" : "#FECACA"
-                Text { id: errorLabel; anchors.centerIn: parent; text: errorMessage !== "" ? errorMessage : successMessage; color: errorMessage !== "" ? "#EF4444" : "#10B981"; font.pixelSize: 12 }
+            AuthBanner {
+                id: banner
+                errorMessage: loginRoot.errorMessage
+                successMessage: loginRoot.successMessage
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
                 Text { text: qsTr("用户名"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
                 TextField { id: loginUser; Layout.fillWidth: true; Layout.preferredHeight: 40; font.pixelSize: 14; placeholderText: qsTr("输入用户名或邮箱"); color: "#1A1A2E"
                     background: Rectangle { color: "#F8F9FE"; radius: 8; border.width: 1.5; border.color: loginUser.activeFocus ? "#4F46E5" : "#EAE9F2" }
-                    Keys.onReturnPressed: function(event) { loginPass.forceActiveFocus() }
-                    Keys.onEnterPressed: function(event) { loginPass.forceActiveFocus() }
+                    Keys.onReturnPressed: loginPass.field.forceActiveFocus()
+                    Keys.onEnterPressed: loginPass.field.forceActiveFocus()
                 }
             }
 
-            ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
-                TextField { id: loginPass; Layout.fillWidth: true; Layout.preferredHeight: 40; echoMode: showPassBtn.checked ? TextInput.Normal : TextInput.Password; font.pixelSize: 14; placeholderText: qsTr("输入密码"); color: "#1A1A2E"
-                    background: Rectangle { color: "#F8F9FE"; radius: 8; border.width: 1.5; border.color: loginPass.activeFocus ? "#4F46E5" : "#EAE9F2" }
-                    Keys.onReturnPressed: function(event) { if (loginBtn.enabled) loginBtn.clicked() }
-                    Keys.onEnterPressed: function(event) { if (loginBtn.enabled) loginBtn.clicked() }
-                    Button { id: showPassBtn; checkable: true; anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter; height: 30; text: checked ? "隐藏" : "显示"; font.pixelSize: 12; flat: true
-                        contentItem: Text { text: parent.text; color: parent.checked ? "#4F46E5" : "#9C9AAA"; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        background: Rectangle { color: showPassBtn.hovered ? "#EEF2FF" : "transparent"; radius: 6 }
-                    }
-                }
+            PasswordField {
+                id: loginPass
+                label: qsTr("密码")
+                placeholder: qsTr("输入密码")
+                onAccepted: { if (loginBtn.enabled) loginBtn.clicked() }
+            }
                 Text { Layout.alignment: Qt.AlignRight; text: qsTr("忘记密码？"); color: "#9C9AAA"; font.pixelSize: 12
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: loginRoot.switchToReset() }
                 }

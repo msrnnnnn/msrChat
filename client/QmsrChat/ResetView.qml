@@ -30,39 +30,16 @@ Item {
             anchors.margins: 32
             spacing: 14
 
-            ColumnLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 8
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 52
-                    height: 52
-                    radius: 14
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#4F46E5" }
-                        GradientStop { position: 1.0; color: "#818CF8" }
-                    }
-                    Text { anchors.centerIn: parent; text: "🔑"; font.pixelSize: 20 }
-                }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("重置密码"); color: "#1A1A2E"; font.pixelSize: 19; font.weight: Font.DemiBold }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("通过邮箱验证重置密码"); color: "#9C9AAA"; font.pixelSize: 13 }
+            AuthCardHeader {
+                iconText: "🔑"
+                title: qsTr("重置密码")
+                subtitle: qsTr("通过邮箱验证重置密码")
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: resetErrLabel.visible ? resetErrLabel.implicitHeight + 16 : 0
-                visible: errorMessage !== "" || successMessage !== ""
-                radius: 6
-                color: successMessage !== "" ? "#F0FDF4" : "#FEF2F2"
-                border.width: 1
-                border.color: successMessage !== "" ? "#BBF7D0" : "#FECACA"
-                Text {
-                    id: resetErrLabel
-                    anchors.centerIn: parent
-                    text: errorMessage !== "" ? errorMessage : successMessage
-                    color: errorMessage !== "" ? "#EF4444" : "#10B981"
-                    font.pixelSize: 12
-                }
+            AuthBanner {
+                id: banner
+                errorMessage: resetRoot.errorMessage
+                successMessage: resetRoot.successMessage
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
@@ -91,31 +68,10 @@ Item {
                 }
             }
 
-            ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("新密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
-                TextField {
-                    id: resetPass
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-                    echoMode: resetPassShow.checked ? TextInput.Normal : TextInput.Password
-                    placeholderText: qsTr("至少 6 位")
-                    font.pixelSize: 14
-                    color: "#1A1A2E"
-                    background: Rectangle { color: "#F8F9FE"; radius: 8; border.width: 1.5; border.color: resetPass.activeFocus ? "#4F46E5" : "#EAE9F2" }
-                    Button {
-                        id: resetPassShow
-                        checkable: true
-                        anchors.right: parent.right
-                        anchors.rightMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 30
-                        text: checked ? qsTr("隐藏") : qsTr("显示")
-                        font.pixelSize: 12
-                        flat: true
-                        contentItem: Text { text: parent.text; color: parent.checked ? "#4F46E5" : "#9C9AAA"; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        background: Rectangle { color: resetPassShow.hovered ? "#EEF2FF" : "transparent"; radius: 6 }
-                    }
-                }
+            PasswordField {
+                id: resetPass
+                label: qsTr("新密码")
+                placeholder: qsTr("至少 6 位")
             }
 
             RowLayout {

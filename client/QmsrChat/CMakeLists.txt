@@ -104,6 +104,9 @@ set(PROJECT_SOURCES
 
         # QML 视图 (严格锁定在根目录)
         ${CMAKE_CURRENT_SOURCE_DIR}/CardTopAccent.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthBanner.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthCardHeader.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/PasswordField.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageBubble.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageBubble.qml

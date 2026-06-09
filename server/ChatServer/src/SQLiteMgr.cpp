@@ -792,7 +792,7 @@ int SQLiteMgr::ResetPassword(
         return ERR_EMAIL_NOT_MATCH;
     }
 
-    int verify_result = CheckVerifyCodeUnlocked(db, email, code);
+    int verify_result = CheckVerifyCode(email, code);
     if (verify_result != 0)
     {
         return verify_result;
@@ -855,27 +855,6 @@ std::optional<User> SQLiteMgr::GetUserByUsernameUnlocked(sqlite3 *db, const std:
         return user;
     }
     return std::nullopt;
-}
-
-int SQLiteMgr::CheckVerifyCodeUnlocked(sqlite3 *db, const std::string &email, const std::string &code)
-{
-    ScopedStmt stmt(db, "SELECT expires_at FROM verify_codes WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1");
-    if (!stmt)
-    {
-        return ERR_VERIFY_EXPIRED;
-    }
-    sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, code.c_str(), -1, SQLITE_TRANSIENT);
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        int64_t expires_at = sqlite3_column_int64(stmt, 0);
-        if (time(nullptr) > expires_at)
-        {
-            return ERR_VERIFY_EXPIRED;
-        }
-        return 0;
-    }
-    return ERR_VERIFY_WRONG;
 }
 
 /**

@@ -80,13 +80,4 @@ enum class TipErr
     TIP_USER_ERR = 6
 };
 
-/**
- * @brief 点击标签状态枚举
- */
-enum class ClickLbState
-{
-    Normal = 0,  ///< 正常状态
-    Selected = 1 ///< 选中状态
-};
-
 #endif // GLOBAL_H

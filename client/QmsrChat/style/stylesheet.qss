@@ -1,7 +1,0 @@
-#error_label[state="normal"]{
-  color: #10B981;
-}
-
-#error_label[state="error"]{
-  color: #EF4444;
-}

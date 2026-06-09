@@ -195,7 +195,7 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
         return;
     }
 
-    QVector<ChatMessage> messages = DbService::Instance().SearchMessages(uid1, uid2, keyword, limit);
+    QVector<ChatMessage> messages = DbService::Instance().GetMessages(uid1, uid2, LLONG_MAX, limit, keyword);
     emit sigMessagesLoaded(messages);
 }
 

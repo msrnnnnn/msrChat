@@ -72,11 +72,8 @@ public:
      * @param before_time 分页锚点，返回此时间之前的消息（默认取最早）
      * @param limit 每页条数
      */
-    QVector<ChatMessage> GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50);
-    /**
-     * @brief 在双方会话中全文搜索消息内容
-     */
-    QVector<ChatMessage> SearchMessages(int uid1, int uid2, const QString &keyword, int limit = 50);
+    QVector<ChatMessage> GetMessages(int uid1, int uid2, qint64 before_time = LLONG_MAX, int limit = 50,
+                                     const QString &keyword = QString());
     /**
      * @brief 删除双方之间的全部消息
      */

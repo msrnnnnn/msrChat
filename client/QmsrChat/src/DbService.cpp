@@ -462,14 +462,15 @@ bool DbService::UpdateImagePath(const QString &image_id, const QString &local_pa
 }
 
 /**
- * @brief 获取两个用户之间的聊天历史
+ * @brief 获取/搜索两个用户之间的聊天历史
  * @param uid1 用户 A
  * @param uid2 用户 B
- * @param before_time 时间戳上限（默认 LLONG_MAX）
- * @param limit 每页消息数（默认 50）
+ * @param before_time 时间戳上限（默认 LLONG_MAX，keyword 非空时不参与过滤）
+ * @param limit 每页消息数
+ * @param keyword 搜索关键词（非空时启用 LIKE 模糊匹配）
  * @return 消息列表（按时间升序）
  */
-QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_time, int limit)
+QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_time, int limit, const QString &keyword)
 {
     QVector<ChatMessage> messages;
 
@@ -482,6 +483,7 @@ QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_ti
 
     QSqlQuery query(db);
 
+    const bool isSearch = !keyword.isEmpty();
     QString sql = R"(
         SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
                type, image_id, image_path, image_width, image_height, image_ext,
@@ -491,9 +493,9 @@ QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_ti
                    type, image_id, image_path, image_width, image_height, image_ext,
                    edited, edited_at, recalled, recalled_at
             FROM messages
-            WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
-            AND timestamp < ?
-            ORDER BY timestamp DESC
+            WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?)) )";
+    sql += isSearch ? "AND content LIKE ?" : "AND timestamp < ?";
+    sql += R"(            ORDER BY timestamp DESC
             LIMIT ?
         )
         ORDER BY timestamp ASC
@@ -504,91 +506,15 @@ QVector<ChatMessage> DbService::GetMessages(int uid1, int uid2, qint64 before_ti
     query.bindValue(1, uid2);
     query.bindValue(2, uid2);
     query.bindValue(3, uid1);
-    query.bindValue(4, before_time);
+    if (isSearch)
+        query.bindValue(4, QString("%").append(keyword).append("%"));
+    else
+        query.bindValue(4, before_time);
     query.bindValue(5, limit);
 
     if (!query.exec())
     {
-        qDebug() << "Failed to get messages:" << query.lastError().text();
-        return messages;
-    }
-
-    while (query.next())
-    {
-        ChatMessage msg;
-        msg.id = query.value(0).toLongLong();
-        msg.client_msg_id = query.value(1).toString();
-        msg.server_msg_id = query.value(2).toLongLong();
-        msg.from_uid = query.value(3).toInt();
-        msg.to_uid = query.value(4).toInt();
-        msg.content = query.value(5).toString();
-        msg.timestamp = query.value(6).toLongLong();
-        msg.status = query.value(7).toInt();
-        msg.type = query.value(8).toInt();
-        msg.image_id = query.value(9).toString();
-        msg.image_path = query.value(10).toString();
-        msg.image_width = query.value(11).toInt();
-        msg.image_height = query.value(12).toInt();
-        msg.image_ext = query.value(13).toString();
-        msg.edited = query.value(14).toBool();
-        msg.edited_at = query.value(15).toLongLong();
-        msg.recalled = query.value(16).toBool();
-        msg.recalled_at = query.value(17).toLongLong();
-        messages.push_back(msg);
-    }
-
-    return messages;
-}
-
-/**
- * @brief 搜索两个用户之间的消息
- * @param uid1 用户 A
- * @param uid2 用户 B
- * @param keyword 关键词（LIKE 模糊匹配）
- * @param limit 返回条数限制
- * @return 匹配的消息列表
- */
-QVector<ChatMessage> DbService::SearchMessages(int uid1, int uid2, const QString &keyword, int limit)
-{
-    QVector<ChatMessage> messages;
-
-    QSqlDatabase &db = GetOrCreateThreadConnection();
-    if (!db.isOpen())
-    {
-        qDebug() << "Database not open in SearchMessages";
-        return messages;
-    }
-
-    QSqlQuery query(db);
-
-    QString sql = R"(
-        SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
-               type, image_id, image_path, image_width, image_height, image_ext,
-               edited, edited_at, recalled, recalled_at
-        FROM (
-            SELECT id, client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status,
-                   type, image_id, image_path, image_width, image_height, image_ext,
-                   edited, edited_at, recalled, recalled_at
-            FROM messages 
-            WHERE ((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?))
-            AND content LIKE ?
-            ORDER BY timestamp DESC 
-            LIMIT ?
-        )
-        ORDER BY timestamp ASC
-    )";
-
-    query.prepare(sql);
-    query.bindValue(0, uid1);
-    query.bindValue(1, uid2);
-    query.bindValue(2, uid2);
-    query.bindValue(3, uid1);
-    query.bindValue(4, QString("%").append(keyword).append("%"));
-    query.bindValue(5, limit);
-
-    if (!query.exec())
-    {
-        qDebug() << "Failed to search messages:" << query.lastError().text();
+        qDebug() << (isSearch ? "Search" : "Get") << "messages failed:" << query.lastError().text();
         return messages;
     }
 

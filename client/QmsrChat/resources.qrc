@@ -2,6 +2,9 @@
     <qresource prefix="/">
         <file>image/mainwidow.ico</file>
         <file>CardTopAccent.qml</file>
+        <file>AuthBanner.qml</file>
+        <file>AuthCardHeader.qml</file>
+        <file>PasswordField.qml</file>
         <file>ChatView.qml</file>
         <file>MessageBubble.qml</file>
         <file>ImageBubble.qml</file>

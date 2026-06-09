@@ -35,39 +35,16 @@ Item {
             anchors.margins: 32
             spacing: 14
 
-            ColumnLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 8
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 52
-                    height: 52
-                    radius: 14
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#4F46E5" }
-                        GradientStop { position: 1.0; color: "#818CF8" }
-                    }
-                    Text { anchors.centerIn: parent; text: "📝"; font.pixelSize: 20 }
-                }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("创建账户"); color: "#1A1A2E"; font.pixelSize: 19; font.weight: Font.DemiBold }
-                Text { Layout.alignment: Qt.AlignHCenter; text: qsTr("注册一个新的 msrChat 账户"); color: "#9C9AAA"; font.pixelSize: 13 }
+            AuthCardHeader {
+                iconText: "📝"
+                title: qsTr("创建账户")
+                subtitle: qsTr("注册一个新的 msrChat 账户")
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: regErrLabel.visible ? regErrLabel.implicitHeight + 16 : 0
-                visible: errorMessage !== "" || successMessage !== ""
-                radius: 6
-                color: successMessage !== "" ? "#F0FDF4" : "#FEF2F2"
-                border.width: 1
-                border.color: successMessage !== "" ? "#BBF7D0" : "#FECACA"
-                Text {
-                    id: regErrLabel
-                    anchors.centerIn: parent
-                    text: errorMessage !== "" ? errorMessage : successMessage
-                    color: errorMessage !== "" ? "#EF4444" : "#10B981"
-                    font.pixelSize: 12
-                }
+            AuthBanner {
+                id: banner
+                errorMessage: registerRoot.errorMessage
+                successMessage: registerRoot.successMessage
             }
 
             ColumnLayout { spacing: 4; Layout.fillWidth: true
@@ -96,58 +73,16 @@ Item {
                 }
             }
 
-            ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
-                TextField {
-                    id: regPass
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-                    echoMode: regPassShow.checked ? TextInput.Normal : TextInput.Password
-                    placeholderText: qsTr("至少 6 位")
-                    font.pixelSize: 14
-                    color: "#1A1A2E"
-                    background: Rectangle { color: "#F8F9FE"; radius: 8; border.width: 1.5; border.color: regPass.activeFocus ? "#4F46E5" : "#EAE9F2" }
-                    Button {
-                        id: regPassShow
-                        checkable: true
-                        anchors.right: parent.right
-                        anchors.rightMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 30
-                        text: checked ? qsTr("隐藏") : qsTr("显示")
-                        font.pixelSize: 12
-                        flat: true
-                        contentItem: Text { text: parent.text; color: parent.checked ? "#4F46E5" : "#9C9AAA"; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        background: Rectangle { color: regPassShow.hovered ? "#EEF2FF" : "transparent"; radius: 6 }
-                    }
-                }
+            PasswordField {
+                id: regPass
+                label: qsTr("密码")
+                placeholder: qsTr("至少 6 位")
             }
 
-            ColumnLayout { spacing: 4; Layout.fillWidth: true
-                Text { text: qsTr("确认密码"); color: "#6B6A7F"; font.pixelSize: 12; font.weight: Font.DemiBold }
-                TextField {
-                    id: regConf
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-                    echoMode: regConfShow.checked ? TextInput.Normal : TextInput.Password
-                    placeholderText: qsTr("再次输入密码")
-                    font.pixelSize: 14
-                    color: "#1A1A2E"
-                    background: Rectangle { color: "#F8F9FE"; radius: 8; border.width: 1.5; border.color: regConf.activeFocus ? "#4F46E5" : "#EAE9F2" }
-                    Button {
-                        id: regConfShow
-                        checkable: true
-                        anchors.right: parent.right
-                        anchors.rightMargin: 4
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 30
-                        text: checked ? qsTr("隐藏") : qsTr("显示")
-                        font.pixelSize: 12
-                        flat: true
-                        contentItem: Text { text: parent.text; color: parent.checked ? "#4F46E5" : "#9C9AAA"; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        background: Rectangle { color: regConfShow.hovered ? "#EEF2FF" : "transparent"; radius: 6 }
-                    }
-                }
+            PasswordField {
+                id: regConf
+                label: qsTr("确认密码")
+                placeholder: qsTr("再次输入密码")
             }
 
             RowLayout {

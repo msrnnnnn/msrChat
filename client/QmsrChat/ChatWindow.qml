@@ -1,7 +1,7 @@
 /**
  * @file ChatWindow.qml
  * @brief 聊天主窗口 — 独立的大窗口，包含 ChatView
- * @details 登录成功后由 main.cpp 创建，替代旧的 MainWindow.qml 中的 chatPage
+ * @details 登录成功后由 main.cpp 创建
  */
 import QtQuick
 import QtQuick.Controls
