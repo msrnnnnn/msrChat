@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file MessageDispatcher.h
  * @brief 消息分发器 —— 根据 msg_id 查找注册的处理器并调用

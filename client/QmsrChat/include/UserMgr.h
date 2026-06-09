@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file usermgr.h
  * @brief 用户数据管理单例类

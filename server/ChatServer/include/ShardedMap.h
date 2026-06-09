@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ShardedMap.h
  * @brief 分片哈希表 —— 将数据按 key 哈希分散到多个分片，每个分片独立加锁

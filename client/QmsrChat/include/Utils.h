@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file Utils.h
  * @brief 通用工具类

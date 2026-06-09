@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file TcpWorker.h
  * @brief TCP 工作线程类
@@ -37,11 +38,11 @@ public slots:
 
 signals:
     void sigConSuccess(bool bsuccess);
-    void sig_packet_received(quint16 msg_id, QByteArray data);
+    void sigPacketReceived(quint16 msg_id, QByteArray data);
     /**
      * @brief 断线重连成功后发射
      */
-    void sig_reconnected();
+    void sigReconnected();
 
 private slots:
     void slot_ready_read();

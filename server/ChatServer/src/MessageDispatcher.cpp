@@ -53,7 +53,7 @@ void MessageDispatcher::RegisterDefaultHandlers()
     RegisterHandler(MSG_CHAT_LOGIN, HandleLoginRequest, false);
     RegisterHandler(ID_REGISTER_USER, HandleRegisterRequest, false);
     RegisterHandler(ID_LOGIN_USER, HandleLoginAuthRequest, false);
-    RegisterHandler(ID_GET_VARIFY_CODE, HandleGetVerifyCodeRequest, false);
+    RegisterHandler(ID_GET_VERIFY_CODE, HandleGetVerifyCodeRequest, false);
     RegisterHandler(ID_RESET_PWD, HandleResetPwdRequest, false);
     RegisterHandler(MSG_CHAT_TEXT, HandleChatText, true);
     RegisterHandler(MSG_FILE_REQ, HandleFileReq, true);
@@ -148,7 +148,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
         std::string username = json_data.value("user", "");
         std::string password_hash = json_data.value("passwd", "");
         std::string email = json_data.value("email", "");
-        std::string verifycode = json_data.value("varifycode", "");
+        std::string verifycode = json_data.value("verifycode", "");
 
         if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
@@ -284,7 +284,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
         if (email.empty())
         {
             nlohmann::json response{{"error", ERR_JSON_PARSE}};
-            session.Send(response.dump(), ID_GET_VARIFY_CODE);
+            session.Send(response.dump(), ID_GET_VERIFY_CODE);
             session.ContinueReading();
             return true;
         }
@@ -305,7 +305,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
                 bool success = SQLiteMgr::Instance().SendVerifyCode(email, code);
 
                 nlohmann::json response{{"error", success ? ERR_SUCCESS : ERR_JSON_PARSE}, {"email", email}, {"code", code}};
-                safe_session->Send(response.dump(), ID_GET_VARIFY_CODE);
+                safe_session->Send(response.dump(), ID_GET_VERIFY_CODE);
                 safe_session->ContinueReading();
             });
     }
@@ -313,7 +313,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
     {
         spdlog::error("[MessageDispatcher] HandleGetVerifyCodeRequest error: {}", e.what());
         nlohmann::json response{{"error", ERR_JSON_PARSE}};
-        session.Send(response.dump(), ID_GET_VARIFY_CODE);
+        session.Send(response.dump(), ID_GET_VERIFY_CODE);
         session.ContinueReading();
     }
     return true;
@@ -330,7 +330,7 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
         auto json_data = nlohmann::json::parse(body_data);
         std::string username = json_data.value("user", "");
         std::string email = json_data.value("email", "");
-        std::string code = json_data.value("varifycode", "");
+        std::string code = json_data.value("verifycode", "");
         std::string new_password_hash = json_data.value("passwd", "");
 
         if (username.empty() || email.empty() || code.empty() || new_password_hash.empty())

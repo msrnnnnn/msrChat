@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file    ImageDownloadMgr.h
  * @brief   图片下载管理器

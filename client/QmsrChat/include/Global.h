@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file global.h
  * @brief 全局定义头文件
@@ -16,7 +17,7 @@
 enum class RequestType
 {
     MSG_HELLO = 1000,             ///< 连接问候
-    ID_GET_VARIFY_CODE = 1001,  ///< 获取验证码
+    ID_GET_VERIFY_CODE = 1001,  ///< 获取验证码
     ID_REGISTER_USER = 1002,   ///< 用户注册
     ID_RESET_PWD = 1003,       ///< 重置密码
     ID_LOGIN_USER = 1004,      ///< 用户登录
@@ -56,8 +57,8 @@ Q_DECLARE_METATYPE(ServerInfo)
 enum class ERRORCODES
 {
     SUCCESS = 0,              ///< 操作成功
-    VarifyCodeExpired = 1003, ///< 验证码已过期
-    VarifyCodeErr = 1004,     ///< 验证码错误
+    VerifyCodeExpired = 1003, ///< 验证码已过期
+    VerifyCodeErr = 1004,     ///< 验证码错误
     UserExist = 1005,         ///< 用户名已存在
     PasswdErr = 1006,         ///< 密码错误
     UserNotExist = 1007,      ///< 用户不存在
@@ -75,7 +76,7 @@ enum class TipErr
     TIP_PWD_ERR = 2,
     TIP_CONFIRM_ERR = 3,
     TIP_PWD_CONFIRM = 4,
-    TIP_VARIFY_ERR = 5,
+    TIP_VERIFY_ERR = 5,
     TIP_USER_ERR = 6
 };
 

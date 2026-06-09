@@ -219,7 +219,7 @@ bool FileRecvMgr::WriteChunk(
         *committed = task->received_size;
     }
 
-    emit SigRecvProgress(
+    emit sigRecvProgress(
         task_id, CalcProgress(task->received_size, task->total_size), task->received_size, task->total_size);
 
     if (task->received_size == task->total_size)
@@ -298,7 +298,7 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
         const int64_t taskId = task->task_id;
         delete task;
         _tasks.erase(it);
-        emit SigRecvComplete(taskId, finalPath, true, {});
+        emit sigRecvComplete(taskId, finalPath, true, {});
         return true;
     }
 
@@ -310,7 +310,7 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
 }
 
 /**
- * @brief 失败处理：写错误信息并发射 SigRecvComplete(false)
+ * @brief 失败处理：写错误信息并发射 sigRecvComplete(false)
  * @param task_id 任务 ID
  * @param error 错误信息输出参数
  * @param message 错误消息
@@ -322,7 +322,7 @@ bool FileRecvMgr::FailAndEmit(int64_t task_id, QString *error, const char *messa
     {
         *error = QString::fromLatin1(message);
     }
-    emit SigRecvComplete(task_id, {}, false, QString::fromLatin1(message));
+    emit sigRecvComplete(task_id, {}, false, QString::fromLatin1(message));
     return false;
 }
 
@@ -427,7 +427,7 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (!success)
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "md5 computation failed");
+        emit sigRecvComplete(task_id, {}, false, "md5 computation failed");
         return;
     }
 
@@ -436,7 +436,7 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (it == _pendingMd5.end())
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "task not found");
+        emit sigRecvComplete(task_id, {}, false, "task not found");
         return;
     }
 
@@ -446,9 +446,9 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (!expectedMd5.isEmpty() && md5 != expectedMd5)
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "md5 mismatch");
+        emit sigRecvComplete(task_id, {}, false, "md5 mismatch");
         return;
     }
 
-    emit SigRecvComplete(task_id, filepath, true, {});
+    emit sigRecvComplete(task_id, filepath, true, {});
 }

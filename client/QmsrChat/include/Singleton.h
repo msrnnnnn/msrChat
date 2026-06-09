@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file singleton.h
  * @brief 单例模板基类 - 强制手动生命周期管理

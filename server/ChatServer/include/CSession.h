@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file CSession.h
  * @brief TCP 会话与协议收发定义

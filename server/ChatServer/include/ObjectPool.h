@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ObjectPool.h
  * @brief 通用对象池模板 —— 预分配对象并循环复用，避免频繁 new/delete

@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file Base64.h
  * @brief 轻量级 Base64 编解码工具（header-only）

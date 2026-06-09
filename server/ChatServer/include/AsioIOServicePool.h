@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file AsioIOServicePool.h
  * @brief Boost.Asio I/O 线程池

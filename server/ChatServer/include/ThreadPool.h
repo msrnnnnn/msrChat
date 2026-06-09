@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ThreadPool.h
  * @brief 线程池 —— 固定数量的工作线程 + 任务队列

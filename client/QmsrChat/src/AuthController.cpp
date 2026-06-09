@@ -89,7 +89,7 @@ void AuthController::registerUser(const QString &username, const QString &email,
     err = validateConfirmPassword(password, confirmPassword); if (!err.isEmpty()) { emit registerResult(false, err); return; }
     err = validateVerifyCode(verifyCode); if (!err.isEmpty()) { emit registerResult(false, err); return; }
     RegisterReqStruct req; req.user = username; req.email = email.trimmed();
-    req.passwd = Utils::hashPassword(password); req.varifycode = verifyCode.trimmed();
+    req.passwd = Utils::hashPassword(password); req.verifycode = verifyCode.trimmed();
     TcpMgr::Instance()->slot_send_register_req(req);
 }
 
@@ -109,8 +109,8 @@ void AuthController::slotRegisterRsp(const RegisterRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
         QString errStr;
         switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::VarifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
-            case ERRORCODES::VarifyCodeErr:     errStr = tr("验证码错误"); break;
+            case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
+            case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
             case ERRORCODES::UserExist:         errStr = tr("用户名已存在"); break;
             default: errStr = tr("注册失败 (%1)").arg(rsp.error); break;
         }
@@ -126,7 +126,7 @@ void AuthController::resetPassword(const QString &username, const QString &email
     err = validatePassword(newPassword); if (!err.isEmpty()) { emit resetPasswordResult(false, err); return; }
     err = validateVerifyCode(verifyCode); if (!err.isEmpty()) { emit resetPasswordResult(false, err); return; }
     ResetPwdReqStruct req; req.user = username; req.email = email.trimmed();
-    req.passwd = Utils::hashPassword(newPassword); req.varifycode = verifyCode.trimmed();
+    req.passwd = Utils::hashPassword(newPassword); req.verifycode = verifyCode.trimmed();
     TcpMgr::Instance()->slot_send_reset_pwd_req(req);
 }
 
@@ -134,8 +134,8 @@ void AuthController::slotResetPwdRsp(const ResetPwdRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
         QString errStr;
         switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::VarifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
-            case ERRORCODES::VarifyCodeErr:     errStr = tr("验证码错误"); break;
+            case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
+            case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
             case ERRORCODES::UserNotExist:      errStr = tr("用户不存在"); break;
             case ERRORCODES::EmailNotMatch:     errStr = tr("邮箱与注册邮箱不匹配"); break;
             case ERRORCODES::PasswdUpFailed:    errStr = tr("密码更新失败，请重试"); break;

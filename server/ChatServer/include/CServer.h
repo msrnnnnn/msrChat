@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file CServer.h
  * @brief 聊天服务 TCP 入口类

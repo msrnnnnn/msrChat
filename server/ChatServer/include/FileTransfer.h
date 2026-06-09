@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file FileTransfer.h
  * @brief 文件传输任务管理与路由

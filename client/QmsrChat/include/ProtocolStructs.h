@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ProtocolStructs.h
  * @brief 网络协议强类型数据结构体
@@ -126,7 +127,7 @@ struct RegisterReqStruct
     QString user;        ///< 用户名
     QString email;       ///< 邮箱
     QString passwd;      ///< 密码
-    QString varifycode;  ///< 验证码
+    QString verifycode;  ///< 验证码
 };
 
 /**
@@ -146,7 +147,7 @@ struct ResetPwdReqStruct
     QString user;        ///< 用户名
     QString email;       ///< 邮箱
     QString passwd;      ///< 新密码
-    QString varifycode;  ///< 验证码
+    QString verifycode;  ///< 验证码
 };
 
 /**

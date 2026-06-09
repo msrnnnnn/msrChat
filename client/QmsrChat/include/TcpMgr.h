@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file TcpMgr.h
  * @brief TCP 长连接管理类
@@ -77,16 +78,16 @@ signals:
     /**
      * @brief 断线重连成功后发射
      */
-    void sig_reconnected();
+    void sigReconnected();
 
     void sigLoginRsp(const LoginRspStruct &rsp);
     void sigChatLoginRsp(const ChatLoginRspStruct &rsp);
     void sigChatTextMsg(const ChatTextMsgStruct &msg);
-    void sig_chat_ack(const ChatAckStruct &ack);
+    void sigChatAck(const ChatAckStruct &ack);
     /**
      * @brief 离线消息确认通知
      */
-    void sig_offline_ack(const OfflineAckStruct &ack);
+    void sigOfflineAck(const OfflineAckStruct &ack);
     void sigVerifyCodeRsp(const VerifyCodeRspStruct &rsp);
     void sigRegisterRsp(const RegisterRspStruct &rsp);
     void sigResetPwdRsp(const ResetPwdRspStruct &rsp);

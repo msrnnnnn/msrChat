@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ChatListModel.h
  * @brief 聊天消息列表数据模型

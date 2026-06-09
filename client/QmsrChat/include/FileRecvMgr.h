@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file    FileRecvMgr.h
  * @brief   文件接收管理器
@@ -84,7 +85,7 @@ signals:
      * @param received 已接收字节数
      * @param total 总字节数
      */
-    void SigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
+    void sigRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
     /**
      * @brief 接收完成信号
      * @param task_id 任务ID
@@ -92,7 +93,7 @@ signals:
      * @param success 是否成功
      * @param error 错误信息（失败时有效）
      */
-    void SigRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
+    void sigRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
 
 public slots:
     /**

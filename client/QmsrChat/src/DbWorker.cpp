@@ -70,7 +70,7 @@ void DbWorker::slot_init(const QString &db_path)
 /**
  * @brief 保存消息到数据库（工作线程内调用）
  * @param msg 消息结构体
- * @details 先检查 _stop_flag 和 _dbInitialized，通过 sig_messages_saved 返回结果
+ * @details 先检查 _stop_flag 和 _dbInitialized，通过 sigMessagesSaved 返回结果
  */
 void DbWorker::slot_save_message(const ChatMessage &msg)
 {
@@ -78,23 +78,23 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring save message request";
-        emit sig_messages_saved(false);
+        emit sigMessagesSaved(false);
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_saved(false);
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesSaved(false);
         return;
     }
 
     bool success = DbService::Instance().SaveMessage(msg);
-    emit sig_messages_saved(success);
+    emit sigMessagesSaved(success);
 
     if (!success)
     {
-        emit sig_error(QString("Failed to save message: %1").arg(msg.id));
+        emit sigError(QString("Failed to save message: %1").arg(msg.id));
     }
 }
 
@@ -108,23 +108,23 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
 
     if (_stop_flag.load())
     {
-        emit sig_messages_saved(false);
+        emit sigMessagesSaved(false);
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_saved(false);
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesSaved(false);
         return;
     }
 
     const bool success = DbService::Instance().UpdateMessageStatus(client_msg_id, status);
-    emit sig_messages_saved(success);
+    emit sigMessagesSaved(success);
 
     if (!success)
     {
-        emit sig_error(QString("Failed to update message status: %1").arg(client_msg_id));
+        emit sigError(QString("Failed to update message status: %1").arg(client_msg_id));
     }
 }
 
@@ -156,19 +156,19 @@ void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int lim
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring get messages request";
-        emit sig_messages_loaded(QVector<ChatMessage>());
+        emit sigMessagesLoaded(QVector<ChatMessage>());
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_loaded(QVector<ChatMessage>());
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesLoaded(QVector<ChatMessage>());
         return;
     }
 
     QVector<ChatMessage> messages = DbService::Instance().GetMessages(uid1, uid2, before_time, limit);
-    emit sig_messages_loaded(messages);
+    emit sigMessagesLoaded(messages);
 }
 
 /**
@@ -184,19 +184,19 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring search messages request";
-        emit sig_messages_loaded(QVector<ChatMessage>());
+        emit sigMessagesLoaded(QVector<ChatMessage>());
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_loaded(QVector<ChatMessage>());
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesLoaded(QVector<ChatMessage>());
         return;
     }
 
     QVector<ChatMessage> messages = DbService::Instance().SearchMessages(uid1, uid2, keyword, limit);
-    emit sig_messages_loaded(messages);
+    emit sigMessagesLoaded(messages);
 }
 
 /**
@@ -210,23 +210,23 @@ void DbWorker::slot_delete_messages(int uid1, int uid2)
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring delete messages request";
-        emit sig_messages_deleted(false);
+        emit sigMessagesDeleted(false);
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_deleted(false);
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesDeleted(false);
         return;
     }
 
     bool success = DbService::Instance().DeleteMessages(uid1, uid2);
-    emit sig_messages_deleted(success);
+    emit sigMessagesDeleted(success);
 
     if (!success)
     {
-        emit sig_error(QString("Failed to delete messages between %1 and %2").arg(uid1).arg(uid2));
+        emit sigError(QString("Failed to delete messages between %1 and %2").arg(uid1).arg(uid2));
     }
 }
 
@@ -241,23 +241,23 @@ void DbWorker::slot_delete_message_by_timestamp(qint64 ts)
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring delete message by timestamp request";
-        emit sig_messages_deleted(false);
+        emit sigMessagesDeleted(false);
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error(QString("Database not initialized"));
-        emit sig_messages_deleted(false);
+        emit sigError(QString("Database not initialized"));
+        emit sigMessagesDeleted(false);
         return;
     }
 
     bool success = DbService::Instance().DeleteMessageByTimestamp(ts);
-    emit sig_messages_deleted(success);
+    emit sigMessagesDeleted(success);
 
     if (!success)
     {
-        emit sig_error(QString("Failed to delete message by timestamp: %1").arg(ts));
+        emit sigError(QString("Failed to delete message by timestamp: %1").arg(ts));
     }
 }
 
@@ -270,23 +270,23 @@ void DbWorker::slot_mark_message_recalled(qint64 ts, int current_uid)
 {
     if (_stop_flag.load())
     {
-        emit sig_error("DbWorker is stopping, ignoring mark recalled");
+        emit sigError("DbWorker is stopping, ignoring mark recalled");
         return;
     }
 
     if (!_dbInitialized)
     {
-        emit sig_error("Database not initialized");
+        emit sigError("Database not initialized");
         return;
     }
 
     bool success = DbService::Instance().MarkMessageRecalled(ts, current_uid);
     if (!success)
     {
-        emit sig_error(QString("Failed to mark message recalled: ts=%1").arg(ts));
+        emit sigError(QString("Failed to mark message recalled: ts=%1").arg(ts));
     }
-    // 成功 / 失败都通过 sig_messages_saved 通道发（不阻塞调用方）
-    emit sig_messages_saved(success);
+    // 成功 / 失败都通过 sigMessagesSaved 通道发（不阻塞调用方）
+    emit sigMessagesSaved(success);
 }
 
 /**
@@ -320,7 +320,7 @@ DbThreadManager::~DbThreadManager()
 
 /**
  * @brief 清理工作线程
- * @details 先 stopAsync 通知拒绝新请求 → 发射 sig_destroy_db 清理 DB → quit + wait(5000ms) 等待线程结束。
+ * @details 先 stopAsync 通知拒绝新请求 → 发射 sigDestroyDb 清理 DB → quit + wait(5000ms) 等待线程结束。
  *          超时后放弃等待防止死锁，由 OS 在线程退出时回收资源（安全：SQLite 连接由 QThreadStorage 管理）
  */
 void DbThreadManager::cleanup()
@@ -330,7 +330,7 @@ void DbThreadManager::cleanup()
         if (_worker != nullptr)
         {
             _worker->stopAsync();
-            emit sig_destroy_db();
+            emit sigDestroyDb();
         }
 
         _thread->quit();
@@ -374,25 +374,25 @@ bool DbThreadManager::Init(const QString &db_path)
 
     // 删除 finished->deleteLater：会导致 deleteLater 投递到死线程的事件队列
 
-    connect(_worker, &DbWorker::sig_messages_loaded, this, &DbThreadManager::sig_messages_loaded, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_messages_saved, this, &DbThreadManager::sig_messages_saved, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_messages_deleted, this, &DbThreadManager::sig_messages_deleted, Qt::QueuedConnection);
-    connect(_worker, &DbWorker::sig_error, this, &DbThreadManager::sig_error, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sigMessagesLoaded, this, &DbThreadManager::sigMessagesLoaded, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sigMessagesSaved, this, &DbThreadManager::sigMessagesSaved, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sigMessagesDeleted, this, &DbThreadManager::sigMessagesDeleted, Qt::QueuedConnection);
+    connect(_worker, &DbWorker::sigError, this, &DbThreadManager::sigError, Qt::QueuedConnection);
 
-    connect(this, &DbThreadManager::sig_init_db, _worker, &DbWorker::slot_init, Qt::BlockingQueuedConnection);
-    connect(this, &DbThreadManager::sig_destroy_db, _worker, &DbWorker::slot_db_destroy, Qt::BlockingQueuedConnection);
-    connect(this, &DbThreadManager::sig_save_msg, _worker, &DbWorker::slot_save_message, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_update_msg_status, _worker, &DbWorker::slot_update_message_status, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_update_image_path, _worker, &DbWorker::slot_update_image_path, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_get_msgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_search_msgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_delete_msgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_delete_msg_by_ts, _worker, &DbWorker::slot_delete_message_by_timestamp, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sig_mark_msg_recalled, _worker, &DbWorker::slot_mark_message_recalled, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigInitDb, _worker, &DbWorker::slot_init, Qt::BlockingQueuedConnection);
+    connect(this, &DbThreadManager::sigDestroyDb, _worker, &DbWorker::slot_db_destroy, Qt::BlockingQueuedConnection);
+    connect(this, &DbThreadManager::sigSaveMsg, _worker, &DbWorker::slot_save_message, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigUpdateMsgStatus, _worker, &DbWorker::slot_update_message_status, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigUpdateImagePath, _worker, &DbWorker::slot_update_image_path, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigGetMsgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigSearchMsgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigDeleteMsgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigDeleteMsgByTs, _worker, &DbWorker::slot_delete_message_by_timestamp, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigMarkMsgRecalled, _worker, &DbWorker::slot_mark_message_recalled, Qt::QueuedConnection);
 
     _thread->start();
 
-    emit sig_init_db(db_path);
+    emit sigInitDb(db_path);
 
     if (!_worker->isDbInitialized())
     {
@@ -417,7 +417,7 @@ void DbThreadManager::SaveMessage(const ChatMessage &msg)
         return;
     }
 
-    emit sig_save_msg(msg);
+    emit sigSaveMsg(msg);
 }
 
 /**
@@ -433,7 +433,7 @@ void DbThreadManager::UpdateMessageStatus(const QString &client_msg_id, int stat
         return;
     }
 
-    emit sig_update_msg_status(client_msg_id, status);
+    emit sigUpdateMsgStatus(client_msg_id, status);
 }
 
 /**
@@ -449,7 +449,7 @@ void DbThreadManager::UpdateImagePath(const QString &image_id, const QString &lo
         return;
     }
 
-    emit sig_update_image_path(image_id, local_path);
+    emit sigUpdateImagePath(image_id, local_path);
 }
 
 /**
@@ -467,7 +467,7 @@ void DbThreadManager::GetMessages(int uid1, int uid2, qint64 before_time, int li
         return;
     }
 
-    emit sig_get_msgs(uid1, uid2, before_time, limit);
+    emit sigGetMsgs(uid1, uid2, before_time, limit);
 }
 
 /**
@@ -485,7 +485,7 @@ void DbThreadManager::SearchMessages(int uid1, int uid2, const QString &keyword,
         return;
     }
 
-    emit sig_search_msgs(uid1, uid2, keyword, limit);
+    emit sigSearchMsgs(uid1, uid2, keyword, limit);
 }
 
 /**
@@ -501,7 +501,7 @@ void DbThreadManager::DeleteMessages(int uid1, int uid2)
         return;
     }
 
-    emit sig_delete_msgs(uid1, uid2);
+    emit sigDeleteMsgs(uid1, uid2);
 }
 
 /**
@@ -516,7 +516,7 @@ void DbThreadManager::DeleteMessageByTimestamp(qint64 ts)
         return;
     }
 
-    emit sig_delete_msg_by_ts(ts);
+    emit sigDeleteMsgByTs(ts);
 }
 
 /**
@@ -532,5 +532,5 @@ void DbThreadManager::MarkMessageRecalled(qint64 ts, int current_uid)
         return;
     }
 
-    emit sig_mark_msg_recalled(ts, current_uid);
+    emit sigMarkMsgRecalled(ts, current_uid);
 }

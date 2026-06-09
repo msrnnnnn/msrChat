@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file DbWorker.h
  * @brief 数据库异步工作线程
@@ -43,10 +44,10 @@ public slots:
     void stopAsync();
 
 signals:
-    void sig_messages_loaded(const QVector<ChatMessage> &messages);
-    void sig_messages_saved(bool success);
-    void sig_messages_deleted(bool success);
-    void sig_error(const QString &error);
+    void sigMessagesLoaded(const QVector<ChatMessage> &messages);
+    void sigMessagesSaved(bool success);
+    void sigMessagesDeleted(bool success);
+    void sigError(const QString &error);
 
 private:
     bool _dbInitialized;
@@ -87,21 +88,21 @@ public:
     void MarkMessageRecalled(qint64 ts, int current_uid);  // 撤回持久化
 
 signals:
-    void sig_messages_loaded(const QVector<ChatMessage> &messages);
-    void sig_messages_saved(bool success);
-    void sig_messages_deleted(bool success);
-    void sig_error(const QString &error);
+    void sigMessagesLoaded(const QVector<ChatMessage> &messages);
+    void sigMessagesSaved(bool success);
+    void sigMessagesDeleted(bool success);
+    void sigError(const QString &error);
 
-    void sig_init_db(const QString &db_path);
-    void sig_destroy_db();
-    void sig_save_msg(const ChatMessage &msg);
-    void sig_update_msg_status(const QString &client_msg_id, int status);
-    void sig_update_image_path(const QString &image_id, const QString &local_path);
-    void sig_get_msgs(int uid1, int uid2, qint64 before_time, int limit);
-    void sig_search_msgs(int uid1, int uid2, const QString &keyword, int limit);
-    void sig_delete_msgs(int uid1, int uid2);
-    void sig_delete_msg_by_ts(qint64 ts);  // Phase 6
-    void sig_mark_msg_recalled(qint64 ts, int current_uid);  // 撤回持久化
+    void sigInitDb(const QString &db_path);
+    void sigDestroyDb();
+    void sigSaveMsg(const ChatMessage &msg);
+    void sigUpdateMsgStatus(const QString &client_msg_id, int status);
+    void sigUpdateImagePath(const QString &image_id, const QString &local_path);
+    void sigGetMsgs(int uid1, int uid2, qint64 before_time, int limit);
+    void sigSearchMsgs(int uid1, int uid2, const QString &keyword, int limit);
+    void sigDeleteMsgs(int uid1, int uid2);
+    void sigDeleteMsgByTs(qint64 ts);  // Phase 6
+    void sigMarkMsgRecalled(qint64 ts, int current_uid);  // 撤回持久化
 
 private:
     DbThreadManager();

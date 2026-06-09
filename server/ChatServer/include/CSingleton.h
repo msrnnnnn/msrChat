@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file CSingleton.h
  * @brief Meyer's Singleton 模式实现

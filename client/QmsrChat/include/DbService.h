@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file DbService.h
  * @brief 本地 SQLite 数据库服务

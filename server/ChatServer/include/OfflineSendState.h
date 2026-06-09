@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file OfflineSendState.h
  * @brief 离线消息发送状态 —— 记录某个用户的离线消息投递进度

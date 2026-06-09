@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file SessionManager.h
  * @brief 会话管理器 —— 维护在线用户的会话映射

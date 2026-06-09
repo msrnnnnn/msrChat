@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file    RingBuffer.h
  * @brief   环形缓冲区

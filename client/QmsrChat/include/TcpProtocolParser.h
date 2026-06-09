@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file    TcpProtocolParser.h
  * @brief   TCP 协议解析器

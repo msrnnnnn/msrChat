@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file SQLiteMgr.h
  * @brief SQLite 数据库管理层 —— 连接池、消息持久化、用户认证

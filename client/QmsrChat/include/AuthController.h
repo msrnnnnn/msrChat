@@ -1,3 +1,4 @@
+#pragma once
 #ifndef AUTHCONTROLLER_H
 #define AUTHCONTROLLER_H
 

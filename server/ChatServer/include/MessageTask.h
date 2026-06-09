@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file MessageTask.h
  * @brief 消息任务封装

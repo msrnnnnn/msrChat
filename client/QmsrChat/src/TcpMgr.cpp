@@ -141,9 +141,9 @@ void TcpMgr::init_thread()
                 emit sigConSuccess(connected);
             },
             Qt::QueuedConnection);
-    connect(_worker, &TcpWorker::sig_reconnected, this, &TcpMgr::sig_reconnected, Qt::QueuedConnection);
+    connect(_worker, &TcpWorker::sigReconnected, this, &TcpMgr::sigReconnected, Qt::QueuedConnection);
 
-    connect(_worker, &TcpWorker::sig_packet_received, this, &TcpMgr::slotDispatchPacket, Qt::QueuedConnection);
+    connect(_worker, &TcpWorker::sigPacketReceived, this, &TcpMgr::slotDispatchPacket, Qt::QueuedConnection);
 
     connect(this, &TcpMgr::sigStopWorker, _worker, &TcpWorker::slot_stop, Qt::QueuedConnection);
     connect(this, &TcpMgr::sigConnectWorker, _worker, &TcpWorker::slotTcpConnect, Qt::QueuedConnection);
@@ -224,7 +224,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
  */
 void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 {
-    slotSendData(RequestType::ID_GET_VARIFY_CODE, MakeJsonPayload({{"email", req.email}}));
+    slotSendData(RequestType::ID_GET_VERIFY_CODE, MakeJsonPayload({{"email", req.email}}));
 }
 
 /**
@@ -234,7 +234,7 @@ void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
     slotSendData(RequestType::ID_REGISTER_USER,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode}}));
 }
 
 /**
@@ -244,7 +244,7 @@ void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
     slotSendData(RequestType::ID_RESET_PWD,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"varifycode", req.varifycode}}));
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode}}));
 }
 
 /**
@@ -372,7 +372,7 @@ void TcpMgr::slotDispatchPacket(quint16 msg_id, const QByteArray &data)
     switch (req_type)
     {
         case RequestType::ID_LOGIN_USER:
-        case RequestType::ID_GET_VARIFY_CODE:
+        case RequestType::ID_GET_VERIFY_CODE:
         case RequestType::ID_REGISTER_USER:
         case RequestType::ID_RESET_PWD:
             _parser.parseLoginPacket(req_type, data);

@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file FileTransferState.h
  * @brief 会话级文件接收状态

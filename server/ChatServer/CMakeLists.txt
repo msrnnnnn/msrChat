@@ -57,7 +57,6 @@ elseif(UNIX AND NOT APPLE)
     endif()
     
     find_package(Threads REQUIRED)
-    link_libraries(Threads::Threads)
     
 elseif(APPLE)
     message(STATUS "Building ChatServer on macOS")
@@ -120,7 +119,7 @@ target_include_directories(ChatServer PRIVATE
 # =============================================================
 # 6. 链接库 (Link Libraries)
 # =============================================================
-target_link_libraries(ChatServer
+target_link_libraries(ChatServer PRIVATE
     ${Boost_LIBRARIES}
     Threads::Threads
     nlohmann_json::nlohmann_json

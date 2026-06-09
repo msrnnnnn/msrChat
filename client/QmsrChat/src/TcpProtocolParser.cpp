@@ -16,7 +16,7 @@
  * @brief 解析登录/注册相关数据包（JSON 格式）
  * @param req_type 请求类型
  * @param data JSON 字节数组
- * @details 兼容 ID_LOGIN_USER、ID_GET_VARIFY_CODE、ID_REGISTER_USER、ID_RESET_PWD 四种类型。
+ * @details 兼容 ID_LOGIN_USER、ID_GET_VERIFY_CODE、ID_REGISTER_USER、ID_RESET_PWD 四种类型。
  */
 void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray &data)
 {
@@ -39,7 +39,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
 
         emit _tcpMgr.sigLoginRsp(rsp);
     }
-    else if (req_type == RequestType::ID_GET_VARIFY_CODE)
+    else if (req_type == RequestType::ID_GET_VERIFY_CODE)
     {
         VerifyCodeRspStruct rsp;
         rsp.error = jsonObj["error"].toInt();
@@ -126,7 +126,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         ack.message = QString::fromStdString(chatAck.message());
         ack.client_msg_id = QString::fromStdString(chatAck.client_msg_id());
 
-        emit _tcpMgr.sig_chat_ack(ack);
+        emit _tcpMgr.sigChatAck(ack);
         return;
     }
     if (req_type == RequestType::MSG_OFFLINE_ACK)
@@ -142,7 +142,7 @@ void TcpProtocolParser::parseChatPacket(RequestType req_type, const QByteArray &
         ack.received = jsonObj["received"].toInteger(0);
         ack.total = jsonObj["total"].toInteger(0);
 
-        emit _tcpMgr.sig_offline_ack(ack);
+        emit _tcpMgr.sigOfflineAck(ack);
         return;
     }
     if (req_type == RequestType::MSG_CHAT_IMAGE)

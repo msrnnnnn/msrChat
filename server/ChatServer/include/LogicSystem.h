@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file LogicSystem.h
  * @brief 业务逻辑处理系统

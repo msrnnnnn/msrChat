@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file TokenManager.h
  * @brief Token 管理器 —— 在内存中缓存 uid->token 映射

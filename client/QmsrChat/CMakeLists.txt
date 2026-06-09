@@ -51,9 +51,7 @@ elseif(UNIX AND NOT APPLE)
         add_compile_options(-O3 -march=native)
     endif()
     find_package(Threads REQUIRED)
-    link_libraries(Threads::Threads)
-    add_compile_definitions(STD_FILESYSTEM_EXPERIMENTAL=0)
-
+    
 elseif(APPLE)
     message(STATUS "Building on macOS")
     add_compile_options(
@@ -238,12 +236,7 @@ add_executable(QmsrChatTests
     include/DbService.h
 )
 
-# AUTOMOC for the test target: ChatListModel.h has Q_OBJECT, so its moc file
-# (moc_ChatListModel.cpp) must be compiled into the test binary. Set both
-# per-target and per-file to ensure AUTOMOC triggers (the global
-# CMAKE_AUTOMOC=ON didn't auto-apply to this target's new sources).
 set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
-set_source_files_properties(include/ChatListModel.h include/ImageDownloadMgr.h PROPERTIES AUTOMOC ON)
 
 target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(QmsrChatTests PRIVATE

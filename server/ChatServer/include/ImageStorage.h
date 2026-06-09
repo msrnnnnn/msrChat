@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ImageStorage.h
  * @brief 图片持久化存储（SQLite）

@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file ChatController.h
  * @brief QML 与 C++ 业务层通信桥梁

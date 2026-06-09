@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file PacketNode.h
  * @brief 协议包节点 —— 封装接收/发送缓冲区及其对象池支持

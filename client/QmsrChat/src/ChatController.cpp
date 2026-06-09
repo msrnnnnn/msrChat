@@ -108,23 +108,23 @@ void ChatController::ConnectSignals()
 {
     connect(
         TcpMgr::Instance(), &TcpMgr::sigChatTextMsg, this, &ChatController::slotOnChatTextMsg, Qt::QueuedConnection);
-    connect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck, Qt::QueuedConnection);
+    connect(TcpMgr::Instance(), &TcpMgr::sigChatAck, this, &ChatController::slotOnChatAck, Qt::QueuedConnection);
     connect(
         TcpMgr::Instance(), &TcpMgr::sigConSuccess, this, &ChatController::slotOnConnectionStateChanged,
         Qt::QueuedConnection);
     connect(
-        TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress,
+        TcpMgr::Instance(), &TcpMgr::sigOfflineAck, this, &ChatController::slotOnOfflineProgress,
         Qt::QueuedConnection);
     connect(
-        TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
+        TcpMgr::Instance(), &TcpMgr::sigReconnected, this, &ChatController::slotOnReconnected, Qt::QueuedConnection);
     connect(
         TcpMgr::Instance(), &TcpMgr::sigChatLoginRsp, this, &ChatController::slotOnChatLoginRsp,
         Qt::QueuedConnection);
     connect(
-        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded,
+        &DbThreadManager::Instance(), &DbThreadManager::sigMessagesLoaded, this, &ChatController::slotOnHistoryLoaded,
         Qt::QueuedConnection);
     connect(
-        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved,
+        &DbThreadManager::Instance(), &DbThreadManager::sigMessagesSaved, this, &ChatController::slotOnMessageSaved,
         Qt::QueuedConnection);
     connect(
         &FileSendMgr::Instance(), &FileSendMgr::sigSendProgress, this,
@@ -135,11 +135,11 @@ void ChatController::ConnectSignals()
         [this](int64_t task_id, bool success, const QString &error)
         { emit sigFileSendComplete(task_id, success, error); }, Qt::QueuedConnection);
     connect(
-        &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvProgress, this,
+        &FileRecvMgr::Instance(), &FileRecvMgr::sigRecvProgress, this,
         [this](int64_t task_id, int progress, int64_t received, int64_t total)
         { emit sigFileRecvProgress(task_id, progress, received, total); }, Qt::QueuedConnection);
     connect(
-        &FileRecvMgr::Instance(), &FileRecvMgr::SigRecvComplete, this,
+        &FileRecvMgr::Instance(), &FileRecvMgr::sigRecvComplete, this,
         [this](int64_t task_id, const QString &filepath, bool success, const QString &error)
         {
             // Phase D — 图片文件接收完成 → 更新 ChatListModel
@@ -193,14 +193,14 @@ void ChatController::ConnectSignals()
 void ChatController::DisconnectSignals()
 {
     disconnect(TcpMgr::Instance(), &TcpMgr::sigChatTextMsg, this, &ChatController::slotOnChatTextMsg);
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_chat_ack, this, &ChatController::slotOnChatAck);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigChatAck, this, &ChatController::slotOnChatAck);
     disconnect(TcpMgr::Instance(), &TcpMgr::sigConSuccess, this, &ChatController::slotOnConnectionStateChanged);
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_offline_ack, this, &ChatController::slotOnOfflineProgress);
-    disconnect(TcpMgr::Instance(), &TcpMgr::sig_reconnected, this, &ChatController::slotOnReconnected);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigOfflineAck, this, &ChatController::slotOnOfflineProgress);
+    disconnect(TcpMgr::Instance(), &TcpMgr::sigReconnected, this, &ChatController::slotOnReconnected);
     disconnect(TcpMgr::Instance(), &TcpMgr::sigChatLoginRsp, this, &ChatController::slotOnChatLoginRsp);
     disconnect(
-        &DbThreadManager::Instance(), &DbThreadManager::sig_messages_loaded, this, &ChatController::slotOnHistoryLoaded);
-    disconnect(&DbThreadManager::Instance(), &DbThreadManager::sig_messages_saved, this, &ChatController::slotOnMessageSaved);
+        &DbThreadManager::Instance(), &DbThreadManager::sigMessagesLoaded, this, &ChatController::slotOnHistoryLoaded);
+    disconnect(&DbThreadManager::Instance(), &DbThreadManager::sigMessagesSaved, this, &ChatController::slotOnMessageSaved);
     disconnect(this, &ChatController::sigSendRecallMsg, TcpMgr::Instance(), &TcpMgr::slot_send_chat_recall);
     disconnect(this, &ChatController::sigSendEditMsg,   TcpMgr::Instance(), &TcpMgr::slot_send_chat_edit);
     disconnect(this, &ChatController::sigSendImageMsg,  TcpMgr::Instance(), &TcpMgr::slot_send_chat_image);

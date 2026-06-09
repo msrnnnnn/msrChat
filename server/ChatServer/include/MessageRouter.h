@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file MessageRouter.h
  * @brief 消息路由 —— 将消息转发到目标用户的会话

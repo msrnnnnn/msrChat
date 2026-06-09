@@ -201,7 +201,7 @@ void TcpWorker::slot_connected()
 
     if (was_reconnecting)
     {
-        emit sig_reconnected();
+        emit sigReconnected();
     }
 
     emit sigConSuccess(true);
@@ -295,7 +295,7 @@ void TcpWorker::slot_ready_read()
             else
             {
                 qDebug() << "Recv message ID=" << _message_id << " forwarded to TcpMgr for parsing";
-                emit sig_packet_received(_message_id, messageBody);
+                emit sigPacketReceived(_message_id, messageBody);
             }
 
             _head_parsed = false;

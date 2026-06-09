@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file    FileSendMgr.h
  * @brief   文件发送管理器

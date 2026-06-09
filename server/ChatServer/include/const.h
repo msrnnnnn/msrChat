@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file const.h
  * @brief ChatServer 协议与配置常量
@@ -9,7 +10,7 @@
 #include <cstdint>
 
 constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息 (0x3E8)
-constexpr uint16_t ID_GET_VARIFY_CODE = 1001;    ///< 获取验证码
+constexpr uint16_t ID_GET_VERIFY_CODE = 1001;    ///< 获取验证码
 constexpr uint16_t ID_REGISTER_USER = 1002;      ///< 用户注册
 constexpr uint16_t ID_RESET_PWD = 1003;          ///< 重置密码
 constexpr uint16_t ID_LOGIN_USER = 1004;         ///< 用户登录
@@ -32,10 +33,10 @@ constexpr int MAX_CHAT_CONTENT_LEN = 4096;        ///< 单条消息最大长度
 constexpr int OFFLINE_PAGE_SIZE = 50;            ///< 离线消息每页数量
 
 // 协议头部常量
-const int HEAD_ID_LEN = 2;          ///< 消息 ID 字节长度
-const int HEAD_DATA_LEN = 4;        ///< 消息体长度字段字节数
-const int HEAD_TOTAL_LEN = 6;       ///< 头部总长度（仅包含ID和总长度）
-const int MAX_LENGTH = 1024 * 1024; ///< 单包最大长度
+constexpr int HEAD_ID_LEN = 2;          ///< 消息 ID 字节长度
+constexpr int HEAD_DATA_LEN = 4;        ///< 消息体长度字段字节数
+constexpr int HEAD_TOTAL_LEN = 6;       ///< 头部总长度（仅包含ID和总长度）
+constexpr int MAX_LENGTH = 1024 * 1024; ///< 单包最大长度
 
 // 读取超时
 constexpr auto kReadTimeout = std::chrono::seconds(30);
