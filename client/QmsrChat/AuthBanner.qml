@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
@@ -8,18 +7,19 @@ Rectangle {
     property string successMessage: ""
 
     Layout.fillWidth: true
-    Layout.preferredHeight: msgLabel.visible ? msgLabel.implicitHeight + 16 : 0
     visible: errorMessage !== "" || successMessage !== ""
     radius: 6
     color: successMessage !== "" ? "#F0FDF4" : "#FEF2F2"
     border.width: 1
     border.color: successMessage !== "" ? "#BBF7D0" : "#FECACA"
 
+    implicitHeight: msgLabel.implicitHeight + 16
+
     Text {
         id: msgLabel
         anchors.centerIn: parent
-        text: errorMessage !== "" ? errorMessage : successMessage
-        color: errorMessage !== "" ? "#EF4444" : "#10B981"
+        text: root.errorMessage !== "" ? root.errorMessage : root.successMessage
+        color: root.errorMessage !== "" ? "#EF4444" : "#10B981"
         font.pixelSize: 12
     }
 }

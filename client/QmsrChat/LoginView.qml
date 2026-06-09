@@ -54,9 +54,14 @@ Item {
                 id: loginPass
                 label: qsTr("密码")
                 placeholder: qsTr("输入密码")
-                onAccepted: { if (loginBtn.enabled) loginBtn.clicked() }
+                onSubmit: { if (loginBtn.enabled) loginBtn.clicked() }
             }
-                Text { Layout.alignment: Qt.AlignRight; text: qsTr("忘记密码？"); color: "#9C9AAA"; font.pixelSize: 12
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 16
+                Item { Layout.fillWidth: true }
+                Text { text: qsTr("忘记密码？"); color: "#9C9AAA"; font.pixelSize: 12
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: loginRoot.switchToReset() }
                 }
             }

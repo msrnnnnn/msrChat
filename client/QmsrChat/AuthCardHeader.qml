@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 ColumnLayout {
@@ -13,8 +12,8 @@ ColumnLayout {
 
     Rectangle {
         Layout.alignment: Qt.AlignHCenter
-        width: 52
-        height: 52
+        Layout.preferredWidth: 52
+        Layout.preferredHeight: 52
         radius: 14
         gradient: Gradient {
             GradientStop { position: 0.0; color: "#4F46E5" }

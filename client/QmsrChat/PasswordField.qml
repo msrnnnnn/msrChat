@@ -8,8 +8,7 @@ ColumnLayout {
     property string placeholder: ""
     property alias text: inputField.text
     property alias field: inputField
-    property alias enabled: inputField.enabled
-    property var onAccepted: undefined
+    property var onSubmit: function() {}
 
     spacing: 4
     Layout.fillWidth: true
@@ -35,8 +34,8 @@ ColumnLayout {
             border.width: 1.5
             border.color: inputField.activeFocus ? "#4F46E5" : "#EAE9F2"
         }
-        Keys.onReturnPressed: if (root.onAccepted) root.onAccepted()
-        Keys.onEnterPressed: if (root.onAccepted) root.onAccepted()
+        Keys.onReturnPressed: root.onSubmit()
+        Keys.onEnterPressed: root.onSubmit()
 
         Button {
             id: showBtn
@@ -49,9 +48,9 @@ ColumnLayout {
             font.pixelSize: 12
             flat: true
             contentItem: Text {
-                text: parent.text
-                color: parent.checked ? "#4F46E5" : "#9C9AAA"
-                font: parent.font
+                text: showBtn.text
+                color: showBtn.checked ? "#4F46E5" : "#9C9AAA"
+                font: showBtn.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
