@@ -13,6 +13,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <csignal>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -23,7 +24,7 @@
 
 struct ServerConfig
 {
-    short port = 8080;
+    uint16_t port = 8080;
     std::string db_path = "chatserver.db";
 };
 
@@ -42,7 +43,13 @@ ServerConfig LoadConfig()
         {
             boost::property_tree::ptree pt;
             boost::property_tree::read_ini(config_path.string(), pt);
-            config.port = static_cast<short>(pt.get<int>("ChatServer.Port", config.port));
+            int raw_port = pt.get<int>("ChatServer.Port", config.port);
+            if (raw_port < 1 || raw_port > 65535)
+            {
+                spdlog::error("Invalid port in config: {}, must be 1-65535", raw_port);
+                return config;
+            }
+            config.port = static_cast<uint16_t>(raw_port);
             config.db_path = pt.get<std::string>("ChatServer.DbPath", config.db_path);
             spdlog::info("Configuration loaded from {}", config_path.string());
             spdlog::debug("Port: {}, DbPath: {}", config.port, config.db_path);

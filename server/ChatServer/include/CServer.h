@@ -9,6 +9,7 @@
 
 #include "ThreadPool.h"
 #include <boost/asio.hpp>
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -20,7 +21,7 @@ class CServer : public std::enable_shared_from_this<CServer>
 public:
     static inline std::atomic<uint64_t> s_session_id_allocator{1};
 
-    CServer(boost::asio::io_context &io_context, short port);
+    CServer(boost::asio::io_context &io_context, uint16_t port);
     ~CServer();
 
     /**

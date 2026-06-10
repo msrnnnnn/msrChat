@@ -55,7 +55,7 @@ public:
         }
 
         const auto &info = it->second;
-        if (info.requires_auth && session.GetUserUid() == 0)
+        if (info.requires_auth && session.GetUserUid() <= 0)
         {
             return false;
         }

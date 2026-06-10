@@ -57,7 +57,7 @@ void CSession::Close()
     {
         return;
     }
-    if (_user_uid != 0)
+    if (_user_uid > 0)
     {
         FileTransfer::Instance().RemoveTaskBySession(_user_uid);
         auto server = _server.lock();
@@ -245,7 +245,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         return;
     }
 
-    if (_user_uid != 0)
+    if (_user_uid > 0)
     {
         response["error"] = 1;
         response["message"] = "already login";
@@ -442,15 +442,6 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
         {
             spdlog::error("[CSession] {}: {}", _uuid, ec.message());
         }
-    }
-    if (_user_uid != 0)
-    {
-        auto server = _server.lock();
-        if (server)
-        {
-            SessionManager::Instance().RemoveSession(_user_uid);
-        }
-        _user_uid = 0;
     }
     Close();
     auto server = _server.lock();

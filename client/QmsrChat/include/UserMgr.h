@@ -38,7 +38,7 @@ private:
     UserMgr() = default;
 
     int _uid = 0;
-    QString _token = "";
+    QByteArray _token_obfuscated;
 };
 
 #endif

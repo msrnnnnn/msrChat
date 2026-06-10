@@ -80,6 +80,7 @@ private:
 
     ShardedMap<int, std::shared_ptr<CSession>> _uid_sessions{32};
     ShardedMap<std::string, std::shared_ptr<CSession>> _uuid_sessions{32};
+    std::mutex _add_mutex;  ///< 保护 AddSession 的 check-then-insert 原子性
 };
 
 #endif

@@ -19,7 +19,7 @@
  * @param port 监听端口号
  * @details 初始化 acceptor 和内部线程池
  */
-CServer::CServer(boost::asio::io_context &io_context, short port)
+CServer::CServer(boost::asio::io_context &io_context, uint16_t port)
     : _io_context(io_context),
       _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
       _thread_pool(std::thread::hardware_concurrency())
@@ -67,7 +67,7 @@ void CServer::DoAccept()
             {
                 spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
                 SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
-                SessionManager::Instance().AddSession(0, new_session);
+                SessionManager::Instance().AddSession(-1, new_session);
                 new_session->Start();
             }
             else
@@ -112,6 +112,11 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
         ChatMessage msg;
         msg.from_uid = json_data.value("from_uid", 0);
         msg.to_uid = target_uid;
+        if (msg.from_uid <= 0 || msg.to_uid <= 0)
+        {
+            spdlog::warn("[CServer] StoreOfflineMessage rejected: invalid uid from={} to={}", msg.from_uid, msg.to_uid);
+            return false;
+        }
         msg.content = json_data.value("content", "");
         msg.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::system_clock::now().time_since_epoch())

@@ -6,6 +6,7 @@
 #include "TokenManager.h"
 #include "SQLiteMgr.h"
 #include <spdlog/spdlog.h>
+#include <ctime>
 
 /**
  * @brief 设置/更新用户 Token
@@ -15,7 +16,8 @@
  */
 void TokenManager::SetToken(int uid, const std::string &token)
 {
-    _uid_tokens.Insert(uid, token);
+    int64_t now_sec = static_cast<int64_t>(std::time(nullptr));
+    _uid_tokens.Insert(uid, TokenEntry{token, now_sec});
     SQLiteMgr::Instance().SaveToken(uid, token);
 }
 
@@ -28,13 +30,22 @@ void TokenManager::SetToken(int uid, const std::string &token)
  */
 bool TokenManager::CheckToken(int uid, const std::string &token)
 {
-    auto stored_token = _uid_tokens.Find(uid);
-    if (!stored_token.has_value())
+    auto entry = _uid_tokens.Find(uid);
+    if (!entry.has_value())
     {
         spdlog::warn("[TokenManager] Token check failed for uid {}", uid);
         return false;
     }
-    bool matched = stored_token.value() == token;
+
+    int64_t now_sec = static_cast<int64_t>(std::time(nullptr));
+    if (now_sec - entry->created_at > TOKEN_TTL_SEC)
+    {
+        spdlog::warn("[TokenManager] Token expired for uid {} (age={}s)", uid, now_sec - entry->created_at);
+        _uid_tokens.Erase(uid);
+        return false;
+    }
+
+    bool matched = entry->token == token;
     if (!matched)
     {
         spdlog::warn("[TokenManager] Token mismatch for uid {}", uid);
@@ -49,9 +60,17 @@ bool TokenManager::CheckToken(int uid, const std::string &token)
 void TokenManager::LoadTokensFromDB()
 {
     auto tokens = SQLiteMgr::Instance().GetAllTokens();
-    for (const auto &[uid, token] : tokens)
+    int64_t now_sec = static_cast<int64_t>(std::time(nullptr));
+    int expired = 0;
+    for (const auto &[uid, token, created_at] : tokens)
     {
-        _uid_tokens.Insert(uid, token);
+        if (now_sec - created_at > TOKEN_TTL_SEC)
+        {
+            expired++;
+            continue;
+        }
+        _uid_tokens.Insert(uid, TokenEntry{token, created_at});
     }
-    spdlog::info("[TokenManager] Loaded {} tokens from database", tokens.size());
+    spdlog::info("[TokenManager] Loaded {} tokens from database ({} expired skipped)",
+                 tokens.size() - expired, expired);
 }

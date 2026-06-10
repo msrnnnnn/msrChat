@@ -8,6 +8,7 @@
 #include "MessageDispatcher.h"
 #include "CServer.h"
 #include "CSession.h"
+#include <cctype>
 #include "FileTransfer.h"
 #include "ImageStorage.h"
 #include "Message.pb.h"
@@ -153,6 +154,33 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
         if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
             nlohmann::json response{{"error", ERR_JSON_PARSE}};
+            session.Send(response.dump(), ID_REGISTER_USER);
+            session.ContinueReading();
+            return true;
+        }
+
+        if (username.size() < 3 || username.size() > 20)
+        {
+            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "username must be 3-20 chars"}};
+            session.Send(response.dump(), ID_REGISTER_USER);
+            session.ContinueReading();
+            return true;
+        }
+        for (char c : username)
+        {
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+            {
+                nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "username invalid chars"}};
+                session.Send(response.dump(), ID_REGISTER_USER);
+                session.ContinueReading();
+                return true;
+            }
+        }
+
+        if (email.size() < 5 || email.size() > 254 || email.find('@') == std::string::npos
+            || email.find('.') == std::string::npos)
+        {
+            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "invalid email"}};
             session.Send(response.dump(), ID_REGISTER_USER);
             session.ContinueReading();
             return true;
@@ -452,7 +480,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         std::string content = chatMsg.content();
         client_msg_id = chatMsg.client_msg_id();
 
-        if (session.GetUserUid() == 0)
+        if (session.GetUserUid() <= 0)
         {
             qmsrchat::ChatAck ack;
             ack.set_error(1);
@@ -603,7 +631,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
  */
 bool HandleFileReq(CSession &session, const std::string &body_data)
 {
-    if (session.GetUserUid() == 0)
+    if (session.GetUserUid() <= 0)
     {
         qmsrchat::FileAck response;
         response.set_error(1);
@@ -632,6 +660,20 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
         int to_uid = fileReq.to_uid();
         std::string filename = fileReq.filename();
         int64_t total_size = fileReq.total_size();
+
+        if (fileReq.from_uid() != session.GetUserUid())
+        {
+            spdlog::warn("[MessageDispatcher] HandleFileReq: from_uid mismatch {} vs session {}",
+                         fileReq.from_uid(), session.GetUserUid());
+            qmsrchat::FileAck response;
+            response.set_error(1);
+            response.set_message("uid mismatch");
+            std::string serialized;
+            if (response.SerializeToString(&serialized))
+                session.Send(serialized, MSG_FILE_ACK);
+            session.ContinueReading();
+            return true;
+        }
 
         if (task_id <= 0 || to_uid <= 0 || filename.empty() || total_size <= 0)
         {
@@ -828,7 +870,7 @@ bool HandleFileChunk(CSession &session, const std::string &body_data)
  */
 bool HandleFileChunk(CSession &session, std::string_view body_view)
 {
-    if (session.GetUserUid() == 0)
+    if (session.GetUserUid() <= 0)
     {
         qmsrchat::FileAck response;
         response.set_error(1);
@@ -938,7 +980,7 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
  */
 bool HandleFileAck(CSession &session, const std::string &body_data)
 {
-    if (session.GetUserUid() == 0)
+    if (session.GetUserUid() <= 0)
     {
         session.ContinueReading();
         return true;

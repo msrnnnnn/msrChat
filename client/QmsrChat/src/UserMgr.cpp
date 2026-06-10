@@ -28,7 +28,10 @@ int UserMgr::GetUid() const
  */
 void UserMgr::SetToken(const QString &token)
 {
-    _token = token;
+    QByteArray data = token.toUtf8();
+    for (int i = 0; i < data.size(); ++i)
+        data[i] ^= static_cast<char>(0xA3 + i % 7);
+    _token_obfuscated = data;
 }
 
 /**
@@ -37,5 +40,8 @@ void UserMgr::SetToken(const QString &token)
  */
 QString UserMgr::GetToken() const
 {
-    return _token;
+    QByteArray data = _token_obfuscated;
+    for (int i = 0; i < data.size(); ++i)
+        data[i] ^= static_cast<char>(0xA3 + i % 7);
+    return QString::fromUtf8(data);
 }

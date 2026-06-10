@@ -79,6 +79,16 @@ struct User
 };
 
 /**
+ * @brief Token 数据库记录
+ */
+struct TokenRecord
+{
+    int uid = 0;
+    std::string token;
+    int64_t created_at = 0;
+};
+
+/**
  * @brief 认证操作结果
  */
 struct AuthResult
@@ -319,7 +329,7 @@ public:
 
     bool SaveToken(int uid, const std::string &token);
     std::optional<std::string> GetTokenFromDB(int uid);
-    std::vector<std::pair<int, std::string>> GetAllTokens();
+    std::vector<TokenRecord> GetAllTokens();
 
     SQLiteMgr(const SQLiteMgr &) = delete;
     SQLiteMgr &operator=(const SQLiteMgr &) = delete;

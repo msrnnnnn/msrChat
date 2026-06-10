@@ -9,10 +9,20 @@
 #define TOKEN_MANAGER_H
 
 #include "ShardedMap.h"
+#include <cstdint>
 #include <memory>
 #include <string>
 
 class CSession;
+
+/**
+ * @brief Token 缓存条目
+ */
+struct TokenEntry
+{
+    std::string token;
+    int64_t created_at = 0;
+};
 
 /**
  * @brief Token 管理器（单例）
@@ -42,7 +52,8 @@ private:
     TokenManager(TokenManager &&) = delete;
     TokenManager &operator=(TokenManager &&) = delete;
 
-    ShardedMap<int, std::string> _uid_tokens{16};
+    ShardedMap<int, TokenEntry> _uid_tokens{16};
+    static constexpr int64_t TOKEN_TTL_SEC = 7 * 24 * 3600;  ///< Token 有效期 7 天
 };
 
 #endif

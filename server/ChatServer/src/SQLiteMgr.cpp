@@ -8,6 +8,7 @@
 #include <cstring>
 #include <ctime>
 #include <iomanip>
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <random>
@@ -52,6 +53,19 @@ static std::string SecureRandomHex(int bytes)
 static std::string GenerateSalt()
 {
     return SecureRandomHex(16);
+}
+
+static std::string PBKDF2_SHA256(const std::string &password, const std::string &salt, int iterations = 10000)
+{
+    constexpr size_t hash_len = 32;
+    unsigned char hash[hash_len];
+    PKCS5_PBKDF2_HMAC(password.c_str(), static_cast<int>(password.size()),
+                      reinterpret_cast<const unsigned char *>(salt.c_str()), static_cast<int>(salt.size()),
+                      iterations, EVP_sha256(), static_cast<int>(hash_len), hash);
+    char hex_str[2 * hash_len + 1];
+    for (size_t i = 0; i < hash_len; ++i)
+        sprintf(hex_str + i * 2, "%02x", hash[i]);
+    return std::string(hex_str, 2 * hash_len);
 }
 
 /**
@@ -490,6 +504,12 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
  */
 bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
 {
+    if (msg.from_uid <= 0 || msg.to_uid <= 0)
+    {
+        spdlog::warn("[SQLiteMgr] SaveMessage rejected: invalid uid from={} to={}", msg.from_uid, msg.to_uid);
+        return false;
+    }
+
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
     {
@@ -608,10 +628,10 @@ AuthResult SQLiteMgr::RegisterUser(
         return r;
     }
 
-    // 生成盐值，格式: salt + "$" + SHA256(password_hash + salt)
+    // Phase 3 — PBKDF2 密码哈希: pbkdf2$salt$hash
     std::string salt = GenerateSalt();
-    std::string salted_hash = SHA256(password_hash + salt);
-    std::string stored_password = salt + "$" + salted_hash;
+    std::string pbkdf2_hash = PBKDF2_SHA256(password_hash, salt);
+    std::string stored_password = "pbkdf2$" + salt + "$" + pbkdf2_hash;
 
     ScopedStmt stmt(
         db, "INSERT INTO users (username, password_hash, email, avatar_path, created_at) VALUES (?, ?, ?, '', ?)");
@@ -669,30 +689,64 @@ AuthResult SQLiteMgr::LoginUser(const std::string &username, const std::string &
         return r;
     }
 
-    // 解析存储的密码：salt$salted_hash 格式 → 重新计算验证
+    // 解析存储的密码格式
     std::string stored = user->password_hash;
-    auto dollar_pos = stored.find('$');
-    if (dollar_pos == std::string::npos)
+    bool need_upgrade = false;
+
+    if (stored.compare(0, 7, "pbkdf2$") == 0)
     {
-        // 旧版明文密码，直接比对
-        if (stored != password_hash)
+        // Phase 3 — PBKDF2 格式: pbkdf2$salt$hash
+        std::string rest = stored.substr(7);
+        auto sep = rest.find('$');
+        if (sep == std::string::npos)
         {
-            AuthResult r;
-            r.error = ERR_PASSWD_ERR;
-            return r;
+            AuthResult r; r.error = ERR_DB; return r;
+        }
+        std::string salt = rest.substr(0, sep);
+        std::string expected_hash = PBKDF2_SHA256(password_hash, salt);
+        std::string stored_hash = rest.substr(sep + 1);
+        if (expected_hash != stored_hash)
+        {
+            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
         }
     }
-    else
+    else if (stored.find('$') != std::string::npos)
     {
+        // 旧格式: salt$sha256_hash → 验证后透明升级
+        auto dollar_pos = stored.find('$');
         std::string salt = stored.substr(0, dollar_pos);
         std::string expected_hash = SHA256(password_hash + salt);
         std::string stored_hash = stored.substr(dollar_pos + 1);
         if (expected_hash != stored_hash)
         {
-            AuthResult r;
-            r.error = ERR_PASSWD_ERR;
-            return r;
+            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
         }
+        need_upgrade = true;
+    }
+    else
+    {
+        // 旧版明文密码 → 验证后透明升级
+        if (stored != password_hash)
+        {
+            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
+        }
+        need_upgrade = true;
+    }
+
+    // 透明升级：将旧格式密码更新为 PBKDF2
+    if (need_upgrade)
+    {
+        std::string new_salt = GenerateSalt();
+        std::string new_hash = PBKDF2_SHA256(password_hash, new_salt);
+        std::string new_password = "pbkdf2$" + new_salt + "$" + new_hash;
+        ScopedStmt upd(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
+        if (upd)
+        {
+            sqlite3_bind_text(upd, 1, new_password.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(upd, 2, user->uid);
+            sqlite3_step(upd);
+        }
+        spdlog::info("[SQLiteMgr] Transparently upgraded password for uid {}", user->uid);
     }
 
     AuthResult r;
@@ -829,8 +883,8 @@ int SQLiteMgr::ResetPassword(
     }
 
     std::string salt = GenerateSalt();
-    std::string salted_hash = SHA256(new_password_hash + salt);
-    std::string stored_password = salt + "$" + salted_hash;
+    std::string pbkdf2_hash = PBKDF2_SHA256(new_password_hash, salt);
+    std::string stored_password = "pbkdf2$" + salt + "$" + pbkdf2_hash;
 
     ScopedStmt stmt(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
     if (!stmt)
@@ -1095,19 +1149,21 @@ std::optional<std::string> SQLiteMgr::GetTokenFromDB(int uid)
  * @brief 获取 tokens 表中所有 (uid, token) 对
  * @return 键值对列表，用于服务启动时从数据库恢复 TokenManager 缓存
  */
-std::vector<std::pair<int, std::string>> SQLiteMgr::GetAllTokens()
+std::vector<TokenRecord> SQLiteMgr::GetAllTokens()
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard) return {};
     sqlite3 *db = guard.Get();
-    std::vector<std::pair<int, std::string>> tokens;
-    ScopedStmt stmt(db, "SELECT uid, token FROM tokens");
+    std::vector<TokenRecord> tokens;
+    ScopedStmt stmt(db, "SELECT uid, token, created_at FROM tokens");
     if (!stmt) return tokens;
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        int uid = sqlite3_column_int(stmt, 0);
-        std::string token = SafeColumnText(stmt, 1);
-        tokens.emplace_back(uid, token);
+        TokenRecord rec;
+        rec.uid = sqlite3_column_int(stmt, 0);
+        rec.token = SafeColumnText(stmt, 1);
+        rec.created_at = sqlite3_column_int64(stmt, 2);
+        tokens.push_back(rec);
     }
     return tokens;
 }

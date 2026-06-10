@@ -5,6 +5,8 @@
  */
 #include "SessionManager.h"
 #include "CSession.h"
+#include "const.h"
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <utility>
 
@@ -21,16 +23,29 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
         return;
     }
 
+    std::lock_guard<std::mutex> lock(_add_mutex);
+
+    std::string uuid = session->GetUuid();
+    RemoveSessionByUuid(uuid);
+
+    if (uid <= 0)
+    {
+        // 未认证会话仅注册 UUID 索引
+        _uuid_sessions.Insert(uuid, std::move(session));
+        spdlog::debug("[SessionManager] Unauthenticated session {} added.", uuid);
+        return;
+    }
+
     auto old_session = GetSession(uid);
     if (old_session != nullptr && old_session != session)
     {
         spdlog::info("[SessionManager] User {} has existing session, closing old connection.", uid);
+        // 发送踢出通知
+        nlohmann::json kick{{"error", ERR_KICKED}, {"message", "logged in from another device"}};
+        old_session->Send(kick.dump(), 0);
         old_session->Close();
     }
 
-    std::string uuid = session->GetUuid();
-    // 先清理可能存在的旧 uuid 条目（如 DoAccept 中已添加的 uid=0 条目）
-    RemoveSessionByUuid(uuid);
     _uuid_sessions.Insert(uuid, session);
     _uid_sessions.Insert(uid, std::move(session));
     spdlog::info("[SessionManager] User {} session added.", uid);
