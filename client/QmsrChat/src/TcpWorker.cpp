@@ -39,8 +39,9 @@ TcpWorker::TcpWorker(QObject *parent)
 
 TcpWorker::~TcpWorker()
 {
-    // slot_stop() 已统一由 TcpMgr::~TcpMgr() 通过 BlockingQueuedConnection 调用
-    // 此处不再重复调用，防止 socket/timers 在 Qt 全局清理阶段被二次操作
+    // 防御性清理：若 TcpMgr 未能通过 BlockingQueuedConnection 调用 slot_stop()
+    //（如异常关机路径），此处兜底停止 timer 和 socket
+    slot_stop();
 }
 
 /**

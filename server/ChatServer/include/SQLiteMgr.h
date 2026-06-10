@@ -23,6 +23,15 @@
 #include <vector>
 
 /**
+ * @brief sqlite3_column_text 空安全包装 —— NULL 返回空字符串
+ */
+inline std::string SafeColumnText(sqlite3_stmt *stmt, int col)
+{
+    const char *text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, col));
+    return text ? std::string(text) : std::string();
+}
+
+/**
  * @brief 撤回通知记录 —— 通知目标用户某条消息已被撤回
  */
 struct RecallNotifyEntry

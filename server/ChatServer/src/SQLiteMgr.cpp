@@ -325,6 +325,7 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
             content TEXT NOT NULL,
             timestamp INTEGER NOT NULL,
             status INTEGER DEFAULT 0,
+            client_msg_id TEXT DEFAULT '',
             UNIQUE(from_uid, to_uid, timestamp)
         );
         
@@ -431,6 +432,34 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
         }
     }
 
+    // === Phase 2 — messages 表增 client_msg_id 列 + 去重索引 ===
+    {
+        const char *c2_sql = "ALTER TABLE messages ADD COLUMN client_msg_id TEXT DEFAULT ''";
+        char *c2_err = nullptr;
+        int c2_rc = sqlite3_exec(db, c2_sql, nullptr, nullptr, &c2_err);
+        if (c2_rc != SQLITE_OK && c2_err)
+        {
+            std::string c2_err_str(c2_err);
+            sqlite3_free(c2_err);
+            if (c2_err_str.find("duplicate column") == std::string::npos)
+            {
+                spdlog::warn("[SQLiteMgr] Phase 2 migration failed: {} (err={})", c2_sql, c2_err_str);
+            }
+        }
+    }
+    {
+        const char *idx_sql =
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client_msg_id "
+            "ON messages(client_msg_id) WHERE client_msg_id != ''";
+        char *idx_err = nullptr;
+        sqlite3_exec(db, idx_sql, nullptr, nullptr, &idx_err);
+        if (idx_err)
+        {
+            spdlog::warn("[SQLiteMgr] Phase 2 index creation failed: {}", idx_err);
+            sqlite3_free(idx_err);
+        }
+    }
+
     // === Phase D — offline_messages 表增 type + image_id 列 ===
     const char *pd_migrations[] = {
         "ALTER TABLE offline_messages ADD COLUMN type INTEGER DEFAULT 0",
@@ -471,8 +500,8 @@ bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
     // Phase 7: 增 6 列 (type/image_id/recalled/recalled_at/edited/edited_at)
     ScopedStmt stmt(db,
         "INSERT INTO messages (from_uid, to_uid, content, timestamp, status, "
-        "type, image_id, recalled, recalled_at, edited, edited_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "client_msg_id, type, image_id, recalled, recalled_at, edited, edited_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -483,13 +512,14 @@ bool SQLiteMgr::SaveMessage(const ChatMessage &msg)
     sqlite3_bind_text(stmt, 3, msg.content.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 4, msg.timestamp);
     sqlite3_bind_int(stmt, 5, msg.status);
+    sqlite3_bind_text(stmt, 6, msg.client_msg_id.c_str(), -1, SQLITE_TRANSIENT);
     // Phase 7 — 6 个新字段
-    sqlite3_bind_int(stmt, 6, msg.type);
-    sqlite3_bind_text(stmt, 7, msg.image_id.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 8, msg.recalled ? 1 : 0);
-    sqlite3_bind_int64(stmt, 9, msg.recalled_at);
-    sqlite3_bind_int(stmt, 10, msg.edited ? 1 : 0);
-    sqlite3_bind_int64(stmt, 11, msg.edited_at);
+    sqlite3_bind_int(stmt, 7, msg.type);
+    sqlite3_bind_text(stmt, 8, msg.image_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 9, msg.recalled ? 1 : 0);
+    sqlite3_bind_int64(stmt, 10, msg.recalled_at);
+    sqlite3_bind_int(stmt, 11, msg.edited ? 1 : 0);
+    sqlite3_bind_int64(stmt, 12, msg.edited_at);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
@@ -540,7 +570,7 @@ std::vector<ChatMessage> SQLiteMgr::GetMessages(int uid1, int uid2, int64_t befo
         msg.id = sqlite3_column_int64(stmt, 0);
         msg.from_uid = sqlite3_column_int(stmt, 1);
         msg.to_uid = sqlite3_column_int(stmt, 2);
-        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
+        msg.content = SafeColumnText(stmt, 3);
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
         ReadPhase7Columns(stmt, msg);
@@ -847,10 +877,10 @@ std::optional<User> SQLiteMgr::GetUserByUsernameUnlocked(sqlite3 *db, const std:
     {
         User user;
         user.uid = sqlite3_column_int(stmt, 0);
-        user.username = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
-        user.password_hash = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)));
-        user.email = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
-        user.avatar_path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)));
+        user.username = SafeColumnText(stmt, 1);
+        user.password_hash = SafeColumnText(stmt, 2);
+        user.email = SafeColumnText(stmt, 3);
+        user.avatar_path = SafeColumnText(stmt, 4);
         user.created_at = sqlite3_column_int64(stmt, 5);
         return user;
     }
@@ -1056,7 +1086,7 @@ std::optional<std::string> SQLiteMgr::GetTokenFromDB(int uid)
     sqlite3_bind_int(stmt, 1, uid);
     if (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        return std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+        return SafeColumnText(stmt, 0);
     }
     return std::nullopt;
 }
@@ -1076,7 +1106,7 @@ std::vector<std::pair<int, std::string>> SQLiteMgr::GetAllTokens()
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
         int uid = sqlite3_column_int(stmt, 0);
-        std::string token(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
+        std::string token = SafeColumnText(stmt, 1);
         tokens.emplace_back(uid, token);
     }
     return tokens;
@@ -1113,7 +1143,7 @@ std::optional<ChatMessage> SQLiteMgr::GetMessageByTimestamp(int64_t timestamp, i
         msg.id = sqlite3_column_int64(stmt, 0);
         msg.from_uid = sqlite3_column_int(stmt, 1);
         msg.to_uid = sqlite3_column_int(stmt, 2);
-        msg.content = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
+        msg.content = SafeColumnText(stmt, 3);
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
         msg.type = sqlite3_column_int(stmt, 6);

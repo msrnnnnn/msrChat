@@ -145,9 +145,9 @@ private:
     std::atomic<int64_t> _transferred_size{0};
     std::atomic<Status> _status{Status::PENDING};
     ObjectPool<FileTransferTask> *_pool = nullptr;
-    bool _is_image = false;
+    std::atomic<bool> _is_image{false};
     std::string _image_id;
-    bool _target_offline = false;
+    std::atomic<bool> _target_offline{false};
 };
 
 /**

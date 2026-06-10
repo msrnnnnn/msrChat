@@ -5,6 +5,7 @@
  */
 #include "ImageStorage.h"
 #include <spdlog/spdlog.h>
+#include <cstring>
 #include <ctime>
 
 /**
@@ -139,12 +140,12 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
     }
     sqlite3_finalize(stmt);
 
-    // 2. 在内存中追加数据
-    if (static_cast<int64_t>(full_blob.size()) < offset)
+    // 2. 在内存中覆盖数据（chunk 可能乱序到达或重传）
+    if (static_cast<int64_t>(full_blob.size()) < offset + static_cast<int64_t>(len))
     {
-        full_blob.resize(static_cast<size_t>(offset), 0);  // zero-fill gap
+        full_blob.resize(static_cast<size_t>(offset + static_cast<int64_t>(len)), 0);
     }
-    full_blob.insert(full_blob.begin() + offset, data, data + len);
+    std::memcpy(full_blob.data() + offset, data, len);
 
     // 3. 写回完整 blob
     const char *update_sql = "UPDATE image_storage SET blob = ? WHERE image_id = ?;";
@@ -207,12 +208,12 @@ std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
     std::optional<ImageRecord> result;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         ImageRecord rec;
-        rec.image_id    = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        rec.image_id    = SafeColumnText(stmt, 0);
         rec.from_uid   = sqlite3_column_int(stmt, 1);
         rec.to_uid     = sqlite3_column_int(stmt, 2);
-        rec.ext        = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        rec.ext        = SafeColumnText(stmt, 3);
         rec.size       = sqlite3_column_int64(stmt, 4);
-        rec.md5        = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        rec.md5        = SafeColumnText(stmt, 5);
         rec.width      = sqlite3_column_int(stmt, 6);
         rec.height     = sqlite3_column_int(stmt, 7);
         rec.created_at = sqlite3_column_int64(stmt, 8);

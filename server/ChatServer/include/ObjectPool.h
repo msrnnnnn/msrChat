@@ -9,6 +9,7 @@
 #ifndef OBJECT_POOL_H
 #define OBJECT_POOL_H
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -34,6 +35,7 @@ public:
 
     ~ObjectPool()
     {
+        _destroying.store(true, std::memory_order_release);
         for (auto *obj : _pool)
         {
             delete obj;
@@ -77,6 +79,11 @@ public:
         return std::shared_ptr<T>(obj, [this](T *ptr)
         {
             ptr->Reset();
+            if (_destroying.load(std::memory_order_acquire))
+            {
+                delete ptr;
+                return;
+            }
             std::lock_guard<std::mutex> lock(_mutex);
             _pool.push_back(ptr);
         });
@@ -86,6 +93,7 @@ private:
     std::mutex _mutex;
     std::size_t _grow_size;
     std::vector<T *> _pool;
+    std::atomic<bool> _destroying{false};
 };
 
 #endif

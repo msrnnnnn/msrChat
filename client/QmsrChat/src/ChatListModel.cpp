@@ -207,6 +207,7 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
 
     int insertRow = 0;
     {
+        QMutexLocker lock(&_mutex);
         int lo = 0, hi = _messages.size();
         while (lo < hi)
         {
@@ -220,8 +221,11 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
     }
 
     beginInsertRows(QModelIndex(), insertRow, insertRow);
-    _messages.insert(insertRow, copy);
-    RebuildIndex();
+    {
+        QMutexLocker lock(&_mutex);
+        _messages.insert(insertRow, copy);
+        RebuildIndex();
+    }
     endInsertRows();
 
     emit scrollToBottomRequested();

@@ -342,6 +342,11 @@ void DbThreadManager::cleanup()
                            "Worker thread will be released by OS on process exit.";
             _worker = nullptr;
         }
+        else
+        {
+            delete _worker;
+            _worker = nullptr;
+        }
 
         delete _thread;
         _thread = nullptr;
