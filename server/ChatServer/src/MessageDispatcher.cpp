@@ -202,6 +202,13 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
         session.Send(response.dump(), ID_REGISTER_USER);
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleRegisterRequest unknown exception");
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        session.Send(response.dump(), ID_REGISTER_USER);
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -267,6 +274,13 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
         session.Send(response.dump(), ID_LOGIN_USER);
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleLoginAuthRequest unknown exception");
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        session.Send(response.dump(), ID_LOGIN_USER);
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -312,6 +326,13 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleGetVerifyCodeRequest error: {}", e.what());
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        session.Send(response.dump(), ID_GET_VERIFY_CODE);
+        session.ContinueReading();
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleGetVerifyCodeRequest unknown exception");
         nlohmann::json response{{"error", ERR_JSON_PARSE}};
         session.Send(response.dump(), ID_GET_VERIFY_CODE);
         session.ContinueReading();
@@ -398,6 +419,13 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
         session.Send(response.dump(), ID_RESET_PWD);
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleResetPwdRequest unknown exception");
+        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        session.Send(response.dump(), ID_RESET_PWD);
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -443,6 +471,17 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         if (from_uid != 0 && from_uid != session.GetUserUid())
         {
             spdlog::warn("[MessageDispatcher] from_uid mismatch client: {} server: {}", from_uid, session.GetUserUid());
+            qmsrchat::ChatAck ack;
+            ack.set_error(1);
+            ack.set_message("uid mismatch");
+            ack.set_client_msg_id(client_msg_id);
+            std::string serialized;
+            if (ack.SerializeToString(&serialized))
+            {
+                session.Send(serialized, MSG_CHAT_ACK);
+            }
+            session.ContinueReading();
+            return true;
         }
 
         if (to_uid <= 0 || content.empty() || content.size() > MAX_CHAT_CONTENT_LEN)
@@ -531,6 +570,23 @@ bool HandleChatText(CSession &session, const std::string &body_data)
             response.set_client_msg_id(client_msg_id);
         }
 
+        std::string serialized;
+        if (response.SerializeToString(&serialized))
+        {
+            session.Send(serialized, MSG_CHAT_ACK);
+        }
+        session.ContinueReading();
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatText unknown exception");
+        qmsrchat::ChatAck response;
+        response.set_error(1);
+        response.set_message("internal server error");
+        if (!client_msg_id.empty())
+        {
+            response.set_client_msg_id(client_msg_id);
+        }
         std::string serialized;
         if (response.SerializeToString(&serialized))
         {
@@ -699,6 +755,11 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
         }
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleFileReq unknown exception");
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -743,6 +804,11 @@ bool HandleFileRsp(CSession &session, const std::string &body_data)
     catch (const std::exception &e)
     {
         spdlog::error("[MessageDispatcher] HandleFileRsp error: {}", e.what());
+        session.ContinueReading();
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleFileRsp unknown exception");
         session.ContinueReading();
     }
     return true;
@@ -858,6 +924,11 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
             session.Send(serialized, MSG_FILE_ACK);
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleFileChunk unknown exception");
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -923,6 +994,11 @@ bool HandleFileAck(CSession &session, const std::string &body_data)
         spdlog::error("[MessageDispatcher] HandleFileAck error: {}", e.what());
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleFileAck unknown exception");
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -946,6 +1022,11 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
         spdlog::error("[MessageDispatcher] HandleOfflineAck error: {}", e.what());
         session.ContinueReading();
     }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleOfflineAck unknown exception");
+        session.ContinueReading();
+    }
     return true;
 }
 
@@ -956,6 +1037,8 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
  */
 bool HandleChatImage(CSession &session, const std::string &body_data)
 {
+    try
+    {
     qmsrchat::ImageMsg msg;
     if (!msg.ParseFromString(body_data))
     {
@@ -969,6 +1052,15 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     {
         spdlog::warn("[MessageDispatcher] HandleChatImage: from_uid mismatch (session={}, msg={})",
                      from, msg.from_uid());
+        qmsrchat::ChatAck ack;
+        ack.set_error(1);
+        ack.set_message("uid mismatch");
+        ack.set_client_msg_id(msg.image_id());
+        std::string serialized;
+        if (ack.SerializeToString(&serialized))
+        {
+            session.Send(serialized, MSG_CHAT_ACK);
+        }
         session.ContinueReading();
         return true;
     }
@@ -1032,6 +1124,19 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     session.Send(ack_data, MSG_CHAT_ACK);
     session.ContinueReading();
     return true;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatImage error: {}", e.what());
+        session.ContinueReading();
+        return true;
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatImage unknown exception");
+        session.ContinueReading();
+        return true;
+    }
 }
 
 /**
@@ -1187,6 +1292,8 @@ bool HandleImageDownloadReq(CSession &session, const std::string &body_data)
  */
 bool HandleChatRecall(CSession &session, const std::string &body_data)
 {
+    try
+    {
     qmsrchat::RecallMsg req;
     if (!req.ParseFromString(body_data))
     {
@@ -1306,6 +1413,19 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     session.Send(s, MSG_CHAT_RECALL);
     session.ContinueReading();
     return true;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatRecall error: {}", e.what());
+        session.ContinueReading();
+        return true;
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatRecall unknown exception");
+        session.ContinueReading();
+        return true;
+    }
 }
 
 /**
@@ -1315,6 +1435,8 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
  */
 bool HandleChatEdit(CSession &session, const std::string &body_data)
 {
+    try
+    {
     qmsrchat::EditMsg req;
     if (!req.ParseFromString(body_data))
     {
@@ -1414,6 +1536,19 @@ bool HandleChatEdit(CSession &session, const std::string &body_data)
     session.Send(s, MSG_CHAT_EDIT);
     session.ContinueReading();
     return true;
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatEdit error: {}", e.what());
+        session.ContinueReading();
+        return true;
+    }
+    catch (...)
+    {
+        spdlog::error("[MessageDispatcher] HandleChatEdit unknown exception");
+        session.ContinueReading();
+        return true;
+    }
 }
 
 } // namespace

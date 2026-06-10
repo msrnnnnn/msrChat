@@ -489,16 +489,28 @@ void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edi
  */
 void ChatListModel::RemoveMessageByTimestamp(qint64 ts)
 {
-    QMutexLocker lock(&_mutex);
-    for (int i = 0; i < _messages.size(); ++i)
+    int removeRow = -1;
     {
-        if (_messages[i].timestamp == ts)
+        QMutexLocker lock(&_mutex);
+        for (int i = 0; i < _messages.size(); ++i)
         {
-            beginRemoveRows(QModelIndex(), i, i);
-            _messages.removeAt(i);
-            endRemoveRows();
-            return;
+            if (_messages[i].timestamp == ts)
+            {
+                removeRow = i;
+                break;
+            }
         }
+    }
+
+    if (removeRow >= 0)
+    {
+        beginRemoveRows(QModelIndex(), removeRow, removeRow);
+        {
+            QMutexLocker lock(&_mutex);
+            _messages.removeAt(removeRow);
+            RebuildIndex();
+        }
+        endRemoveRows();
     }
 }
 

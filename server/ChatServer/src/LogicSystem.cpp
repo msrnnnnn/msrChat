@@ -74,7 +74,6 @@ void LogicSystem::ProcessTask(MessageTask task)
     if (!handled)
     {
         spdlog::warn("[LogicSystem] No handler found for msg_id {}", task.msg_id);
-        session->Send(task.body_data, task.msg_id);
         session->ContinueReading();
     }
 }

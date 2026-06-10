@@ -13,6 +13,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <csignal>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <spdlog/spdlog.h>
@@ -114,7 +115,15 @@ int main(int argc, char *argv[])
         TokenManager::Instance().LoadTokensFromDB();
 
 #ifndef NDEBUG
-        TokenManager::Instance().SetToken(1001, "dev_token");
+        const char *dev_token_env = std::getenv("MSRCHAT_DEV_TOKEN");
+        if (dev_token_env && dev_token_env[0] != '\0')
+        {
+            TokenManager::Instance().SetToken(1001, dev_token_env);
+        }
+        else
+        {
+            TokenManager::Instance().SetToken(1001, "dev_token");
+        }
         spdlog::info("[Main] Dev mode token registered for uid 1001");
 #endif
 

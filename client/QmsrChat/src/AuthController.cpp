@@ -102,7 +102,11 @@ void AuthController::slotVerifyCodeRsp(const VerifyCodeRspStruct &rsp) {
         }
         emit verifyCodeResult(false, errStr); return;
     }
+#ifndef NDEBUG
     emit verifyCodeResult(true, tr("验证码: %1").arg(rsp.code));
+#else
+    emit verifyCodeResult(true, tr("验证码已生成，请输入"));
+#endif
 }
 
 void AuthController::slotRegisterRsp(const RegisterRspStruct &rsp) {

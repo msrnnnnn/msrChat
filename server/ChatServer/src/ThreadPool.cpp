@@ -4,6 +4,7 @@
  * @details 预先创建工作线程，消费任务队列，支持安全关闭。
  */
 #include "ThreadPool.h"
+#include <spdlog/spdlog.h>
 #include <utility>
 
 /**
@@ -87,7 +88,13 @@ void ThreadPool::WorkerThread()
         }
         
         if (task) {
-            task();
+            try {
+                task();
+            } catch (const std::exception &e) {
+                spdlog::error("[ThreadPool] Worker thread caught exception: {}", e.what());
+            } catch (...) {
+                spdlog::error("[ThreadPool] Worker thread caught unknown exception");
+            }
         }
     }
 }
