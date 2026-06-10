@@ -159,9 +159,12 @@ if(BUILD_TESTS)
         tests/test_ShardedMap.cpp
         tests/test_ThreadPool.cpp
         tests/test_ImageStorage.cpp
+        tests/test_AuthFlow.cpp
+        tests/test_MessageOps.cpp
         src/ThreadPool.cpp
         src/ImageStorage.cpp
         src/SQLiteMgr.cpp
+        src/TokenManager.cpp
     )
 
     target_include_directories(ChatServerTests PRIVATE

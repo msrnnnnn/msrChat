@@ -19,12 +19,20 @@
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <functional>
 #include <string_view>
 
 namespace
 {
+
+static int64_t NowMs()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 bool HandleLoginRequest(CSession &session, const std::string &body_data);
 bool HandleRegisterRequest(CSession &session, const std::string &body_data);
 bool HandleLoginAuthRequest(CSession &session, const std::string &body_data);
@@ -554,7 +562,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
             server_msg.set_content(content);
             server_msg.set_client_msg_id(client_msg_id);
             server_msg.set_timestamp(chatMsg.timestamp() > 0 ? chatMsg.timestamp()
-                : static_cast<int64_t>(std::time(nullptr)) * 1000LL);
+                : NowMs());
             std::string serialized;
             if (server_msg.SerializeToString(&serialized))
             {
@@ -574,7 +582,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         db_msg.to_uid = to_uid;
         db_msg.content = content;
         db_msg.timestamp = chatMsg.timestamp() > 0 ? chatMsg.timestamp()
-                                                    : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+                                                    : NowMs();
         db_msg.status = delivered ? 1 : (stored ? 2 : 0);
         db_msg.client_msg_id = client_msg_id;
         db_msg.type = 0; // text
@@ -744,7 +752,7 @@ bool HandleFileReq(CSession &session, const std::string &body_data)
                     rec.width = 0;
                     rec.height = 0;
                     rec.created_at = std::time(nullptr);
-                    rec.expires_at = std::time(nullptr);
+                    rec.expires_at = std::time(nullptr) + 7 * 24 * 3600;
                     if (!ImageStorage::Instance().Insert(rec))
                     {
                         spdlog::warn("HandleFileReq: ImageStorage Insert failed for {}", image_id);
@@ -1161,7 +1169,7 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
             offline_msg.content = body_data;  // raw protobuf binary，用 blob 存储
             offline_msg.timestamp = msg.timestamp() > 0
                 ? msg.timestamp()
-                : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+                : NowMs();
             offline_msg.status = 2;  // offline stored
             offline_msg.client_msg_id = msg.image_id();
             stored = server->StoreOfflineMessage(offline_msg);
@@ -1179,7 +1187,7 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
     db_msg.content = msg.caption();
     db_msg.timestamp = msg.timestamp() > 0
         ? msg.timestamp()
-        : static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+        : NowMs();
     db_msg.status = delivered ? 1 : (stored ? 2 : 0);
     db_msg.client_msg_id = msg.image_id();
     SQLiteMgr::Instance().SaveMessage(db_msg);
@@ -1372,7 +1380,7 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
         return true;
     }
     const int from = session.GetUserUid();
-    const int64_t now_ms = static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+    const int64_t now_ms = NowMs();
 
     // 1. 查原消息（用 timestamp + from_uid 精确查找）
     auto orig = SQLiteMgr::Instance().GetMessageByTimestamp(req.msg_timestamp(), from);
@@ -1515,7 +1523,7 @@ bool HandleChatEdit(CSession &session, const std::string &body_data)
         return true;
     }
     const int from = session.GetUserUid();
-    const int64_t now_ms = static_cast<int64_t>(std::time(nullptr)) * 1000LL;
+    const int64_t now_ms = NowMs();
 
     // 1. 长度校验
     if (req.new_content().size() > 2000)
