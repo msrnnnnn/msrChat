@@ -19,7 +19,7 @@ void TokenManager::SetToken(int uid, const std::string &token)
 {
     int64_t now_sec = static_cast<int64_t>(std::time(nullptr));
     _uid_tokens.Insert(uid, TokenEntry{token, now_sec});
-    SQLiteMgr::Instance().SaveToken(uid, token);
+    SQLiteMgr::Instance().Auth().SaveToken(uid, token);
 }
 
 /**

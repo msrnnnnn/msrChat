@@ -361,7 +361,7 @@ void CSession::SendNextOfflinePage()
 
     if (messages.empty())
     {
-        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        SQLiteMgr::Instance().Messages().ClearOfflineMessages(_offline_send_state.uid);
         _offline_send_state.sending = false;
         return;
     }
@@ -407,7 +407,7 @@ void CSession::SendNextOfflinePage()
 
     if (_offline_send_state.sent_count >= _offline_send_state.total_count)
     {
-        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        SQLiteMgr::Instance().Messages().ClearOfflineMessages(_offline_send_state.uid);
         _offline_send_state.sending = false;
     }
 }

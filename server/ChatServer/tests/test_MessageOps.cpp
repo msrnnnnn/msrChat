@@ -115,7 +115,7 @@ TEST_F(MessageOpsTest, Recall_MarkAndVerify)
     ASSERT_TRUE(SQLiteMgr::Instance().Messages().SaveMessage(msg));
 
     int64_t recall_ts = 1700000020000LL;
-    SQLiteMgr::Instance().MarkMessageRecalled(1700000010000LL, 100, recall_ts);
+    SQLiteMgr::Instance().Messages().MarkMessageRecalled(1700000010000LL, 100, recall_ts);
 
     auto got = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(1700000010000LL, 100);
     ASSERT_TRUE(got.has_value());
@@ -129,7 +129,7 @@ TEST_F(MessageOpsTest, Edit_UpdateContent)
     ASSERT_TRUE(SQLiteMgr::Instance().Messages().SaveMessage(msg));
 
     int64_t edit_ts = 1700000040000LL;
-    SQLiteMgr::Instance().UpdateMessageContent(1700000030000LL, 100, "edited content", edit_ts);
+    SQLiteMgr::Instance().Messages().UpdateMessageContent(1700000030000LL, 100, "edited content", edit_ts);
 
     auto got = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(1700000030000LL, 100);
     ASSERT_TRUE(got.has_value());
@@ -142,7 +142,7 @@ TEST_F(MessageOpsTest, Recall_NonexistentMsg)
 {
     // 对不存在的消息执行 MarkMessageRecalled — sqlite3_step 返回 SQLITE_DONE（0 rows affected）
     // 方法返回 true（SQL 执行成功），但 GetMessageByTimestamp 返回 nullopt
-    bool sql_ok = SQLiteMgr::Instance().MarkMessageRecalled(9999999999LL, 999, 1700000000000LL);
+    bool sql_ok = SQLiteMgr::Instance().Messages().MarkMessageRecalled(9999999999LL, 999, 1700000000000LL);
     EXPECT_TRUE(sql_ok); // SQL 执行成功（无匹配行不影响 DONE 状态）
     auto got = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(9999999999LL, 999);
     EXPECT_FALSE(got.has_value());

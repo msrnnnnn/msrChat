@@ -588,7 +588,7 @@ bool HandleChatText(CSession &session, const std::string &body_data)
         db_msg.status = delivered ? 1 : (stored ? 2 : 0);
         db_msg.client_msg_id = client_msg_id;
         db_msg.type = 0; // text
-        SQLiteMgr::Instance().SaveMessage(db_msg);
+        SQLiteMgr::Instance().Messages().SaveMessage(db_msg);
 
         qmsrchat::ChatAck ack;
         if (delivered) {
@@ -1192,7 +1192,7 @@ bool HandleChatImage(CSession &session, const std::string &body_data)
         : NowMs();
     db_msg.status = delivered ? 1 : (stored ? 2 : 0);
     db_msg.client_msg_id = msg.image_id();
-    SQLiteMgr::Instance().SaveMessage(db_msg);
+    SQLiteMgr::Instance().Messages().SaveMessage(db_msg);
 
     // 回复 ACK
     qmsrchat::ChatAck ack;
@@ -1452,7 +1452,7 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     }
 
     // 6. 入 RecallNotifyQueue 兜底（无论目标是否在线）
-    SQLiteMgr::Instance().EnqueueRecallNotify(orig->to_uid, req.msg_timestamp(), from, now_ms, orig->to_uid);
+    SQLiteMgr::Instance().Messages().EnqueueRecallNotify(orig->to_uid, req.msg_timestamp(), from, now_ms, orig->to_uid);
     spdlog::info("HandleChatRecall: Notify queued for uid={} ts={}", orig->to_uid, req.msg_timestamp());
 
     // 7. 尝试在线推送（优化路径）
@@ -1474,7 +1474,7 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
         else
         {
             spdlog::info("HandleChatRecall: SendToSession 1014 SUCCESS for uid={}", orig->to_uid);
-            SQLiteMgr::Instance().ClearRecallNotifies(orig->to_uid);
+            SQLiteMgr::Instance().Messages().ClearRecallNotifies(orig->to_uid);
         }
     }
     else

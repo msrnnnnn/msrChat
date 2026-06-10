@@ -242,7 +242,7 @@ void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &sess
             }
             if (!entries.empty())
             {
-                SQLiteMgr::Instance().ClearRecallNotifies(uid);
+                SQLiteMgr::Instance().Messages().ClearRecallNotifies(uid);
             }
         });
 }
