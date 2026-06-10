@@ -11,7 +11,7 @@
 #include <cstring>
 
 // 心跳与重连配置常量
-constexpr int HEARTBEAT_INTERVAL_MS = 15000;
+constexpr int HEARTBEAT_INTERVAL_MS = 30000;
 constexpr int PONG_CHECK_INTERVAL_MS = 5000;
 constexpr int PONG_TIMEOUT_MS = 45000;
 constexpr int MAX_RECONNECT_INTERVAL_MS = 60000;

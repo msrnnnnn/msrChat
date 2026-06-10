@@ -474,6 +474,20 @@ bool SQLiteMgr::CreateTables(sqlite3 *db)
         }
     }
 
+    // === Phase 4 — 离线消息查询索引 ===
+    {
+        const char *oidx_sql =
+            "CREATE INDEX IF NOT EXISTS idx_offline_to_uid "
+            "ON offline_messages(to_uid, id)";
+        char *oidx_err = nullptr;
+        sqlite3_exec(db, oidx_sql, nullptr, nullptr, &oidx_err);
+        if (oidx_err)
+        {
+            spdlog::warn("[SQLiteMgr] Phase 4 offline index creation failed: {}", oidx_err);
+            sqlite3_free(oidx_err);
+        }
+    }
+
     // === Phase D — offline_messages 表增 type + image_id 列 ===
     const char *pd_migrations[] = {
         "ALTER TABLE offline_messages ADD COLUMN type INTEGER DEFAULT 0",

@@ -139,6 +139,10 @@ void ChatController::ConnectSignals()
         [this](int64_t task_id, int progress, int64_t received, int64_t total)
         { emit sigFileRecvProgress(task_id, progress, received, total); }, Qt::QueuedConnection);
     connect(
+        &FileRecvMgr::Instance(), &FileRecvMgr::sigRecvStarted, this,
+        [this](int64_t task_id, const QString &filename, int64_t total_size)
+        { emit sigFileRecvStarted(task_id, filename, total_size); }, Qt::QueuedConnection);
+    connect(
         &FileRecvMgr::Instance(), &FileRecvMgr::sigRecvComplete, this,
         [this](int64_t task_id, const QString &filepath, bool success, const QString &error)
         {

@@ -129,6 +129,7 @@ public:
      * @brief 按时间戳获取消息内容文本（供 QML 调用）
      */
     Q_INVOKABLE QString GetContentByTimestamp(qint64 ts) const;
+    Q_INVOKABLE bool isPrepending() const { return _prepending; }
     /**
      * @brief 根据图片 image_id 更新本地缓存路径
      */
@@ -141,8 +142,10 @@ signals:
 private:
     QVector<ChatMessage> _messages;
     QHash<QString, int> _clientIdIndex;
+    QHash<qint64, int> _timestampIndex;
     mutable QMutex _mutex;
     int _current_uid;
+    bool _prepending = false;
 
     /**
      * @brief 将时间戳格式化为 QML 展示用的时间字符串

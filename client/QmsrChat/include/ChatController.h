@@ -84,6 +84,7 @@ signals:
     void sigFileSendProgress(int64_t task_id, int progress, int64_t sent, int64_t total);
     void sigFileSendComplete(int64_t task_id, bool success, QString error);
     void sigFileRecvProgress(int64_t task_id, int progress, int64_t received, int64_t total);
+    void sigFileRecvStarted(int64_t task_id, const QString &filename, int64_t total_size);
     void sigFileRecvComplete(int64_t task_id, const QString &filepath, bool success, const QString &error);
     void sigSendImageMsg(const ChatImageStruct &msg);
     void sigSendEditMsg(const ChatEditMsgStruct &msg);

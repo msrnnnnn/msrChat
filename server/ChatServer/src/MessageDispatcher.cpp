@@ -541,18 +541,31 @@ bool HandleChatText(CSession &session, const std::string &body_data)
             forward["timestamp"] = chatMsg.timestamp();
         }
 
-        std::string forward_data = forward.dump();
-        // 尝试在线转发，失败则存为离线消息
+        // 尝试在线转发：直接用 Protobuf ServerChatMsg 发送（跳过 JSON 中间层）
         auto server = session.GetServer();
         bool delivered = false;
         bool stored = false;
-        if (server)
+        auto target_session = SessionManager::Instance().GetSession(to_uid);
+        if (target_session)
         {
-            delivered = MessageRouter::Instance().ForwardMessage(to_uid, forward_data);
-            if (!delivered)
+            qmsrchat::ServerChatMsg server_msg;
+            server_msg.set_from_uid(session.GetUserUid());
+            server_msg.set_to_uid(to_uid);
+            server_msg.set_content(content);
+            server_msg.set_client_msg_id(client_msg_id);
+            server_msg.set_timestamp(chatMsg.timestamp() > 0 ? chatMsg.timestamp()
+                : static_cast<int64_t>(std::time(nullptr)) * 1000LL);
+            std::string serialized;
+            if (server_msg.SerializeToString(&serialized))
             {
-                stored = server->StoreOfflineMessage(to_uid, forward_data);
+                target_session->Send(serialized, MSG_CHAT_TEXT);
+                delivered = true;
             }
+        }
+        if (!delivered && server)
+        {
+            std::string forward_data = forward.dump();
+            stored = server->StoreOfflineMessage(to_uid, forward_data);
         }
 
         // 持久化到服务端 DB（撤回/编辑依赖 messages 表查询）
@@ -631,6 +644,14 @@ bool HandleChatText(CSession &session, const std::string &body_data)
  */
 bool HandleFileReq(CSession &session, const std::string &body_data)
 {
+    if (body_data.size() > MAX_FILE_META_SIZE)
+    {
+        spdlog::warn("[MessageDispatcher] HandleFileReq: body too large {} > {}",
+                     body_data.size(), MAX_FILE_META_SIZE);
+        session.ContinueReading();
+        return true;
+    }
+
     if (session.GetUserUid() <= 0)
     {
         qmsrchat::FileAck response;
@@ -885,7 +906,7 @@ bool HandleFileChunk(CSession &session, std::string_view body_view)
     try
     {
         qmsrchat::FileChunk chunk;
-        if (!chunk.ParseFromString(std::string(body_view)))
+        if (!chunk.ParseFromArray(body_view.data(), static_cast<int>(body_view.size())))
         {
             spdlog::error("[MessageDispatcher] Failed to parse FileChunk");
             session.ContinueReading();
@@ -1079,6 +1100,13 @@ bool HandleOfflineAck(CSession &session, const std::string &body_data)
  */
 bool HandleChatImage(CSession &session, const std::string &body_data)
 {
+    if (body_data.size() > MAX_CHUNK_SIZE)
+    {
+        spdlog::warn("[MessageDispatcher] HandleChatImage: body too large {} > {}",
+                     body_data.size(), MAX_CHUNK_SIZE);
+        session.ContinueReading();
+        return true;
+    }
     try
     {
     qmsrchat::ImageMsg msg;

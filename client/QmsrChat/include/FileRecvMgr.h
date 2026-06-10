@@ -79,6 +79,10 @@ public:
 
 signals:
     /**
+     * @brief 接收开始信号
+     */
+    void sigRecvStarted(int64_t task_id, const QString &filename, int64_t total_size);
+    /**
      * @brief 接收进度更新信号
      * @param task_id 任务ID
      * @param progress 进度百分比（0-100）

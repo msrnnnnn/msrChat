@@ -155,6 +155,7 @@ bool FileRecvMgr::StartRecv(
     }
 
     _tasks.insert(task_id, task);
+    emit sigRecvStarted(task_id, task->filename, total_size);
     return true;
 }
 

@@ -45,6 +45,11 @@ constexpr auto kReadCheckInterval = std::chrono::seconds(5);
 // 文件传输
 constexpr size_t CHUNK_SIZE = 4 * 1024;
 
+// Phase 4 — 消息体大小分级限制
+constexpr size_t MAX_TEXT_MSG_SIZE    = 64 * 1024;    ///< 文本消息 ≤64KB
+constexpr size_t MAX_FILE_META_SIZE   = 4 * 1024;     ///< 文件元数据 ≤4KB
+constexpr size_t MAX_CHUNK_SIZE       = 1024 * 1024;  ///< 文件/图片 chunk ≤1MB
+
 // 验证码有效期（秒）
 constexpr int VERIFY_CODE_EXPIRY_SEC = 600;
 

@@ -246,6 +246,7 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     int startRow = 0;
     int endRow = messages.size() - 1;
 
+    _prepending = true;
     beginInsertRows(QModelIndex(), startRow, endRow);
 
     {
@@ -259,6 +260,7 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     }
 
     endInsertRows();
+    _prepending = false;
 }
 
 /**
@@ -370,12 +372,14 @@ qint64 ChatListModel::GetEarliestTimestamp() const
 void ChatListModel::RebuildIndex()
 {
     _clientIdIndex.clear();
+    _timestampIndex.clear();
     for (int i = 0; i < _messages.size(); ++i)
     {
         if (!_messages[i].client_msg_id.isEmpty())
         {
             _clientIdIndex[_messages[i].client_msg_id] = i;
         }
+        _timestampIndex[_messages[i].timestamp] = i;
     }
 }
 
@@ -527,13 +531,12 @@ void ChatListModel::RemoveMessageByTimestamp(qint64 ts)
 bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
 {
     QMutexLocker lock(&_mutex);
-    for (const auto &m : _messages)
+    auto it = _timestampIndex.find(ts);
+    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size()
+        && _messages[it.value()].timestamp == ts)
     {
-        if (m.timestamp == ts)
-        {
-            out = m;
-            return true;
-        }
+        out = _messages[it.value()];
+        return true;
     }
     return false;
 }

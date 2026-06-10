@@ -294,8 +294,10 @@ Rectangle {
                 }
             }
 
-            // 新消息到达时自动滚动到底部
+            // 新消息到达时自动滚动到底部（加载历史时不滚动）
             onCountChanged: {
+                if (_chatModel && _chatModel.isPrepending())
+                    return
                 Qt.callLater(function() {
                     positionViewAtEnd()
                 })
@@ -980,9 +982,25 @@ Rectangle {
             fileProgressPanel.checkAllComplete()
         }
 
+        function onSigFileRecvStarted(task_id, filename, total_size) {
+            var tid = String(task_id)
+            console.log("[FileRecv] Started: task=" + tid + " file=" + filename + " size=" + total_size)
+            fileProgressModel.append({"task_id": tid, "filename": filename, "progress": 0, "error": ""})
+            fileProgressPanel.showPanel()
+        }
+
         function onSigFileRecvProgress(task_id, prog, received, total) {
             var tid = String(task_id)
             console.log("[FileRecv] task=" + tid + " progress=" + prog + "%")
+            for (var i = 0; i < fileProgressModel.count; i++) {
+                if (fileProgressModel.get(i).task_id === tid) {
+                    fileProgressModel.setProperty(i, "progress", prog)
+                    if (prog === 100) {
+                        fileProgressPanel.checkAllComplete()
+                    }
+                    break
+                }
+            }
         }
 
         function onSigFileRecvComplete(task_id, filepath, success, error) {
