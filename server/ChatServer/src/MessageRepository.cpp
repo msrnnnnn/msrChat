@@ -5,6 +5,7 @@
  */
 #include "MessageRepository.h"
 #include "const.h"
+#include <climits>
 #include <spdlog/spdlog.h>
 
 // ============================================================
@@ -214,6 +215,11 @@ bool MessageRepository::SaveOfflineMessage(const ChatMessage &msg)
     if (msg.type == 1)
     {
         // 图片消息：content 存 Base64 编码的 protobuf binary，用 blob 绑定保留 \0 字节
+        if (msg.content.size() > static_cast<size_t>(INT_MAX))
+        {
+            spdlog::error("[MessageRepository] SaveOfflineMessage: blob too large {} bytes", msg.content.size());
+            return false;
+        }
         sqlite3_bind_blob(stmt, 3, msg.content.data(), static_cast<int>(msg.content.size()), SQLITE_TRANSIENT);
     }
     else

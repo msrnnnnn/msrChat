@@ -106,7 +106,7 @@ public:
     bool MarkRecalled(const std::string &image_id);
 
     /**
-     * @brief 删除所有已过期的图片及其数据
+     * @brief 删除所有已过期的图片记录（不区分是否撤回）
      * @param now 当前时间戳（秒）
      * @return 删除的图片数量
      */

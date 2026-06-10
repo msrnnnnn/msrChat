@@ -15,7 +15,9 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <spdlog/spdlog.h>
 #ifndef _WIN32
@@ -26,6 +28,7 @@ struct ServerConfig
 {
     uint16_t port = 8080;
     std::string db_path = "chatserver.db";
+    int pool_size = 8; ///< SQLite 连接池大小（1-64）
 };
 
 /**
@@ -51,8 +54,17 @@ ServerConfig LoadConfig()
             }
             config.port = static_cast<uint16_t>(raw_port);
             config.db_path = pt.get<std::string>("ChatServer.DbPath", config.db_path);
+            int raw_pool = pt.get<int>("ChatServer.PoolSize", config.pool_size);
+            if (raw_pool < 1 || raw_pool > 64)
+            {
+                spdlog::warn("Invalid PoolSize in config: {}, must be 1-64, using default {}", raw_pool, config.pool_size);
+            }
+            else
+            {
+                config.pool_size = raw_pool;
+            }
             spdlog::info("Configuration loaded from {}", config_path.string());
-            spdlog::debug("Port: {}, DbPath: {}", config.port, config.db_path);
+            spdlog::debug("Port: {}, DbPath: {}, PoolSize: {}", config.port, config.db_path, config.pool_size);
         }
         catch (const std::exception &e)
         {
@@ -107,7 +119,7 @@ int main(int argc, char *argv[])
 
         auto config = LoadConfig();
 
-        if (!SQLiteMgr::Instance().Init(config.db_path))
+        if (!SQLiteMgr::Instance().Init(config.db_path, config.pool_size))
         {
             spdlog::error("Failed to initialize SQLite database at {}", config.db_path);
             return 1;
@@ -117,6 +129,15 @@ int main(int argc, char *argv[])
         {
             spdlog::error("Failed to initialize ImageStorage");
             return 1;
+        }
+
+        // Phase 5D.3 — 启动时清理过期图片
+        {
+            int cleaned = ImageStorage::Instance().DeleteExpired(static_cast<int64_t>(std::time(nullptr)));
+            if (cleaned > 0)
+            {
+                spdlog::info("[Main] Startup: cleaned {} expired images", cleaned);
+            }
         }
 
         TokenManager::Instance().LoadTokensFromDB();
@@ -176,6 +197,25 @@ int main(int argc, char *argv[])
         // 注册 SIGINT/SIGTERM 信号处理器，实现优雅关闭
         boost::asio::signal_set shutdown_signals(io_context, SIGINT, SIGTERM);
         shutdown_signals.async_wait(handle_sigint_sigterm);
+
+        // Phase 5D.3 — 定时清理过期图片（每 6 小时）
+        auto cleanup_timer = std::make_shared<boost::asio::steady_timer>(io_context);
+        std::function<void()> schedule_cleanup;
+        schedule_cleanup = [&io_context, cleanup_timer, &schedule_cleanup]()
+        {
+            cleanup_timer->expires_after(std::chrono::hours(6));
+            cleanup_timer->async_wait([&io_context, cleanup_timer, &schedule_cleanup](const boost::system::error_code &ec)
+            {
+                if (ec) return; // cancelled or error
+                int cleaned = ImageStorage::Instance().DeleteExpired(static_cast<int64_t>(std::time(nullptr)));
+                if (cleaned > 0)
+                {
+                    spdlog::info("[Main] Periodic cleanup: removed {} expired images", cleaned);
+                }
+                schedule_cleanup();
+            });
+        };
+        schedule_cleanup();
 
         server = std::make_shared<CServer>(io_context, config.port);
         server->Start();

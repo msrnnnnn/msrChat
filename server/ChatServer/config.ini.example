@@ -1,3 +1,4 @@
 [ChatServer]
 Port = 8080
 DbPath = chatserver.db
+PoolSize = 8

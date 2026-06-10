@@ -5,8 +5,12 @@
  */
 #include "ImageStorage.h"
 #include <spdlog/spdlog.h>
+#include <climits>
 #include <cstring>
 #include <ctime>
+
+/// 业务层最大图片大小限制（100 MB）
+static constexpr size_t MAX_IMAGE_SIZE = 100ULL * 1024 * 1024;
 
 /**
  * @brief 获取单例实例
@@ -146,6 +150,19 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
         full_blob.resize(static_cast<size_t>(offset + static_cast<int64_t>(len)), 0);
     }
     std::memcpy(full_blob.data() + offset, data, len);
+
+    // 2.5 大小防护：业务上限 + sqlite3_bind_blob int 参数溢出检查
+    if (full_blob.size() > MAX_IMAGE_SIZE)
+    {
+        spdlog::error("[ImageStorage] AppendChunk: image too large {} > {} bytes, image_id={}",
+                      full_blob.size(), MAX_IMAGE_SIZE, image_id);
+        return false;
+    }
+    if (full_blob.size() > static_cast<size_t>(INT_MAX))
+    {
+        spdlog::error("[ImageStorage] AppendChunk: blob exceeds INT_MAX, image_id={}", image_id);
+        return false;
+    }
 
     // 3. 写回完整 blob
     const char *update_sql = "UPDATE image_storage SET blob = ? WHERE image_id = ?;";
@@ -292,7 +309,7 @@ bool ImageStorage::MarkRecalled(const std::string &image_id)
 }
 
 /**
- * @brief 清理已过期且已撤回的图片记录
+ * @brief 清理所有已过期的图片记录
  * @param now 当前时间戳（秒）
  * @return 删除的记录数
  */
@@ -301,7 +318,7 @@ int ImageStorage::DeleteExpired(int64_t now)
     SQLiteConnectionGuard guard(_pool);
     if (!guard) return 0;
     sqlite3 *db = guard.Get();
-    const char *sql = "DELETE FROM image_storage WHERE expires_at < ? AND recalled = 1;";
+    const char *sql = "DELETE FROM image_storage WHERE expires_at < ?;";
     sqlite3_stmt *stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return 0;
     sqlite3_bind_int64(stmt, 1, now);
