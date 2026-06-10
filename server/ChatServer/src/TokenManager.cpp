@@ -5,6 +5,7 @@
  */
 #include "TokenManager.h"
 #include "SQLiteMgr.h"
+#include "AuthRepository.h"
 #include <spdlog/spdlog.h>
 #include <ctime>
 
@@ -59,7 +60,7 @@ bool TokenManager::CheckToken(int uid, const std::string &token)
  */
 void TokenManager::LoadTokensFromDB()
 {
-    auto tokens = SQLiteMgr::Instance().GetAllTokens();
+    auto tokens = SQLiteMgr::Instance().Auth().GetAllTokens();
     int64_t now_sec = static_cast<int64_t>(std::time(nullptr));
     int expired = 0;
     for (const auto &[uid, token, created_at] : tokens)

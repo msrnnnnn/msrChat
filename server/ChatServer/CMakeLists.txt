@@ -102,6 +102,9 @@ set(SERVER_SOURCES
     src/ThreadPool.cpp
     src/FileTransfer.cpp
     src/SQLiteMgr.cpp
+    src/AuthRepository.cpp
+    src/MessageRepository.cpp
+    src/SchemaManager.cpp
     src/ImageStorage.cpp
 )
 
@@ -164,6 +167,9 @@ if(BUILD_TESTS)
         src/ThreadPool.cpp
         src/ImageStorage.cpp
         src/SQLiteMgr.cpp
+        src/AuthRepository.cpp
+        src/MessageRepository.cpp
+        src/SchemaManager.cpp
         src/TokenManager.cpp
     )
 

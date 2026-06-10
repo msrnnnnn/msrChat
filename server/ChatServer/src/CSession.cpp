@@ -12,6 +12,7 @@
 #include "SessionManager.h"
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
+#include "MessageRepository.h"
 #include "const.h"
 #include <chrono>
 #include <cstdint>
@@ -354,7 +355,7 @@ void CSession::SendNextOfflinePage()
         return;
     }
 
-    auto messages = SQLiteMgr::Instance().GetOfflineMessages(
+    auto messages = SQLiteMgr::Instance().Messages().GetOfflineMessages(
         _offline_send_state.uid, OFFLINE_PAGE_SIZE,
         _offline_send_state.last_sent_id);
 

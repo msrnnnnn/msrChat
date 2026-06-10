@@ -284,11 +284,16 @@ private:
     sqlite3 *_db;
 };
 
+// Forward declarations for Repository classes (Phase 5D)
+class AuthRepository;
+class MessageRepository;
+class SchemaManager;
+
 /**
- * @brief SQLite 业务管理器（单例） —— 封装所有数据库业务操作
- * @details 提供消息 CRUD、用户注册/登录、验证码、Token 持久化等接口。
- *          内部通过 SQLiteConnectionPool 管理连接，每个公开方法内部创建
- *          SQLiteConnectionGuard 自动获取和归还连接。
+ * @brief SQLite 业务管理器（单例） —— 连接池 + Repository 访问器
+ * @details Phase 5D 重构后，业务方法已拆分到 AuthRepository / MessageRepository。
+ *          SQLiteMgr 保留为连接池管理 + Repository 工厂门面。
+ *          通过 Auth() 和 Messages() 访问器获取 Repository 引用。
  */
 class SQLiteMgr
 {
@@ -299,37 +304,9 @@ public:
     std::shared_ptr<SQLiteConnectionPool> GetPool() const { return _pool; }
     void Shutdown();
 
-    bool SaveMessage(const ChatMessage &msg);
-    std::vector<ChatMessage> GetMessages(int uid1, int uid2, int64_t before_time, int limit = 50);
-
-    // Phase 7 — 撤回 / 编辑
-    bool MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts);
-    bool UpdateMessageContent(int64_t timestamp, int from_uid, const std::string &new_content, int64_t edit_ts);
-    std::optional<ChatMessage> GetMessageByTimestamp(int64_t timestamp, int from_uid);
-
-    std::optional<User> GetUserByUsername(const std::string &username);
-
-    // Phase 2 — Recall Notify
-    bool EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid, int64_t recall_ts, int recalled_to);
-    std::vector<RecallNotifyEntry> PopRecallNotifies(int uid);
-    bool ClearRecallNotifies(int uid);
-
-    bool SaveOfflineMessage(const ChatMessage &msg);
-    std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);
-    int64_t GetOfflineMessageCount(int uid);
-    bool ClearOfflineMessages(int uid);
-
-    AuthResult RegisterUser(const std::string &username, const std::string &password_hash, const std::string &email);
-    AuthResult LoginUser(const std::string &username, const std::string &password_hash);
-    bool SendVerifyCode(const std::string &email, int &out_code);
-    int CheckVerifyCode(const std::string &email, const std::string &code);
-    int ResetPassword(
-        const std::string &username, const std::string &email, const std::string &code,
-        const std::string &new_password_hash);
-
-    bool SaveToken(int uid, const std::string &token);
-    std::optional<std::string> GetTokenFromDB(int uid);
-    std::vector<TokenRecord> GetAllTokens();
+    /// Phase 5D — Repository 访问器
+    AuthRepository &Auth();
+    MessageRepository &Messages();
 
     SQLiteMgr(const SQLiteMgr &) = delete;
     SQLiteMgr &operator=(const SQLiteMgr &) = delete;
@@ -338,11 +315,9 @@ private:
     SQLiteMgr() = default;
     ~SQLiteMgr();
 
-    bool CreateTables(sqlite3 *db);
-    std::optional<User> GetUserByUsernameUnlocked(sqlite3 *db, const std::string &username);
-
-
     std::shared_ptr<SQLiteConnectionPool> _pool;
+    std::unique_ptr<AuthRepository> _auth_repo;
+    std::unique_ptr<MessageRepository> _msg_repo;
     std::atomic<bool> _initialized{false};
 };
 

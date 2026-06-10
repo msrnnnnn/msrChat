@@ -15,6 +15,8 @@
 #include "MessageRouter.h"
 #include "SessionManager.h"
 #include "SQLiteMgr.h"
+#include "AuthRepository.h"
+#include "MessageRepository.h"
 #include "TokenManager.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
@@ -206,7 +208,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
             {
                 if (safe_session->IsClosed()) return;
 
-                int verifyResult = SQLiteMgr::Instance().CheckVerifyCode(email, verifycode);
+                int verifyResult = SQLiteMgr::Instance().Auth().CheckVerifyCode(email, verifycode);
                 if (verifyResult != 0)
                 {
                     nlohmann::json response;
@@ -216,7 +218,7 @@ bool HandleRegisterRequest(CSession &session, const std::string &body_data)
                     return;
                 }
 
-                AuthResult result = SQLiteMgr::Instance().RegisterUser(username, password_hash, email);
+                AuthResult result = SQLiteMgr::Instance().Auth().RegisterUser(username, password_hash, email);
 
                 nlohmann::json response;
                 response["error"] = result.error;
@@ -282,7 +284,7 @@ bool HandleLoginAuthRequest(CSession &session, const std::string &body_data)
             {
                 if (safe_session->IsClosed()) return;
 
-                AuthResult result = SQLiteMgr::Instance().LoginUser(username, password_hash);
+                AuthResult result = SQLiteMgr::Instance().Auth().LoginUser(username, password_hash);
 
                 nlohmann::json response;
                 response["error"] = result.error;
@@ -352,7 +354,7 @@ bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data)
                 if (safe_session->IsClosed()) return;
 
                 int code = 0;
-                bool success = SQLiteMgr::Instance().SendVerifyCode(email, code);
+                bool success = SQLiteMgr::Instance().Auth().SendVerifyCode(email, code);
 
                 nlohmann::json response{{"error", success ? ERR_SUCCESS : ERR_JSON_PARSE}, {"email", email}, {"code", code}};
                 safe_session->Send(response.dump(), ID_GET_VERIFY_CODE);
@@ -410,21 +412,21 @@ bool HandleResetPwdRequest(CSession &session, const std::string &body_data)
             {
                 if (safe_session->IsClosed()) return;
 
-                int verify_result = SQLiteMgr::Instance().CheckVerifyCode(email, code);
+                int verify_result = SQLiteMgr::Instance().Auth().CheckVerifyCode(email, code);
                 int error_code = verify_result;
                 std::string new_token;
 
                 if (verify_result == 0)
                 {
-                    int reset_result = SQLiteMgr::Instance().ResetPassword(username, email, code, new_password_hash);
+                    int reset_result = SQLiteMgr::Instance().Auth().ResetPassword(username, email, code, new_password_hash);
                     if (reset_result == 0)
                     {
                         error_code = 0;
-                        auto user = SQLiteMgr::Instance().GetUserByUsername(username);
+                        auto user = SQLiteMgr::Instance().Auth().GetUserByUsername(username);
                         if (user.has_value())
                         {
                             int uid = user->uid;
-                            AuthResult login_result = SQLiteMgr::Instance().LoginUser(username, new_password_hash);
+                            AuthResult login_result = SQLiteMgr::Instance().Auth().LoginUser(username, new_password_hash);
                             if (login_result.error == 0)
                             {
                                 new_token = login_result.token;
@@ -1383,7 +1385,7 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     const int64_t now_ms = NowMs();
 
     // 1. 查原消息（用 timestamp + from_uid 精确查找）
-    auto orig = SQLiteMgr::Instance().GetMessageByTimestamp(req.msg_timestamp(), from);
+    auto orig = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(req.msg_timestamp(), from);
     if (!orig.has_value())
     {
         spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}",
@@ -1436,7 +1438,7 @@ bool HandleChatRecall(CSession &session, const std::string &body_data)
     }
 
     // 5. DB 标记 recalled
-    if (!SQLiteMgr::Instance().MarkMessageRecalled(req.msg_timestamp(), from, now_ms))
+    if (!SQLiteMgr::Instance().Messages().MarkMessageRecalled(req.msg_timestamp(), from, now_ms))
     {
         spdlog::error("HandleChatRecall: DB mark failed, ts={}", req.msg_timestamp());
         qmsrchat::EditAck ack;
@@ -1539,7 +1541,7 @@ bool HandleChatEdit(CSession &session, const std::string &body_data)
     }
 
     // 2. 查原消息
-    auto orig = SQLiteMgr::Instance().GetMessageByTimestamp(req.msg_timestamp(), from);
+    auto orig = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(req.msg_timestamp(), from);
     if (!orig.has_value())
     {
         spdlog::warn("HandleChatEdit: msg not found or not owner, ts={}", req.msg_timestamp());
@@ -1567,7 +1569,7 @@ bool HandleChatEdit(CSession &session, const std::string &body_data)
     }
 
     // 4. DB 更新 content + edited + edited_at
-    if (!SQLiteMgr::Instance().UpdateMessageContent(req.msg_timestamp(), from,
+    if (!SQLiteMgr::Instance().Messages().UpdateMessageContent(req.msg_timestamp(), from,
                                                      req.new_content(), now_ms))
     {
         spdlog::error("HandleChatEdit: DB update failed, ts={}", req.msg_timestamp());

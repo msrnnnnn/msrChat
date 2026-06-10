@@ -8,6 +8,7 @@
 #include "Message.pb.h"
 #include "MessageRouter.h"
 #include "SQLiteMgr.h"
+#include "MessageRepository.h"
 #include "const.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -123,7 +124,7 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
                             .count();
         msg.status = 0;
         msg.client_msg_id = json_data.value("client_msg_id", "");
-        return SQLiteMgr::Instance().SaveOfflineMessage(msg);
+        return SQLiteMgr::Instance().Messages().SaveOfflineMessage(msg);
     }
     catch (const std::exception &e)
     {
@@ -139,7 +140,7 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
  */
 bool CServer::StoreOfflineMessage(const ChatMessage &msg)
 {
-    return SQLiteMgr::Instance().SaveOfflineMessage(msg);
+    return SQLiteMgr::Instance().Messages().SaveOfflineMessage(msg);
 }
 
 /**
@@ -157,7 +158,7 @@ void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &sess
         session->GetStrand(),
         [self, session, uid]()
         {
-            int64_t total_count = SQLiteMgr::Instance().GetOfflineMessageCount(uid);
+            int64_t total_count = SQLiteMgr::Instance().Messages().GetOfflineMessageCount(uid);
 
             if (total_count > 0)
             {
@@ -226,7 +227,7 @@ void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &sess
         session->GetStrand(),
         [self, session, uid]()
         {
-            auto entries = SQLiteMgr::Instance().PopRecallNotifies(uid);
+            auto entries = SQLiteMgr::Instance().Messages().PopRecallNotifies(uid);
             for (const auto &e : entries)
             {
                 qmsrchat::RecallNotify n;
