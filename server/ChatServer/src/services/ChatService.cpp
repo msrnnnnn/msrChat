@@ -11,6 +11,7 @@
 #include "MessageRouter.h"
 #include "SQLiteMgr.h"
 #include "MessageRepository.h"
+#include "RateLimiter.h"
 #include "Message.pb.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
@@ -54,6 +55,23 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
             qmsrchat::ChatAck ack;
             ack.set_error(1);
             ack.set_message("not login");
+            ack.set_client_msg_id(client_msg_id);
+
+            std::string serialized;
+            if (ack.SerializeToString(&serialized))
+            {
+                session.Send(serialized, MSG_CHAT_ACK);
+            }
+            return true;
+        }
+
+        // 限流检查
+        if (!RateLimiter::Instance().TryAcquire(session.GetUserUid()))
+        {
+            spdlog::warn("[ChatService] Rate limited for uid={}", session.GetUserUid());
+            qmsrchat::ChatAck ack;
+            ack.set_error(ERR_RATE_LIMITED);
+            ack.set_message("rate limited");
             ack.set_client_msg_id(client_msg_id);
 
             std::string serialized;

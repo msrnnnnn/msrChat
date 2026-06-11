@@ -102,21 +102,21 @@ void AuthController::slotVerifyCodeRsp(const VerifyCodeRspStruct &rsp) {
         }
         emit verifyCodeResult(false, errStr); return;
     }
-#ifndef NDEBUG
     emit verifyCodeResult(true, tr("验证码: %1").arg(rsp.code));
-#else
-    emit verifyCodeResult(true, tr("验证码已生成，请输入"));
-#endif
 }
 
 void AuthController::slotRegisterRsp(const RegisterRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
         QString errStr;
-        switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
-            case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
-            case ERRORCODES::UserExist:         errStr = tr("用户名已存在"); break;
-            default: errStr = tr("注册失败 (%1)").arg(rsp.error); break;
+        if (!rsp.message.isEmpty()) {
+            errStr = rsp.message;
+        } else {
+            switch (static_cast<ERRORCODES>(rsp.error)) {
+                case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
+                case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
+                case ERRORCODES::UserExist:         errStr = tr("用户名已存在"); break;
+                default: errStr = tr("注册失败 (%1)").arg(rsp.error); break;
+            }
         }
         emit registerResult(false, errStr); return;
     }

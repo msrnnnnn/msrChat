@@ -66,6 +66,8 @@ constexpr int ERR_EMAIL_NOT_MATCH = 1008;
 constexpr int ERR_PASSWD_UPDATE = 1009;
 constexpr int ERR_DB = 1011;
 constexpr int ERR_KICKED = 1013;  ///< 被另一设备登录踢出
+constexpr int ERR_BUSY = 1014;    ///< 服务器繁忙（队列满/连接数超限/限流）
+constexpr int ERR_RATE_LIMITED = 1015;  ///< 消息发送频率超限
 constexpr int ERR_NETWORK = 2;
 
 // 图片 + 撤回/编辑 错误码

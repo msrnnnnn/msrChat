@@ -41,11 +41,15 @@ void SendEditAck(CSession &session, int msg_type, int error, int64_t msg_timesta
     if (!content.empty()) ack.set_new_content(content);
     if (!message.empty()) ack.set_message(message);
     std::string s;
-    ack.SerializeToString(&s);
+    if (!ack.SerializeToString(&s))
+    {
+        spdlog::error("[ImageService] SendEditAck: SerializeToString failed");
+        return;
+    }
     session.Send(s, msg_type);
 }
 
-/// 向目标会话推送 RecallNotify，成功时清理通知队列
+/// 向目标会话推送 RecallNotify，成功时精确删除该通知
 void PushRecallNotify(int to_uid, int from_uid, int64_t msg_ts, int64_t recall_ts)
 {
     auto target = SessionManager::Instance().GetSession(to_uid);
@@ -58,13 +62,17 @@ void PushRecallNotify(int to_uid, int from_uid, int64_t msg_ts, int64_t recall_t
         n.set_recalled_to(to_uid);
         n.set_recall_ts(recall_ts);
         std::string s;
-        n.SerializeToString(&s);
+        if (!n.SerializeToString(&s))
+        {
+            spdlog::error("[ImageService] PushRecallNotify: SerializeToString failed");
+            return;
+        }
         if (!MessageRouter::Instance().SendToSession(target, s, MSG_CHAT_RECALL_NOTIFY))
             spdlog::error("HandleChatRecall: SendToSession 1014 FAILED for uid={}", to_uid);
         else
         {
             spdlog::info("HandleChatRecall: SendToSession 1014 SUCCESS for uid={}", to_uid);
-            SQLiteMgr::Instance().Messages().ClearRecallNotifies(to_uid);
+            SQLiteMgr::Instance().Messages().ClearRecallNotifyByTimestamp(to_uid, msg_ts);
         }
     }
     else
@@ -121,10 +129,16 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
         {
             // 在线：直接发送 ImageMsg 给对方
             std::string serialized;
-            msg.SerializeToString(&serialized);
-            MessageRouter::Instance().SendToSession(target_session, serialized, MSG_CHAT_IMAGE);
-            spdlog::info("[ImageService] HandleChatImage: forwarded to uid={}", msg.to_uid());
-            delivered = true;
+            if (!msg.SerializeToString(&serialized))
+            {
+                spdlog::error("[ImageService] HandleChatImage: serialize failed for forwarding");
+            }
+            else
+            {
+                MessageRouter::Instance().SendToSession(target_session, serialized, MSG_CHAT_IMAGE);
+                spdlog::info("[ImageService] HandleChatImage: forwarded to uid={}", msg.to_uid());
+                delivered = true;
+            }
         }
         else
         {
@@ -169,8 +183,14 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
         ack.set_message(delivered ? "delivered" : (stored ? "stored" : "failed"));
         ack.set_client_msg_id(msg.image_id());
         std::string ack_data;
-        ack.SerializeToString(&ack_data);
-        session.Send(ack_data, MSG_CHAT_ACK);
+        if (!ack.SerializeToString(&ack_data))
+        {
+            spdlog::error("[ImageService] HandleChatImage: ack serialize failed");
+        }
+        else
+        {
+            session.Send(ack_data, MSG_CHAT_ACK);
+        }
     }
     catch (const std::exception &e)
     {
@@ -208,7 +228,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
                      req.image_id());
 
         std::string data;
-        rsp.SerializeToString(&data);
+        if (!rsp.SerializeToString(&data))
+        {
+            spdlog::error("[ImageService] HandleImageDownloadReq: serialize failed (not found)");
+            return true;
+        }
         session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
         return true;
     }
@@ -220,7 +244,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
                      req.image_id());
 
         std::string data;
-        rsp.SerializeToString(&data);
+        if (!rsp.SerializeToString(&data))
+        {
+            spdlog::error("[ImageService] HandleImageDownloadReq: serialize failed (recalled)");
+            return true;
+        }
         session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
         return true;
     }
@@ -238,7 +266,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
                      req.image_id(), rec->size);
 
         std::string data;
-        rsp.SerializeToString(&data);
+        if (!rsp.SerializeToString(&data))
+        {
+            spdlog::error("[ImageService] HandleImageDownloadReq: serialize failed (blob unavailable)");
+            return true;
+        }
         session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
         return true;
     }
@@ -248,7 +280,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     rsp.set_offset(0);
 
     std::string rsp_data;
-    rsp.SerializeToString(&rsp_data);
+    if (!rsp.SerializeToString(&rsp_data))
+    {
+        spdlog::error("[ImageService] HandleImageDownloadReq: serialize failed (authorized)");
+        return true;
+    }
     session.Send(rsp_data, MSG_IMAGE_DOWNLOAD_RSP);
     spdlog::info("[ImageService] HandleImageDownloadReq: {} authorized, size={} ext={}",
                  req.image_id(), rec->size, rec->ext);
@@ -279,7 +315,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     fileReq.set_total_size(rec->size);
     {
         std::string req_ser;
-        fileReq.SerializeToString(&req_ser);
+        if (!fileReq.SerializeToString(&req_ser))
+        {
+            spdlog::error("[ImageService] HandleImageDownloadReq: FileReq serialize failed");
+            return true;
+        }
         session.Send(req_ser, MSG_FILE_REQ);
     }
 
@@ -298,7 +338,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
             chunk.set_data(image_data.data() + offset, this_chunk);
 
             std::string chunk_ser;
-            chunk.SerializeToString(&chunk_ser);
+            if (!chunk.SerializeToString(&chunk_ser))
+            {
+                spdlog::error("[ImageService] HandleImageDownloadReq: FileChunk serialize failed at offset={}", offset);
+                return true;
+            }
             session.Send(chunk_ser, MSG_FILE_CHUNK);
 
             offset += this_chunk;
@@ -315,7 +359,11 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     fileAck.set_message("complete");
     {
         std::string ack_ser;
-        fileAck.SerializeToString(&ack_ser);
+        if (!fileAck.SerializeToString(&ack_ser))
+        {
+            spdlog::error("[ImageService] HandleImageDownloadReq: FileAck serialize failed");
+            return true;
+        }
         session.Send(ack_ser, MSG_FILE_ACK);
     }
 
@@ -460,7 +508,11 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
             n.set_new_content(req.new_content());
             n.set_edit_ts(now_ms);
             std::string s;
-            n.SerializeToString(&s);
+            if (!n.SerializeToString(&s))
+            {
+                spdlog::error("[ImageService] HandleChatEdit: EditNotify serialize failed");
+                return true;
+            }
             if (!MessageRouter::Instance().SendToSession(target_session, s, MSG_CHAT_EDIT_NOTIFY))
             {
                 spdlog::warn("HandleChatEdit: Notify send failed");
@@ -468,8 +520,10 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         }
         else
         {
-            spdlog::info("HandleChatEdit: target uid={} offline, Notify dropped (P7 v1 limit)",
-                         orig->to_uid);
+            // 离线：入队编辑通知，上线时投递
+            SQLiteMgr::Instance().Messages().EnqueueEditNotify(
+                orig->to_uid, req.msg_timestamp(), from, req.new_content(), now_ms);
+            spdlog::info("HandleChatEdit: target uid={} offline, Notify queued", orig->to_uid);
         }
 
         // 6. 回 EditAck 给发起方

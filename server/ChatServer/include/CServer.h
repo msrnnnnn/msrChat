@@ -67,9 +67,25 @@ public:
      */
     void FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session);
 
+    /**
+     * @brief 向已登录的会话推送未送达的编辑通知
+     * @param uid 用户 UID
+     * @param session 目标会话
+     */
+    void FlushEditNotifies(int uid, const std::shared_ptr<CSession> &session);
+
     ThreadPool &GetThreadPool()
     {
         return _thread_pool;
+    }
+
+    /**
+     * @brief 设置最大连接数上限
+     * @param max_connections 最大连接数（0 表示不限制）
+     */
+    void SetMaxConnections(size_t max_connections)
+    {
+        _max_connections = max_connections;
     }
 
     void Stop();
@@ -81,6 +97,7 @@ private:
     boost::asio::ip::tcp::acceptor _acceptor;
     ThreadPool _thread_pool;
     std::atomic<bool> _stopped{false};
+    size_t _max_connections{0};  ///< 最大连接数上限，0 表示不限制
 };
 
 #endif // CSERVER_H

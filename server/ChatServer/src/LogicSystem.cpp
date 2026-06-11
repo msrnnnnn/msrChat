@@ -27,7 +27,7 @@ LogicSystem::~LogicSystem()
 /**
  * @brief 投递消息任务到处理队列
  * @param task 消息任务（含会话、消息 ID、数据）
- * @details 队列满时丢弃任务防止内存溢出
+ * @details 队列满时返回 ERR_BUSY 给客户端
  */
 void LogicSystem::PostTask(MessageTask task)
 {
@@ -43,9 +43,21 @@ void LogicSystem::PostTask(MessageTask task)
         return;
     }
 
+    auto session = task.LockSession();
+    if (!session)
+    {
+        spdlog::warn("[LogicSystem] Session expired before enqueue");
+        return;
+    }
+
     auto self = this;
     auto shared_task = std::make_shared<MessageTask>(std::move(task));
-    _thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); });
+    if (!_thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); }))
+    {
+        spdlog::warn("[LogicSystem] Queue full, rejecting msg_id={} for session={}", 
+                     shared_task->msg_id, session->GetUuid());
+        session->ContinueReading();
+    }
 }
 
 /**

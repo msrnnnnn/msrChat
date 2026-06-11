@@ -106,3 +106,12 @@ void SessionManager::ClearAll()
     _uid_sessions.Clear();
     _uuid_sessions.Clear();
 }
+
+/**
+ * @brief 获取当前在线连接数
+ * @return UUID 索引中的会话数量（包含未认证连接）
+ */
+size_t SessionManager::GetConnectionCount() const
+{
+    return _uuid_sessions.Size();
+}

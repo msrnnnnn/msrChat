@@ -58,6 +58,11 @@ public:
     void ClearAll();
 
     /**
+     * @brief 获取当前在线连接数
+     */
+    size_t GetConnectionCount() const;
+
+    /**
      * @brief 遍历全部在线会话（逐个分片加锁，回调中不应阻塞或操作同一 ShardedMap）
      */
     template <typename Func>

@@ -53,6 +53,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         RegisterRspStruct rsp;
         rsp.error = jsonObj["error"].toInt();
         rsp.email = jsonObj["email"].toString();
+        rsp.message = jsonObj["message"].toString();
 
         emit _tcpMgr.sigRegisterRsp(rsp);
     }

@@ -2,3 +2,6 @@
 Port = 8080
 DbPath = chatserver.db
 PoolSize = 8
+MaxConnections = 10000
+RateLimitPerSec = 10
+RateLimitBurst = 20

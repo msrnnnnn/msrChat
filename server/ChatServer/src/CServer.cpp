@@ -46,7 +46,7 @@ void CServer::Start()
 
 /**
  * @brief 接受新连接
- * @details 递归调用以持续接受连接，关闭重复 UUID 的旧会话
+ * @details 递归调用以持续接受连接，检查连接数上限，关闭重复 UUID 的旧会话
  */
 void CServer::DoAccept()
 {
@@ -66,6 +66,17 @@ void CServer::DoAccept()
 
             if (!ec)
             {
+                // 检查连接数上限
+                if (_max_connections > 0 && 
+                    SessionManager::Instance().GetConnectionCount() >= _max_connections)
+                {
+                    spdlog::warn("[CServer] Connection limit reached ({}), rejecting {}",
+                                 _max_connections, new_session->GetUuid());
+                    new_session->Close();
+                    DoAccept();
+                    return;
+                }
+
                 spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
                 SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
                 SessionManager::Instance().AddSession(-1, new_session);
@@ -175,6 +186,7 @@ void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &sess
             }
 
             self->FlushRecallNotifies(uid, session);
+            self->FlushEditNotifies(uid, session);
         });
 }
 
@@ -218,7 +230,7 @@ void CServer::Stop()
  * @brief 刷新撤回通知
  * @param uid 用户 ID
  * @param session 目标会话
- * @details 在 strand 上批量发送待投递的撤回通知，发送完毕后清空
+ * @details 在 strand 上逐条发送待投递的撤回通知，发送成功后精确删除
  */
 void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session)
 {
@@ -236,13 +248,51 @@ void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &sess
                 n.set_recalled_to(e.recalled_to);
                 n.set_recall_ts(e.recall_ts);
                 std::string s;
-                n.SerializeToString(&s);
+                if (!n.SerializeToString(&s))
+                {
+                    spdlog::error("[CServer] FlushRecallNotifies: serialize failed for ts={}", e.msg_timestamp);
+                    continue;
+                }
                 session->Send(s, MSG_CHAT_RECALL_NOTIFY);
                 spdlog::info("[CServer] FlushRecallNotifies: sent 1014 to uid={} for ts={}", uid, e.msg_timestamp);
+                SQLiteMgr::Instance().Messages().ClearRecallNotifyByTimestamp(uid, e.msg_timestamp);
+            }
+        });
+}
+
+/**
+ * @brief 刷新编辑通知
+ * @param uid 用户 ID
+ * @param session 目标会话
+ * @details 在 strand 上逐条发送待投递的编辑通知，发送成功后清空
+ */
+void CServer::FlushEditNotifies(int uid, const std::shared_ptr<CSession> &session)
+{
+    auto self = shared_from_this();
+    boost::asio::post(
+        session->GetStrand(),
+        [self, session, uid]()
+        {
+            auto entries = SQLiteMgr::Instance().Messages().PopEditNotifies(uid);
+            for (const auto &e : entries)
+            {
+                qmsrchat::EditNotify n;
+                n.set_msg_timestamp(e.msg_timestamp);
+                n.set_from_uid(e.from_uid);
+                n.set_new_content(e.new_content);
+                n.set_edit_ts(e.edit_ts);
+                std::string s;
+                if (!n.SerializeToString(&s))
+                {
+                    spdlog::error("[CServer] FlushEditNotifies: serialize failed for ts={}", e.msg_timestamp);
+                    continue;
+                }
+                session->Send(s, MSG_CHAT_EDIT_NOTIFY);
+                spdlog::info("[CServer] FlushEditNotifies: sent 1015 to uid={} for ts={}", uid, e.msg_timestamp);
             }
             if (!entries.empty())
             {
-                SQLiteMgr::Instance().Messages().ClearRecallNotifies(uid);
+                SQLiteMgr::Instance().Messages().ClearEditNotifies(uid);
             }
         });
 }

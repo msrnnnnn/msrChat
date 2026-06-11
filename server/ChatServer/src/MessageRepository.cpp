@@ -408,3 +408,82 @@ bool MessageRepository::ClearRecallNotifies(int uid)
 
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
+
+bool MessageRepository::ClearRecallNotifyByTimestamp(int uid, int64_t msg_timestamp)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db, "DELETE FROM recall_notify_queue WHERE uid = ? AND msg_timestamp = ?");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+    sqlite3_bind_int64(stmt, 2, msg_timestamp);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+// ============================================================
+// 编辑通知队列
+// ============================================================
+
+bool MessageRepository::EnqueueEditNotify(int uid, int64_t msg_timestamp, int from_uid,
+                                          const std::string &new_content, int64_t edit_ts)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db,
+        "INSERT INTO edit_notify_queue (uid, msg_timestamp, from_uid, new_content, edit_ts) "
+        "VALUES (?, ?, ?, ?, ?)");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+    sqlite3_bind_int64(stmt, 2, msg_timestamp);
+    sqlite3_bind_int(stmt, 3, from_uid);
+    sqlite3_bind_text(stmt, 4, new_content.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 5, edit_ts);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}
+
+std::vector<EditNotifyEntry> MessageRepository::PopEditNotifies(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return {};
+    sqlite3 *db = guard.Get();
+
+    std::vector<EditNotifyEntry> entries;
+    ScopedStmt stmt(db,
+        "SELECT id, uid, msg_timestamp, from_uid, new_content, edit_ts "
+        "FROM edit_notify_queue WHERE uid = ? "
+        "ORDER BY id ASC");
+    if (!stmt) return entries;
+    sqlite3_bind_int(stmt, 1, uid);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        EditNotifyEntry e;
+        e.id = sqlite3_column_int64(stmt, 0);
+        e.uid = sqlite3_column_int(stmt, 1);
+        e.msg_timestamp = sqlite3_column_int64(stmt, 2);
+        e.from_uid = sqlite3_column_int(stmt, 3);
+        e.new_content = SafeColumnText(stmt, 4);
+        e.edit_ts = sqlite3_column_int64(stmt, 5);
+        entries.push_back(e);
+    }
+    return entries;
+}
+
+bool MessageRepository::ClearEditNotifies(int uid)
+{
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db, "DELETE FROM edit_notify_queue WHERE uid = ?");
+    if (!stmt) return false;
+    sqlite3_bind_int(stmt, 1, uid);
+
+    return sqlite3_step(stmt) == SQLITE_DONE;
+}

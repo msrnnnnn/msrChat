@@ -70,6 +70,15 @@ bool SchemaManager::CreateAllTables(sqlite3 *db)
             recall_ts INTEGER NOT NULL,
             recalled_to INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS edit_notify_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid INTEGER NOT NULL,
+            msg_timestamp INTEGER NOT NULL,
+            from_uid INTEGER NOT NULL,
+            new_content TEXT NOT NULL,
+            edit_ts INTEGER NOT NULL
+        );
     )";
 
     char *err_msg = nullptr;

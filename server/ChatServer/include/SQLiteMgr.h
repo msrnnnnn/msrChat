@@ -45,6 +45,19 @@ struct RecallNotifyEntry
 };
 
 /**
+ * @brief 编辑通知记录 —— 通知目标用户某条消息已被编辑
+ */
+struct EditNotifyEntry
+{
+    int64_t id = 0;
+    int     uid          = 0;
+    int64_t msg_timestamp = 0;
+    int     from_uid     = 0;
+    std::string new_content;
+    int64_t edit_ts      = 0;
+};
+
+/**
  * @brief 聊天消息数据库记录
  */
 struct ChatMessage

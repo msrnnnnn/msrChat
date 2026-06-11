@@ -10,9 +10,10 @@
 /**
  * @brief 构造函数
  * @param thread_num 线程数量
+ * @param max_queue_size 任务队列最大容量
  */
-ThreadPool::ThreadPool(size_t thread_num)
-    : _stop(false), _task_count(0)
+ThreadPool::ThreadPool(size_t thread_num, size_t max_queue_size)
+    : _stop(false), _task_count(0), _max_queue_size(max_queue_size)
 {
     _threads.reserve(thread_num);
     for (size_t i = 0; i < thread_num; ++i) {
@@ -31,16 +32,31 @@ ThreadPool::~ThreadPool()
 /**
  * @brief 投递任务到队列
  * @param task 任务函数
- * @details 加锁入队后通知一个等待线程
+ * @return 队列未满返回 true，队列满返回 false
+ * @details 加锁后检查队列容量，未满则入队并通知一个等待线程
  */
-void ThreadPool::Enqueue(Task task)
+bool ThreadPool::Enqueue(Task task)
 {
     {
         std::lock_guard<std::mutex> lock(_mutex);
+        if (_tasks.size() >= _max_queue_size)
+        {
+            spdlog::warn("[ThreadPool] Queue full ({} >= {}), rejecting task", _tasks.size(), _max_queue_size);
+            return false;
+        }
         _tasks.push(std::move(task));
         ++_task_count;
     }
     _cv.notify_one();
+    return true;
+}
+
+/**
+ * @brief 获取当前队列中的任务数量
+ */
+size_t ThreadPool::GetTaskCount() const
+{
+    return _task_count.load();
 }
 
 /**

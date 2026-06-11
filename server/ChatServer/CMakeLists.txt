@@ -106,6 +106,7 @@ set(SERVER_SOURCES
     src/MessageRepository.cpp
     src/SchemaManager.cpp
     src/ImageStorage.cpp
+    src/RateLimiter.cpp
     src/services/AuthService.cpp
     src/services/ChatService.cpp
     src/services/FileService.cpp

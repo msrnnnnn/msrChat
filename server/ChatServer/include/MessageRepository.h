@@ -38,6 +38,13 @@ public:
                               int recall_uid, int64_t recall_ts, int recalled_to);
     std::vector<RecallNotifyEntry> PopRecallNotifies(int uid);
     bool ClearRecallNotifies(int uid);
+    bool ClearRecallNotifyByTimestamp(int uid, int64_t msg_timestamp);
+
+    // === 编辑通知队列 ===
+    bool EnqueueEditNotify(int uid, int64_t msg_timestamp, int from_uid,
+                           const std::string &new_content, int64_t edit_ts);
+    std::vector<EditNotifyEntry> PopEditNotifies(int uid);
+    bool ClearEditNotifies(int uid);
 
 private:
     std::shared_ptr<SQLiteConnectionPool> _pool;

@@ -137,6 +137,7 @@ struct RegisterRspStruct
 {
     int error;       ///< 错误码
     QString email;   ///< 注册邮箱
+    QString message; ///< 错误信息（服务端返回的详细描述）
 };
 
 /**
