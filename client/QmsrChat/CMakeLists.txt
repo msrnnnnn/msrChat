@@ -8,73 +8,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # =============================================================
-# Platform Detection and Compiler-Specific Settings
-# TODO: scope add_compile_options/definitions to target via target_compile_options/definitions
+# 1. 依赖查找
 # =============================================================
-if(WIN32)
-    message(STATUS "Building on Windows (MSVC/MinGW)")
-    add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
-
-    if(MSVC)
-        add_compile_options(/W3 /utf-8)
-        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(/Od /Zi /MDd /fsanitize=address)
-        else()
-            add_compile_options(/O2 /Oi /GL)
-        endif()
-    else()
-        add_compile_options(-fno-omit-frame-pointer)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(-g -O0)
-        else()
-            add_compile_options(-O3)
-        endif()
-    endif()
-
-elseif(UNIX AND NOT APPLE)
-    message(STATUS "Building on Linux (GCC/Clang)")
-    add_compile_options(
-        -fno-omit-frame-pointer
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(
-            -g3
-            -O0
-            -fsanitize=address
-        )
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-    else()
-        add_compile_options(-O3 -march=native)
-    endif()
-    find_package(Threads REQUIRED)
-    
-elseif(APPLE)
-    message(STATUS "Building on macOS")
-    add_compile_options(
-        -fno-omit-frame-pointer
-        -Wall
-    )
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(-g -O0)
-    else()
-        add_compile_options(-O3)
-    endif()
-endif()
-
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Network Quick Sql QuickControls2 QuickLayouts)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network Core Quick Qml Sql QuickControls2 QuickLayouts Test)
-
 find_package(Protobuf REQUIRED)
 
-set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
+# =============================================================
+# 2. Proto 编译（共享 proto/ 目录）
+# =============================================================
+set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../proto/Message.proto")
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
 
 # =============================================================
-# 源文件清单 (抛弃一切幻想，全部使用客观绝对路径)
+# 3. 源文件清单
 # =============================================================
 set(PROJECT_SOURCES
         src/main.cpp
@@ -150,6 +97,9 @@ if(WIN32)
     list(APPEND PROJECT_SOURCES resources/win32/app.rc)
 endif()
 
+# =============================================================
+# 4. 创建可执行文件
+# =============================================================
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
@@ -167,6 +117,47 @@ else()
     endif()
 endif()
 
+# =============================================================
+# 5. Target 作用域编译选项（Phase 6: 替代全局 add_compile_options）
+# =============================================================
+target_compile_definitions(QmsrChat PRIVATE _WIN32_WINNT=0x0601 WINVER=0x0601)
+
+if(WIN32 AND MSVC)
+    target_compile_options(QmsrChat PRIVATE /W3 /utf-8)
+    target_compile_definitions(QmsrChat PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE /Od /Zi /MDd /fsanitize=address)
+    else()
+        target_compile_options(QmsrChat PRIVATE /O2 /Oi /GL)
+    endif()
+elseif(WIN32)
+    # MinGW
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g -O0)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3)
+    endif()
+elseif(UNIX AND NOT APPLE)
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer -Wall -Wextra -Wpedantic)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g3 -O0 -fsanitize=address)
+        target_link_options(QmsrChat PRIVATE -fsanitize=address)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3 -march=native)
+    endif()
+elseif(APPLE)
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer -Wall)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g -O0)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3)
+    endif()
+endif()
+
+# =============================================================
+# 6. 链接库
+# =============================================================
 target_link_libraries(QmsrChat PRIVATE
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
@@ -221,44 +212,48 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 
 # =============================================================
-# Google Test (Unit Tests) — 通过 FetchContent 自动下载，无需 third_party 目录
+# 7. Google Test (Unit Tests) — 可选构建
 # =============================================================
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG v1.15.2
-)
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+option(BUILD_TESTS "Build unit tests (requires Google Test)" OFF)
 
-enable_testing()
+if(BUILD_TESTS)
+    include(FetchContent)
+    FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG v1.15.2
+    )
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
-add_executable(QmsrChatTests
-    tests/test_RingBuffer.cpp
-    tests/test_ChatListModel.cpp
-    tests/test_ImageDownloadMgr.cpp
-    src/ChatListModel.cpp
-    include/ChatListModel.h
-    src/ImageDownloadMgr.cpp
-    include/ImageDownloadMgr.h
-    src/DbWorker.cpp
-    include/DbWorker.h
-    src/DbService.cpp
-    include/DbService.h
-)
+    enable_testing()
 
-set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
+    add_executable(QmsrChatTests
+        tests/test_RingBuffer.cpp
+        tests/test_ChatListModel.cpp
+        tests/test_ImageDownloadMgr.cpp
+        src/ChatListModel.cpp
+        include/ChatListModel.h
+        src/ImageDownloadMgr.cpp
+        include/ImageDownloadMgr.h
+        src/DbWorker.cpp
+        include/DbWorker.h
+        src/DbService.cpp
+        include/DbService.h
+    )
 
-target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(QmsrChatTests PRIVATE
-    Qt${QT_VERSION_MAJOR}::Core
-    Qt${QT_VERSION_MAJOR}::Sql
-    Qt${QT_VERSION_MAJOR}::Test
-    gtest
-    gtest_main
-)
+    set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
 
-include(GoogleTest)
-gtest_discover_tests(QmsrChatTests DISCOVERY_MODE PRE_TEST)
+    target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(QmsrChatTests PRIVATE
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Sql
+        Qt${QT_VERSION_MAJOR}::Test
+        gtest
+        gtest_main
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(QmsrChatTests DISCOVERY_MODE PRE_TEST)
+endif()
