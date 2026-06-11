@@ -265,28 +265,6 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         return true;
     }
 
-    // 预读取 blob 数据
-    std::vector<uint8_t> image_data;
-    bool data_ok = (rec->size > 0) &&
-                   ImageStorage::Instance().ReadRange(req.image_id(), 0, rec->size, image_data);
-
-    if (!data_ok)
-    {
-        rsp.set_error(ERR_IMAGE_EXPIRED);
-        rsp.set_offset(0);
-        spdlog::info("[ImageService] HandleImageDownloadReq: {} blob unavailable (size={})",
-                     req.image_id(), rec->size);
-
-        std::string data;
-        if (!rsp.SerializeToString(&data))
-        {
-            spdlog::error("[ImageService] HandleImageDownloadReq: serialize failed (blob unavailable)");
-            return true;
-        }
-        session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
-        return true;
-    }
-
     // 授权成功
     rsp.set_error(0);
     rsp.set_offset(0);
@@ -306,7 +284,6 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     std::string filename = req.image_id() + "." + rec->ext;
     int requester_uid = session.GetUserUid();
 
-    // 注册 FileTransfer 任务
     FileTransfer::Instance().AddTask(task_id, rec->from_uid, requester_uid, filename, rec->size);
     {
         auto task = FileTransfer::Instance().GetTask(task_id);
@@ -318,7 +295,6 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         }
     }
 
-    // 1. 发送 FileReq（触发客户端 FileRecvMgr::StartRecv）
     qmsrchat::FileReq fileReq;
     fileReq.set_task_id(task_id);
     fileReq.set_from_uid(rec->from_uid);
@@ -335,10 +311,14 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         session.Send(req_ser, MSG_FILE_REQ);
     }
 
+    // 流式读取：使用 ReadRange 按需读取每个 chunk
+    constexpr int64_t kChunkSize = 4 * 1024;
+
     // 2. 存储下载状态，发送第一个 chunk（后续由 ContinueImageDownload 发送）
     {
         auto state = std::make_shared<ImageDownloadState>();
-        state->data = std::move(image_data);
+        state->image_id = req.image_id();
+        state->total_size = rec->size;
         state->offset = 0;
         state->task_id = task_id;
         state->session = session.shared_from_this();
@@ -348,13 +328,24 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
             _pending_downloads[task_id] = state;
         }
 
-        constexpr int64_t kChunkSize = 4 * 1024;
-        int64_t this_chunk = std::min(kChunkSize, static_cast<int64_t>(state->data.size()));
+        int64_t this_chunk = std::min(kChunkSize, rec->size);
+        std::vector<uint8_t> chunk_buf(this_chunk);
+        if (!ImageStorage::Instance().ReadRange(req.image_id(), 0, this_chunk, chunk_buf))
+        {
+            rsp.set_error(ERR_IMAGE_EXPIRED);
+            std::string data;
+            if (rsp.SerializeToString(&data))
+                session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
+            std::lock_guard<std::mutex> lock(_download_mutex);
+            _pending_downloads.erase(task_id);
+            return true;
+        }
+
         qmsrchat::FileChunk chunk;
         chunk.set_task_id(task_id);
         chunk.set_offset(0);
         chunk.set_size(this_chunk);
-        chunk.set_data(state->data.data(), this_chunk);
+        chunk.set_data(chunk_buf.data(), this_chunk);
 
         std::string chunk_ser;
         if (chunk.SerializeToString(&chunk_ser))
@@ -364,7 +355,7 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         state->offset = this_chunk;
 
         spdlog::info("[ImageService] HandleImageDownloadReq: {} streaming {} bytes, first chunk sent",
-                     req.image_id(), state->data.size());
+                     req.image_id(), rec->size);
     }
 
     return true;
@@ -389,7 +380,7 @@ void ImageService::ContinueImageDownload(int64_t task_id)
     }
 
     constexpr int64_t kChunkSize = 4 * 1024;
-    int64_t remaining = static_cast<int64_t>(state->data.size()) - state->offset;
+    int64_t remaining = state->total_size - state->offset;
 
     if (remaining <= 0)
     {
@@ -409,11 +400,20 @@ void ImageService::ContinueImageDownload(int64_t task_id)
     }
 
     int64_t this_chunk = std::min(kChunkSize, remaining);
+    std::vector<uint8_t> chunk_buf(this_chunk);
+    if (!ImageStorage::Instance().ReadRange(state->image_id, state->offset, this_chunk, chunk_buf))
+    {
+        spdlog::error("[ImageService] ContinueImageDownload: ReadRange failed at offset={}", state->offset);
+        std::lock_guard<std::mutex> lock(_download_mutex);
+        _pending_downloads.erase(task_id);
+        return;
+    }
+
     qmsrchat::FileChunk chunk;
     chunk.set_task_id(task_id);
     chunk.set_offset(state->offset);
     chunk.set_size(this_chunk);
-    chunk.set_data(state->data.data() + state->offset, this_chunk);
+    chunk.set_data(chunk_buf.data(), this_chunk);
 
     std::string chunk_ser;
     if (chunk.SerializeToString(&chunk_ser))

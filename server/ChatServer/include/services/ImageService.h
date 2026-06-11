@@ -15,7 +15,8 @@
 
 struct ImageDownloadState
 {
-    std::vector<uint8_t> data;
+    std::string image_id;
+    int64_t total_size = 0;
     int64_t offset = 0;
     int64_t task_id = 0;
     std::weak_ptr<CSession> session;
