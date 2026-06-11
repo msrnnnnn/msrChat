@@ -12,6 +12,7 @@
 #include "SQLiteMgr.h"
 #include "MessageRepository.h"
 #include "RateLimiter.h"
+#include "NonceCache.h"
 #include "Message.pb.h"
 #include "nlohmann/json.hpp"
 #include <spdlog/spdlog.h>
@@ -49,6 +50,19 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         int to_uid = chatMsg.to_uid();
         std::string content = chatMsg.content();
         client_msg_id = chatMsg.client_msg_id();
+
+        // Phase 5E: 防重放 Nonce 校验
+        if (chatMsg.has_nonce_header()) {
+            const auto &nh = chatMsg.nonce_header();
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+                spdlog::warn("[ChatService] Nonce time window exceeded for uid={}", session.GetUserUid());
+                return true;
+            }
+            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+                spdlog::warn("[ChatService] Duplicate nonce detected for uid={}", session.GetUserUid());
+                return true;
+            }
+        }
 
         if (session.GetUserUid() <= 0)
         {

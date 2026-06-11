@@ -10,6 +10,8 @@
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDateTime>
+#include <QUuid>
 #include <mutex>
 
 namespace {
@@ -211,6 +213,11 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     chatMsg.set_client_msg_id(req.client_msg_id.toStdString());
     chatMsg.set_timestamp(req.timestamp);
 
+    // Phase 5E: 填充防重放 Nonce
+    auto *nh = chatMsg.mutable_nonce_header();
+    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
+    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
+
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))
     {
@@ -292,6 +299,11 @@ void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
     msg.set_msg_timestamp(req.msg_timestamp);
     msg.set_client_msg_id(req.client_msg_id.toStdString());
 
+    // Phase 5E: 填充防重放 Nonce
+    auto *nh = msg.mutable_nonce_header();
+    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
+    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
+
     std::string serialized;
     if (msg.SerializeToString(&serialized))
     {
@@ -309,6 +321,11 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
     msg.set_from_uid(req.from_uid);
     msg.set_msg_timestamp(req.msg_timestamp);
     msg.set_new_content(req.new_content.toStdString());
+
+    // Phase 5E: 填充防重放 Nonce
+    auto *nh = msg.mutable_nonce_header();
+    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
+    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
 
     std::string serialized;
     if (msg.SerializeToString(&serialized))

@@ -53,10 +53,10 @@ constexpr size_t MAX_CHUNK_SIZE       = 1024 * 1024;  ///< 文件/图片 chunk �
 // 验证码有效期（秒）
 constexpr int VERIFY_CODE_EXPIRY_SEC = 600;
 
-// 错误码（与客户端 Global.h:69-83 的 ERRORCODES 枚举对应）
+// 错误码（与客户端 Global.h:ERRORCODES 枚举 + proto Message.proto:ErrorCode 对齐）
 constexpr int ERR_SUCCESS = 0;
-constexpr int ERR_JSON_PARSE = 1001;
-constexpr int ERR_RPC_FAILED = 1002;
+constexpr int ERR_PARSE_ERROR = 1001;     ///< JSON/Protobuf 解析失败
+constexpr int ERR_INVALID_PARAM = 1002;   ///< 参数校验失败
 constexpr int ERR_VERIFY_EXPIRED = 1003;
 constexpr int ERR_VERIFY_WRONG = 1004;
 constexpr int ERR_USER_EXIST = 1005;
@@ -64,6 +64,7 @@ constexpr int ERR_PASSWD_ERR = 1006;
 constexpr int ERR_USER_NOT_EXIST = 1007;
 constexpr int ERR_EMAIL_NOT_MATCH = 1008;
 constexpr int ERR_PASSWD_UPDATE = 1009;
+constexpr int ERR_RPC_FAILED = 1010;      ///< RPC 调用失败（与客户端 RPCGetFailed 对齐）
 constexpr int ERR_DB = 1011;
 constexpr int ERR_KICKED = 1013;  ///< 被另一设备登录踢出
 constexpr int ERR_BUSY = 1014;    ///< 服务器繁忙（队列满/连接数超限/限流）

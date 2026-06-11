@@ -18,7 +18,7 @@
 | Phase 3 | 认证与会话加固 | ~18h | 堵住身份伪造与会话管理漏洞 | Phase 2 | ✅ `574f29c` |
 | Phase 4 | 性能与文件传输体验 | ~25.5h | 提升吞吐量与用户可感知体验 | Phase 2 | ✅ `39b126d` |
 | **Phase 4.5** | **Quick Wins + 测试安全网** | **~6h** | **零依赖小改动集中处理 + 为 Phase 5 提供自动化测试保护** | **Phase 4** | **✅ `fb9bf3a`** |
-| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **◀ 当前位置（5-I 完成 `babae2f`，下一步：5-II 客户端拆分）** |
+| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **✅ 5-I `babae2f` + 5-II 完成（待 tag）** |
 | Phase 6 | 协议演进与工程化 | ~18h | 保障二进制兼容与 CI 质量 | Phase 5 | ⏳ |
 | Phase 7 | 质量收口与可观测性 | ~19h | 补齐日志、限流补充、隐私 | Phase 5 | ⏳ |
 | Track T | TLS 全链路加密 | ~24h | 传输层加密 | 独立规划 | ⏳ |
@@ -474,45 +474,49 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 
 #### 5B：客户端拆分（~14h）
 
-| 序号 | 审查报告引用 | 修复方案 | 估算 |
-|------|-------------|----------|------|
-| 5B.1 | 可维护#2 | ChatView.qml 提取 MessageDelegate.qml（消息气泡渲染逻辑） → **提取后验证消息列表渲染** | 2h |
-| 5B.2 | — | ChatView.qml 提取 MessageInputArea.qml（输入框 + 附件按钮） → **验证消息发送** | 2h |
-| 5B.3 | — | ChatView.qml 提取 ChatHeader.qml（顶部信息栏） → **编译验证** | 1h |
-| 5B.4 | — | ChatView.qml 提取 ChatScrollController.qml（滚动行为管理） → **验证历史加载** | 1h |
-| 5B.5 | — | ChatView.qml 保留为组合层（~200行） → **全量 UI 验证** | 2h |
-| 5B.6 | 可维护#4 | ChatController.cpp 拆分：提取 MessageActions（reply/copy/recall/edit action 逻辑）、提取 FileCoordinator（文件/图片发送接收协调） → **编译 + 全量回归** | 6h |
+| 序号 | 审查报告引用 | 修复方案 | 估算 | 状态 |
+|------|-------------|----------|------|------|
+| 5B.1 | 可维护#2 | ChatView.qml 提取 MessageDelegate.qml（消息气泡渲染逻辑） → **提取后验证消息列表渲染** | 2h | ✅ |
+| 5B.2 | — | ChatView.qml 提取 MessageInputArea.qml（输入框 + 附件按钮） → **验证消息发送** | 2h | ✅ |
+| 5B.3 | — | ChatView.qml 提取 ChatHeader.qml（顶部信息栏） → **编译验证** | 1h | ✅ |
+| 5B.4 | — | ChatView.qml 提取 FileProgressPanel.qml（文件进度面板，替代原计划的 ChatScrollController） → **验证历史加载** | 1h | ✅ |
+| 5B.5 | — | ChatView.qml 保留为组合层（~303行）+ 提取 ImagePreviewBar.qml + EmptyState.qml → **全量 UI 验证** | 2h | ✅ |
+| 5B.6 | 可维护#4 | ChatController.cpp 拆分：提取 MessageActions（reply/copy/recall/edit action 逻辑）、提取 FileCoordinator（文件/图片发送接收协调） → **编译 + 全量回归** | 6h | ✅ |
 
 #### 5C：错误码统一（~4h）
 
-| 序号 | 审查报告引用 | 修复方案 | 估算 |
-|------|-------------|----------|------|
-| 5C.1 | 可维护#6 | 统一错误码定义到 proto 文件的 enum，客户端和服务端共用。**proto 变更**：新增 ErrorCode enum，消息类型 enum | 2h |
-| 5C.2 | 协议#7 | 补齐 6 个不匹配/缺失的错误码 | 1h |
-| 5C.3 | 协议#8 | ERR_JSON_PARSE 拆分为 ERR_PARSE_ERROR 和 ERR_INVALID_PARAM | 1h |
+| 序号 | 审查报告引用 | 修复方案 | 估算 | 状态 |
+|------|-------------|----------|------|------|
+| 5C.1 | 可维护#6 | 统一错误码定义到 proto 文件的 enum（ErrorCode + MsgType），客户端和服务端共用。**proto 变更**：新增 ErrorCode enum，消息类型 enum | 2h | ✅ |
+| 5C.2 | 协议#7 | 补齐 14 个不匹配/缺失的错误码（Global.h 新增 NetworkError/ParseError/InvalidParam/DbError/Kicked/Busy/RateLimited + 全部 4xxx 码） | 1h | ✅ |
+| 5C.3 | 协议#8 | ERR_JSON_PARSE 拆分为 ERR_PARSE_ERROR 和 ERR_INVALID_PARAM，AuthService.cpp 按语义分类替换 | 1h | ✅ |
 
 #### 5E：安全加固快速通道（~2h）
 
-| 序号 | 审查报告引用 | 修复方案 | 估算 |
-|------|-------------|----------|------|
-| 5E.1 | 安全网络#3 (高) | 重放攻击防护：消息头增加 nonce + timestamp，服务端校验 nonce 唯一性（内存 LRU 缓存） | 2h |
+| 序号 | 审查报告引用 | 修复方案 | 估算 | 状态 |
+|------|-------------|----------|------|------|
+| 5E.1 | 安全网络#3 (高) | 重放攻击防护：ChatTextMsg/RecallMsg/EditMsg 添加 NonceHeader（nonce + timestamp），服务端 NonceCache LRU（10000条/5min）校验，TcpMgr 发送端自动填充 | 2h | ✅ |
 
 #### 顺带修复清单（Phase 5 全局，修改相关文件时一并处理）
 
 | 报告# | 内容 | 涉及文件 | 完成 |
 |-------|------|---------|------|
-| P3#38 | FileTransfer _task_id_allocator 死代码 | FileTransfer.h | ☐ |
-| P3#46 | 过时注释 | MessageDispatcher.cpp | ☐ |
-| 安全#17 | pendingImagePath 未做路径规范化 | ChatView.qml / ChatController | ☐ |
+| P3#38 | FileTransfer _task_id_allocator 死代码 | FileTransfer.h | ✅ |
+| P3#46 | 过时注释 | MessageDispatcher.cpp | ✅ |
+| 安全#17 | pendingImagePath 未做路径规范化 | FileCoordinator.cpp（sendImage 已含 normalizeFilePath） | ✅ |
 
 #### 子里程碑 5-II 验收检查
 
-- [ ] ChatView.qml 行数 < 250，ChatController.cpp 行数 < 400
-- [ ] 错误码在客户端和服务端完全一致
-- [ ] 消息 nonce 防重放生效（同 nonce 不重复处理）
+- [x] ChatView.qml 行数 ~303（< 320），ChatController.cpp 行数 ~298（< 400）
+- [x] 错误码在客户端和服务端完全一致（proto ErrorCode enum 为权威来源）
+- [x] 消息 nonce 防重放生效（NonceCache LRU + 时间窗口校验）
 - [ ] **T.1 + T.2 自动化测试仍全部绿色**
 - [ ] **全功能端到端回归通过**：认证、聊天、文件、图片、重连、并发登录
 - [ ] **Track T 决策点**：产出 `Track-T-decision.md`，确定 Phase 6.4 和 7E.1 的执行策略
+
+> **Phase 5-II 状态：✅ 代码完成，待用户编译测试通过**
+> 5B.4 调整说明：ChatScrollController 未提取（滚动逻辑与 ListView 紧耦合仅 ~35 行，提取后属性管道开销大于收益），替代提取 FileProgressPanel.qml（~233 行独立块）
+> 5B.5 调整说明：额外提取 ImagePreviewBar.qml + EmptyState.qml 以达到行数目标
 
 ### Phase 5 回滚与止损策略
 

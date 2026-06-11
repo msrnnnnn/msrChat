@@ -41,7 +41,7 @@ void MessageDispatcher::RegisterDefaultHandlers()
         }, true);
     RegisterHandler(MSG_FILE_ACK,        FileService::HandleFileAck,               true);
 
-    // ── ImageService：图片 + 撤回/编辑 ──
+    // ── ImageService：图片消息 + 图片下载 + 撤回 + 编辑 ──
     RegisterHandler(MSG_CHAT_IMAGE,          ImageService::HandleChatImage,          true);
     RegisterHandler(MSG_IMAGE_DOWNLOAD_REQ,  ImageService::HandleImageDownloadReq,   true);
     RegisterHandler(MSG_CHAT_RECALL,         ImageService::HandleChatRecall,          true);

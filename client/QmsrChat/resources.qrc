@@ -11,6 +11,12 @@
         <file>ImageViewer.qml</file>
         <file>MessageActionMenu.qml</file>
         <file>EditMessageDialog.qml</file>
+        <file>MessageDelegate.qml</file>
+        <file>ChatHeader.qml</file>
+        <file>MessageInputArea.qml</file>
+        <file>ImagePreviewBar.qml</file>
+        <file>FileProgressPanel.qml</file>
+        <file>EmptyState.qml</file>
         <file>AuthWindow.qml</file>
         <file>ChatWindow.qml</file>
         <file>LoginView.qml</file>

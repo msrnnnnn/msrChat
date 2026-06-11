@@ -25,7 +25,7 @@ bool AuthService::HandleLoginRequest(CSession &session, const std::string &body_
 
     if (json_data.is_discarded())
     {
-        response["error"] = ERR_JSON_PARSE;
+        response["error"] = ERR_PARSE_ERROR;
         response["message"] = "登录数据无效";
         session.Send(response.dump(), MSG_CHAT_LOGIN);
         return true;
@@ -89,14 +89,14 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
 
         if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
-            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "请填写所有必填项"}};
+            nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "请填写所有必填项"}};
             session.Send(response.dump(), ID_REGISTER_USER);
             return true;
         }
 
         if (username.size() < 3 || username.size() > 20)
         {
-            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "用户名长度应为3-20个字符"}};
+            nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "用户名长度应为3-20个字符"}};
             session.Send(response.dump(), ID_REGISTER_USER);
             return true;
         }
@@ -104,7 +104,7 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
         {
             if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
             {
-                nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "用户名只能包含字母、数字和下划线"}};
+                nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "用户名只能包含字母、数字和下划线"}};
                 session.Send(response.dump(), ID_REGISTER_USER);
                 return true;
             }
@@ -113,7 +113,7 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
         if (email.size() < 5 || email.size() > 254 || email.find('@') == std::string::npos
             || email.find('.') == std::string::npos)
         {
-            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "邮箱格式不正确"}};
+            nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "邮箱格式不正确"}};
             session.Send(response.dump(), ID_REGISTER_USER);
             return true;
         }
@@ -161,13 +161,13 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
     catch (const std::exception &e)
     {
         spdlog::error("[AuthService] HandleRegisterRequest error: {}", e.what());
-        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}};
         session.Send(response.dump(), ID_REGISTER_USER);
     }
     catch (...)
     {
         spdlog::error("[AuthService] HandleRegisterRequest unknown exception");
-        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}};
         session.Send(response.dump(), ID_REGISTER_USER);
     }
     return true;
@@ -188,7 +188,7 @@ bool AuthService::HandleLoginAuthRequest(CSession &session, const std::string &b
         if (username.empty() || password_hash.empty())
         {
             nlohmann::json response;
-            response["error"] = ERR_JSON_PARSE;
+            response["error"] = ERR_INVALID_PARAM;
             response["message"] = "参数无效";
             session.Send(response.dump(), ID_LOGIN_USER);
             return true;
@@ -232,13 +232,13 @@ bool AuthService::HandleLoginAuthRequest(CSession &session, const std::string &b
     catch (const std::exception &e)
     {
         spdlog::error("[AuthService] HandleLoginAuthRequest error: {}", e.what());
-        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}};
         session.Send(response.dump(), ID_LOGIN_USER);
     }
     catch (...)
     {
         spdlog::error("[AuthService] HandleLoginAuthRequest unknown exception");
-        nlohmann::json response{{"error", ERR_JSON_PARSE}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}};
         session.Send(response.dump(), ID_LOGIN_USER);
     }
     return true;
@@ -257,7 +257,7 @@ bool AuthService::HandleGetVerifyCodeRequest(CSession &session, const std::strin
 
         if (email.empty())
         {
-            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "邮箱不能为空"}};
+            nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "邮箱不能为空"}};
             session.Send(response.dump(), ID_GET_VERIFY_CODE);
             return true;
         }
@@ -277,7 +277,7 @@ bool AuthService::HandleGetVerifyCodeRequest(CSession &session, const std::strin
                 int code = 0;
                 bool success = SQLiteMgr::Instance().Auth().SendVerifyCode(email, code);
 
-                nlohmann::json response{{"error", success ? ERR_SUCCESS : ERR_JSON_PARSE}, {"email", email}, {"code", code}};
+                nlohmann::json response{{"error", success ? ERR_SUCCESS : ERR_INVALID_PARAM}, {"email", email}, {"code", code}};
                 if (!success)
                 {
                     response["message"] = "验证码发送失败";
@@ -291,13 +291,13 @@ bool AuthService::HandleGetVerifyCodeRequest(CSession &session, const std::strin
     catch (const std::exception &e)
     {
         spdlog::error("[AuthService] HandleGetVerifyCodeRequest error: {}", e.what());
-        nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "请求处理异常"}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}, {"message", "请求处理异常"}};
         session.Send(response.dump(), ID_GET_VERIFY_CODE);
     }
     catch (...)
     {
         spdlog::error("[AuthService] HandleGetVerifyCodeRequest unknown exception");
-        nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "未知错误"}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}, {"message", "未知错误"}};
         session.Send(response.dump(), ID_GET_VERIFY_CODE);
     }
     return true;
@@ -319,7 +319,7 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
 
         if (username.empty() || email.empty() || code.empty() || new_password_hash.empty())
         {
-            nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "请填写所有必填项"}};
+            nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "请填写所有必填项"}};
             session.Send(response.dump(), ID_RESET_PWD);
             return true;
         }
@@ -392,13 +392,13 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
     catch (const std::exception &e)
     {
         spdlog::error("[AuthService] HandleResetPwdRequest error: {}", e.what());
-        nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "请求处理异常"}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}, {"message", "请求处理异常"}};
         session.Send(response.dump(), ID_RESET_PWD);
     }
     catch (...)
     {
         spdlog::error("[AuthService] HandleResetPwdRequest unknown exception");
-        nlohmann::json response{{"error", ERR_JSON_PARSE}, {"message", "未知错误"}};
+        nlohmann::json response{{"error", ERR_PARSE_ERROR}, {"message", "未知错误"}};
         session.Send(response.dump(), ID_RESET_PWD);
     }
     return true;

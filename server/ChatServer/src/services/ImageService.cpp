@@ -14,6 +14,7 @@
 #include "ImageStorage.h"
 #include "SQLiteMgr.h"
 #include "MessageRepository.h"
+#include "NonceCache.h"
 #include "Message.pb.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
@@ -387,6 +388,19 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         const int from = session.GetUserUid();
         const int64_t now_ms = NowMs();
 
+        // Phase 5E: 防重放 Nonce 校验
+        if (req.has_nonce_header()) {
+            const auto &nh = req.nonce_header();
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+                spdlog::warn("HandleChatRecall: nonce time window exceeded");
+                return true;
+            }
+            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+                spdlog::warn("HandleChatRecall: duplicate nonce");
+                return true;
+            }
+        }
+
         // 1. 查原消息（用 timestamp + from_uid 精确查找）
         auto orig = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(req.msg_timestamp(), from);
         if (!orig.has_value())
@@ -465,6 +479,19 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         }
         const int from = session.GetUserUid();
         const int64_t now_ms = NowMs();
+
+        // Phase 5E: 防重放 Nonce 校验
+        if (req.has_nonce_header()) {
+            const auto &nh = req.nonce_header();
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+                spdlog::warn("HandleChatEdit: nonce time window exceeded");
+                return true;
+            }
+            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+                spdlog::warn("HandleChatEdit: duplicate nonce");
+                return true;
+            }
+        }
 
         // 1. 长度校验
         if (req.new_content().size() > 2000)

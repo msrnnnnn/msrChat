@@ -52,11 +52,14 @@ struct ServerInfo
 Q_DECLARE_METATYPE(ServerInfo)
 
 /**
- * @brief 全局错误码定义
+ * @brief 全局错误码定义（与服务端 const.h + proto ErrorCode 对齐）
  */
 enum class ERRORCODES
 {
     SUCCESS = 0,              ///< 操作成功
+    NetworkError = 2,         ///< 网络错误
+    ParseError = 1001,        ///< JSON/Protobuf 解析失败
+    InvalidParam = 1002,      ///< 参数校验失败
     VerifyCodeExpired = 1003, ///< 验证码已过期
     VerifyCodeErr = 1004,     ///< 验证码错误
     UserExist = 1005,         ///< 用户名已存在
@@ -64,7 +67,18 @@ enum class ERRORCODES
     UserNotExist = 1007,      ///< 用户不存在
     EmailNotMatch = 1008,     ///< 邮箱不匹配
     PasswdUpFailed = 1009,    ///< 密码更新失败
-    RPCGetFailed = 1010,      ///< 获取状态服务失败
+    RPCGetFailed = 1010,      ///< RPC 调用失败
+    DbError = 1011,           ///< 数据库错误
+    Kicked = 1013,            ///< 被另一设备登录踢出
+    Busy = 1014,              ///< 服务器繁忙
+    RateLimited = 1015,       ///< 消息发送频率超限
+    RecallTimeout = 4001,     ///< 超过 2 分钟无法撤回
+    RecallNotOwner = 4002,    ///< 非本人消息无法撤回
+    EditTimeout = 4003,       ///< 超过 2 分钟无法编辑
+    EditNotOwner = 4004,      ///< 非本人消息无法编辑
+    EditTooLong = 4005,       ///< 编辑内容超长
+    MsgAlreadyRecalled = 4006,///< 目标消息已撤回
+    ImageExpired = 4040,      ///< 图片已过期
 };
 
 /**

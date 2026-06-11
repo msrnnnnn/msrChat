@@ -99,6 +99,8 @@ set(PROJECT_SOURCES
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
+        include/MessageActions.h
+        include/FileCoordinator.h
         include/ProtocolStructs.h
         include/AuthController.h
 
@@ -113,6 +115,12 @@ set(PROJECT_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageDelegate.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ChatHeader.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageInputArea.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImagePreviewBar.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/FileProgressPanel.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/EmptyState.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/AuthWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatWindow.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/LoginView.qml
@@ -131,6 +139,8 @@ set(PROJECT_SOURCES
         src/DbService.cpp
         src/DbWorker.cpp
         src/ChatController.cpp
+        src/MessageActions.cpp
+        src/FileCoordinator.cpp
         src/Utils.cpp
         src/AuthController.cpp
 )
