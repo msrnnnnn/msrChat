@@ -107,6 +107,14 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
         }
 
         int from = session.GetUserUid();
+
+        // Phase 6: schema_version 校验
+        if (msg.schema_version() != 0 && msg.schema_version() != SCHEMA_VERSION) {
+            spdlog::warn("[ImageService] HandleChatImage: unsupported schema_version={}",
+                         msg.schema_version());
+            return true;
+        }
+
         if (from != msg.from_uid())
         {
             spdlog::warn("[ImageService] HandleChatImage: from_uid mismatch (session={}, msg={})",
@@ -399,6 +407,16 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
                 spdlog::warn("HandleChatRecall: duplicate nonce");
                 return true;
             }
+            // 7E: HMAC 签名校验
+            if (!nh.signature().empty()) {
+                std::string expected = ComputeHmacSha256(
+                    std::string(HMAC_KEY),
+                    nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected) {
+                    spdlog::warn("HandleChatRecall: HMAC signature mismatch");
+                    return true;
+                }
+            }
         }
 
         // 1. 查原消息（用 timestamp + from_uid 精确查找）
@@ -490,6 +508,16 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
             if (!NonceCache::Instance().TryInsert(nh.nonce())) {
                 spdlog::warn("HandleChatEdit: duplicate nonce");
                 return true;
+            }
+            // 7E: HMAC 签名校验
+            if (!nh.signature().empty()) {
+                std::string expected = ComputeHmacSha256(
+                    std::string(HMAC_KEY),
+                    nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected) {
+                    spdlog::warn("HandleChatEdit: HMAC signature mismatch");
+                    return true;
+                }
             }
         }
 

@@ -7,6 +7,7 @@
 #include "FileSendMgr.h"
 #include "Message.pb.h"
 #include "TcpWorker.h"
+#include "Utils.h"
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -215,8 +216,11 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
 
     // Phase 5E: 填充防重放 Nonce
     auto *nh = chatMsg.mutable_nonce_header();
-    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
-    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
+    std::string nonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+    int64_t ts = QDateTime::currentMSecsSinceEpoch();
+    nh->set_nonce(nonce);
+    nh->set_timestamp(ts);
+    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(nonce + std::to_string(ts))).toStdString());
 
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))
@@ -305,8 +309,11 @@ void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
 
     // Phase 5E: 填充防重放 Nonce
     auto *nh = msg.mutable_nonce_header();
-    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
-    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
+    std::string recallNonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+    int64_t recallTs = QDateTime::currentMSecsSinceEpoch();
+    nh->set_nonce(recallNonce);
+    nh->set_timestamp(recallTs);
+    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(recallNonce + std::to_string(recallTs))).toStdString());
 
     std::string serialized;
     if (msg.SerializeToString(&serialized))
@@ -328,8 +335,11 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
 
     // Phase 5E: 填充防重放 Nonce
     auto *nh = msg.mutable_nonce_header();
-    nh->set_nonce(QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString());
-    nh->set_timestamp(QDateTime::currentMSecsSinceEpoch());
+    std::string editNonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+    int64_t editTs = QDateTime::currentMSecsSinceEpoch();
+    nh->set_nonce(editNonce);
+    nh->set_timestamp(editTs);
+    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(editNonce + std::to_string(editTs))).toStdString());
 
     std::string serialized;
     if (msg.SerializeToString(&serialized))

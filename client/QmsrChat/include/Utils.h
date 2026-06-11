@@ -14,6 +14,7 @@ class Utils
 {
 public:
     static QString hashPassword(const QString &input);
+    static QString hmacSha256(const QString &key, const QString &message);
 
 private:
     Utils() = default;

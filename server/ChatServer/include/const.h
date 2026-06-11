@@ -8,9 +8,26 @@
 
 #include <chrono>
 #include <cstdint>
+#include <string>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 
-// Phase 6: Proto schema 版本号（客户端未设置时默认 0，服务端接受 0 或 CURRENT）
 constexpr int SCHEMA_VERSION = 1;
+
+inline std::string ComputeHmacSha256(const std::string &key, const std::string &message)
+{
+    unsigned int len = 32;
+    unsigned char result[EVP_MAX_MD_SIZE];
+    HMAC(EVP_sha256(), key.c_str(), static_cast<int>(key.size()),
+         reinterpret_cast<const unsigned char *>(message.c_str()), message.size(),
+         result, &len);
+    char hex[65] = {0};
+    for (unsigned int i = 0; i < len; ++i)
+        snprintf(hex + i * 2, 3, "%02x", result[i]);
+    return std::string(hex);
+}
+
+constexpr std::string_view HMAC_KEY = "MsrChat_v1_Salt_2024";
 
 constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息 (0x3E8)
 constexpr uint16_t ID_GET_VERIFY_CODE = 1001;    ///< 获取验证码

@@ -43,6 +43,7 @@ message ChatTextMsg {
 message NonceHeader {
     string nonce = 1;     // [required] UUID v4 字符串，客户端生成
     int64  timestamp = 2; // [required] 毫秒级时间戳
+    string signature = 3; // [optional] HMAC-SHA256 签名（防篡改）
 }
 
 message ChatAck {

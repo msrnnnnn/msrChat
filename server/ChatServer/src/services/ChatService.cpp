@@ -62,6 +62,16 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
                 spdlog::warn("[ChatService] Duplicate nonce detected for uid={}", session.GetUserUid());
                 return true;
             }
+            // 7E: HMAC 签名校验（兼容旧客户端：signature 为空时跳过）
+            if (!nh.signature().empty()) {
+                std::string expected = ComputeHmacSha256(
+                    std::string(HMAC_KEY),
+                    nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected) {
+                    spdlog::warn("[ChatService] HMAC signature mismatch for uid={}", session.GetUserUid());
+                    return true;
+                }
+            }
         }
 
         // Phase 6: schema_version 校验（0 = 未设置，视为 v1 兼容）

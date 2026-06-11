@@ -23,8 +23,34 @@ const QString &Utils::salt()
  */
 QString Utils::hashPassword(const QString &input)
 {
-    // 加盐后做 SHA-256 哈希，结果格式：盐值 + 十六进制哈希
     QString salted = input + salt();
     QByteArray data = QCryptographicHash::hash(salted.toUtf8(), QCryptographicHash::Sha256);
     return salt() + data.toHex();
+}
+
+QString Utils::hmacSha256(const QString &key, const QString &message)
+{
+    const int blockSize = 64;
+    QByteArray keyBytes = key.toUtf8();
+    QByteArray msgBytes = message.toUtf8();
+
+    if (keyBytes.size() > blockSize)
+        keyBytes = QCryptographicHash::hash(keyBytes, QCryptographicHash::Sha256);
+
+    QByteArray paddedKey(blockSize, 0x00);
+    paddedKey.replace(0, keyBytes.size(), keyBytes);
+
+    QByteArray ipad(blockSize, 0x36);
+    QByteArray opad(blockSize, 0x5c);
+
+    for (int i = 0; i < blockSize; ++i)
+    {
+        ipad[i] = ipad[i] ^ paddedKey[i];
+        opad[i] = opad[i] ^ paddedKey[i];
+    }
+
+    QByteArray inner = QCryptographicHash::hash(ipad + msgBytes, QCryptographicHash::Sha256);
+    QByteArray result = QCryptographicHash::hash(opad + inner, QCryptographicHash::Sha256);
+
+    return result.toHex();
 }
