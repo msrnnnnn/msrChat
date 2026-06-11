@@ -18,10 +18,10 @@
 | Phase 3 | 认证与会话加固 | ~18h | 堵住身份伪造与会话管理漏洞 | Phase 2 | ✅ `574f29c` |
 | Phase 4 | 性能与文件传输体验 | ~25.5h | 提升吞吐量与用户可感知体验 | Phase 2 | ✅ `39b126d` |
 | **Phase 4.5** | **Quick Wins + 测试安全网** | **~6h** | **零依赖小改动集中处理 + 为 Phase 5 提供自动化测试保护** | **Phase 4** | **✅ `fb9bf3a`** |
-| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **✅ 5-I `babae2f` + 5-II 完成（待 tag）** |
+| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **✅ 5-I `babae2f` + 5-II `bd3de6c`** |
 | Phase 6 | 协议演进与工程化 | ~18h | 保障二进制兼容与 CI 质量 | Phase 5 | ⏳ |
 | Phase 7 | 质量收口与可观测性 | ~19h | 补齐日志、限流补充、隐私 | Phase 5 | ⏳ |
-| Track T | TLS 全链路加密 | ~24h | 传输层加密 | 独立规划 | ⏳ |
+| Track T | TLS 全链路加密 | ~24h | 传输层加密 | 独立规划 | ⏭️ 个人项目不启动 |
 
 > **延后项追踪**：4.3 流式下载 / 4.6 背压控制 / 4.14 滑动窗口 — 建议 Phase 5 完成后作为性能加固独立执行
 
@@ -44,7 +44,7 @@ Proto 文件 (`Message.proto`) 在多个阶段都需要修改，反复变动容�
 | Phase 2.9 | 添加 `string client_msg_id` 字段（消息去重用） | 新增字段 |
 | Phase 5C | 统一错误码 enum 到 proto；消息类型定义移到 proto enum | 新增 enum |
 | Phase 6.1-6.3 | 添加 `schema_version`、`reserved` 声明、`optional` 标记 | schema 治理 |
-| Phase 6.4 | 密码字段加密（视 Track T 进度决定是否保留） | 可选 |
+| Phase 6.4 | 密码字段加密（AES-GCM） | 必须执行（Track T 已废弃） |
 
 **协调原则**：Phase 2 只加字段不改结构；Phase 5 在 Service 拆分时一次性完成 enum 迁移；Phase 6 做 schema 治理时不增删字段，只加元数据。每个阶段修改 proto 后立即跑双端编译验证。
 
@@ -512,9 +512,9 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 - [x] 消息 nonce 防重放生效（NonceCache LRU + 时间窗口校验）
 - [ ] **T.1 + T.2 自动化测试仍全部绿色**
 - [ ] **全功能端到端回归通过**：认证、聊天、文件、图片、重连、并发登录
-- [ ] **Track T 决策点**：产出 `Track-T-decision.md`，确定 Phase 6.4 和 7E.1 的执行策略
+- [ ] **Track T 决策点**：✅ 已决策——个人项目，不启动 TLS。Phase 6.4 必须执行，7E.1 保留执行
 
-> **Phase 5-II 状态：✅ 代码完成，待用户编译测试通过**
+> **Phase 5-II 状态：✅ 代码完成（commit `bd3de6c`），待用户编译测试通过**
 > 5B.4 调整说明：ChatScrollController 未提取（滚动逻辑与 ListView 紧耦合仅 ~35 行，提取后属性管道开销大于收益），替代提取 FileProgressPanel.qml（~233 行独立块）
 > 5B.5 调整说明：额外提取 ImagePreviewBar.qml + EmptyState.qml 以达到行数目标
 
@@ -542,32 +542,34 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 
 ### 修复清单
 
-| 序号 | 审查报告引用 | 问题 | 修复方案 | 估算 |
-|------|-------------|------|----------|------|
-| 6.1 | 可维护#26 | proto 无 schema 版本号 | 在 Message.proto 顶层添加 `int32 schema_version = N`，handler 入口校验 | 1h |
-| 6.2 | 可维护#27 | proto 无 reserved 声明 | 对所有已删除字段编号添加 `reserved` 声明 | 0.5h |
-| 6.3 | 可维护#28 | proto 缺 optional 标记 | 为语义必填字段添加 `(validate.rules).required = true` 或文档注释标记 | 1.5h |
-| 6.4 | 可维护#25 | 密码字段明文传输 | **条件执行**：若 Track T（TLS）已在规划近期，此项可延后 | 0-4h |
-| 6.5 | 可维护#24 | SHA256() API 已弃用 | 迁移到 OpenSSL EVP API（EVP_DigestInit/Update/Final） | 3h |
-| 6.6 | 构建#1-4 | CMake 问题集 | 移除全局 add_compile_options；proto 文件移到公共 proto/ 目录；添加 BUILD_TESTS option | 2h |
-| 6.7 | CI#2-3 | CI 缺客户端构建和 Windows | ci.yml 增加 Windows MSVC 构建 job | 3h |
-| 6.8 | 协议#2 | 消息 ID 手动同步风险 | 将消息类型定义移到 proto enum，C++ 常量从 proto 生成 | 2h |
-| 6.9 | DevOps#1 | 缺 Dockerfile | 添加多阶段 Dockerfile（builder + runtime），用于服务端部署 | 1h |
+| 序号 | 审查报告引用 | 问题 | 修复方案 | 估算 | 状态 |
+|------|-------------|------|----------|------|------|
+| 6.1 | 可维护#26 | proto 无 schema 版本号 | 在 ChatTextMsg/ServerChatMsg/ImageMsg 添加 `int32 schema_version`，handler 入口校验 | 1h | ✅ |
+| 6.2 | 可维护#27 | proto 无 reserved 声明 | 当前无已删除字段，添加头部注释说明未来删除时必须 reserved | 0.5h | ✅ |
+| 6.3 | 可维护#28 | proto 缺 optional 标记 | 为所有字段添加 `[required]`/`[optional]` 文档注释 | 1.5h | ✅ |
+| 6.4 | 可维护#25 | 密码字段明文传输 | 在 proto 中对密码字段做应用层加密（AES-GCM），防止 proto 抓包暴露密码。**Track T 已废弃（个人项目），此项必须执行** | 1h | ⏳ |
+| 6.5 | 可维护#24 | SHA256() API 已弃用 | **已完成**：Phase 3 PBKDF2 迁移已使用 EVP_sha256() | 0h | ✅ |
+| 6.6 | 构建#1-4 | CMake 问题集 | 全局 → target 作用域；proto 移到根 `proto/` 目录；添加 BUILD_TESTS option | 2h | ✅ |
+| 6.7 | CI#2-3 | CI 缺客户端构建和 Windows | ci.yml 增加 Windows MSVC 构建 job | 3h | ✅ |
+| 6.8 | 协议#2 | 消息 ID 手动同步风险 | **部分完成**：Phase 5-II 已添加 MsgType proto 枚举，C++ 保留手动定义 | — | ✅ |
+| 6.9 | DevOps#1 | 缺 Dockerfile | 多阶段 Dockerfile（builder + runtime）+ .dockerignore | 1h | ✅ |
 
 ### 顺带修复清单
 
 | 报告# | 内容 | 涉及文件 | 完成 |
 |-------|------|---------|------|
-| 逻辑#32 | build.sh 全量清理 | client/build.sh | ☐ |
-| 安全#19 | 编辑长度 2000 字节非字符 | Message.proto 注释 | ☐ |
-| 安全#21 | config.ini.example 暴露内网 IP | config.ini.example | ☐ |
+| 逻辑#32 | build.sh 全量清理 | client/build.sh（添加 --clean 参数） | ✅ |
+| 安全#19 | 编辑长度 2000 字节非字符 | Message.proto 注释（改为“≤2000 字符”） | ✅ |
+| 安全#21 | config.ini.example 暴露内网 IP | config.ini.example（192.168.226.129 → 127.0.0.1） | ✅ |
 
 ### 验收检查
 
-- [ ] proto 文件包含 version、reserved、字段注释
-- [ ] 新旧 proto 版本可互解析（向前兼容测试）
+- [x] proto 文件包含 schema_version、字段 [required]/[optional] 注释
+- [ ] 新旧 proto 版本可互解析（向前兼容测试）— schema_version=0 兼容 v1
 - [ ] CI 在 Linux + Windows 上均绿色通过
 - [ ] Docker build 成功并可通过 docker run 启动服务端
+
+> **Phase 6 状态：6.1-6.3, 6.5-6.9 ✅ 代码完成，6.4 ⏳ 待执行**
 
 ---
 
@@ -625,13 +627,13 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 | 7D.3 | 隐私#3 (中) | 注册页面增加隐私说明：邮箱用途和保留期限告知 | 0.5h |
 | 7D.4 | 输入验证#4 (中) | 消息 content 过滤：对 XSS payload 做基本转义 | 0.5h |
 
-### 7E：安全加固收尾（~1h）
+### 7E：安全加固收尾（~2h）
 
-> HMAC 签名保留在此。若 Track T 已上线，可重新评估必要性。
+> HMAC 签名保留。Track T 已废弃，此项必须执行。
 
 | 序号 | 审查报告引用 | 修复方案 | 估算 |
 |------|-------------|----------|------|
-| 7E.1 | 安全网络#2 (高) | 消息签名/MAC：HMAC-SHA256 签名。**若 TLS 已上线，此项可降级为可选** | 2h |
+| 7E.1 | 安全网络#2 (高) | 消息签名/MAC：HMAC-SHA256 签名 | 2h |
 
 ### 验收检查
 
@@ -645,7 +647,9 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 
 ---
 
-## Track T：TLS 全链路加密（独立规划）
+## Track T：TLS 全链路加密（已废弃）
+
+> **⏭️ 已废弃**：个人项目，不启动 TLS。省 ~24h 工作量。Phase 6.4（密码加密）和 7E.1（HMAC 签名）作为替代方案覆盖安全需求。
 
 TLS 是一个架构级变更，影响网络层所有组件，需要独立设计和测试。
 
@@ -674,10 +678,10 @@ TLS 是一个架构级变更，影响网络层所有组件，需要独立设计�
 ### 与主线计划的交叉影响
 
 ```
-Track T 上线后，以下项可重新评估：
-- Phase 6.4（密码字段传输加密）：TLS 已覆盖，可跳过
-- Phase 7E.1（HMAC 签名）：TLS 已提供完整性保护，可降级为可选
-- Phase 1.4（盐值硬编码）：TLS 上线后盐值不再明文传输，但仍建议保留构建时注入
+Track T 已废弃（个人项目）。以下项作为替代方案保留：
+- Phase 6.4（密码字段传输加密）：必须执行，防止 proto 抓包暴露密码
+- Phase 7E.1（HMAC 签名）：必须执行，提供应用层完整性保护
+- Phase 1.4（盐值硬编码）：仍建议保留构建时注入
 ```
 
 ### 时机建议
@@ -690,6 +694,8 @@ Track T 上线后，以下项可重新评估：
 |----------|------|
 | Track T 能在近期启动且有明确方案 | Phase 6.4 **跳过**，Phase 7E.1 **降级为可选** |
 | Track T 推迟或方案未定 | Phase 6.4 **必须执行**，Phase 7E.1 **保留执行** |
+
+> **✅ 已决策（2026-06-11）**：个人项目，不启动 TLS（Track T 废弃）。Phase 6.4 **必须执行**，Phase 7E.1 **保留执行**。
 
 ---
 
@@ -753,7 +759,7 @@ Phase 1 (止血)              ← 第 1 周前半
 | Phase 4 | 滑动窗口协议改动涉及双端 | 先在服务端支持两种模式，客户端切换后再移除旧模式 |
 | Phase 5 | 大规模重构引入回归 | **子里程碑机制** + **每 Service 编译+冒烟** + **回滚止损**（详见 Phase 5 回滚策略） |
 | Phase 5F | 限流逻辑影响正常用户体验 | 令牌桶参数可配置（config.ini），开发环境设为宽松值 |
-| Phase 6 | proto 密码加密增加客户端复杂度 | **条件执行**：评估 Track T 进度 |
+| Phase 6 | proto 密码加密增加客户端复杂度 | **必须执行**：6.4 AES-GCM 加密密码字段，需双端同步 |
 | Phase 7 | 隐私功能增加协议复杂度 | 账户注销和数据导出先做 MVP（JSON 直出） |
 
 ---
@@ -897,7 +903,7 @@ Phase 5C    →  新增 ErrorCode enum + 消息类型 enum
                 ↓ 双端编译验证
 Phase 6.1-3 →  添加 schema_version + reserved + optional 标记
                 ↓ 向前兼容测试
-Phase 6.4   →  密码字段加密（条件执行，视 Track T 进度）
+Phase 6.4   →  密码字段加密（必须执行，Track T 已废弃）
 ```
 
 每次 proto 变更后立即执行：
