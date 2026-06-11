@@ -22,11 +22,6 @@ void TokenManager::SetToken(int uid, const std::string &token)
     SQLiteMgr::Instance().Auth().SaveToken(uid, token);
 }
 
-void TokenManager::RemoveToken(int uid)
-{
-    _uid_tokens.Erase(uid);
-}
-
 /**
  * @brief 校验用户 Token
  * @param uid 用户 ID

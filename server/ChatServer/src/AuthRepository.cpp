@@ -333,50 +333,6 @@ std::optional<User> AuthRepository::GetUserByUsernameUnlocked(sqlite3 *db, const
     return std::nullopt;
 }
 
-std::optional<User> AuthRepository::GetUserByUid(int uid)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-        return std::nullopt;
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(
-        db, "SELECT uid, username, password_hash, email, avatar_path, created_at FROM users WHERE uid = ?");
-    if (!stmt)
-        return std::nullopt;
-
-    sqlite3_bind_int(stmt, 1, uid);
-    if (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        User user;
-        user.uid = sqlite3_column_int(stmt, 0);
-        user.username = SafeColumnText(stmt, 1);
-        user.password_hash = SafeColumnText(stmt, 2);
-        user.email = SafeColumnText(stmt, 3);
-        user.avatar_path = SafeColumnText(stmt, 4);
-        user.created_at = sqlite3_column_int64(stmt, 5);
-        return user;
-    }
-    return std::nullopt;
-}
-
-bool AuthRepository::UpdateUserProfile(int uid, const std::string &username, const std::string &email)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-        return false;
-    sqlite3 *db = guard.Get();
-
-    ScopedStmt stmt(db, "UPDATE users SET username = ?, email = ? WHERE uid = ?");
-    if (!stmt)
-        return false;
-
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, email.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 3, uid);
-    return sqlite3_step(stmt) == SQLITE_DONE;
-}
-
 bool AuthRepository::SaveToken(int uid, const std::string &token)
 {
     SQLiteConnectionGuard guard(_pool);

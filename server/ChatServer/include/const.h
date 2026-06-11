@@ -32,8 +32,6 @@ constexpr uint16_t MSG_FILE_REQ = 2001;          ///< 文件传输请求
 constexpr uint16_t MSG_FILE_RSP = 2002;          ///< 文件传输响应(断点续传)
 constexpr uint16_t MSG_FILE_CHUNK = 2003;        ///< 文件数据分片(Protobuf 消息体)
 constexpr uint16_t MSG_FILE_ACK = 2004;          ///< 数据块接收确认(Protobuf 消息体)
-constexpr uint16_t ID_DELETE_USER = 3001;        ///< 注销账户
-constexpr uint16_t ID_EXPORT_DATA = 3002;        ///< 导出数据
 constexpr int MAX_CHAT_CONTENT_LEN = 4096;        ///< 单条消息最大长度
 constexpr int OFFLINE_PAGE_SIZE = 50;            ///< 离线消息每页数量
 

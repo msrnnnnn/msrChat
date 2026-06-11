@@ -16,6 +16,4 @@ public:
     static bool HandleLoginAuthRequest(CSession &session, const std::string &body_data);
     static bool HandleGetVerifyCodeRequest(CSession &session, const std::string &body_data);
     static bool HandleResetPwdRequest(CSession &session, const std::string &body_data);
-    static bool HandleDeleteUserRequest(CSession &session, const std::string &body_data);
-    static bool HandleExportDataRequest(CSession &session, const std::string &body_data);
 };

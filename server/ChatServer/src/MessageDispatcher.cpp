@@ -27,8 +27,6 @@ void MessageDispatcher::RegisterDefaultHandlers()
     RegisterHandler(ID_LOGIN_USER,       AuthService::HandleLoginAuthRequest,      false);
     RegisterHandler(ID_GET_VERIFY_CODE,  AuthService::HandleGetVerifyCodeRequest,  false);
     RegisterHandler(ID_RESET_PWD,        AuthService::HandleResetPwdRequest,       false);
-    RegisterHandler(ID_DELETE_USER,      AuthService::HandleDeleteUserRequest,     true);
-    RegisterHandler(ID_EXPORT_DATA,      AuthService::HandleExportDataRequest,     true);
 
     // ── ChatService：聊天文本 + 离线 ──
     RegisterHandler(MSG_CHAT_TEXT,       ChatService::HandleChatText,              true);

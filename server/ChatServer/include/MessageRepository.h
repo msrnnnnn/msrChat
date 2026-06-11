@@ -26,7 +26,6 @@ public:
     bool MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts);
     bool UpdateMessageContent(int64_t timestamp, int from_uid,
                                const std::string &new_content, int64_t edit_ts);
-    std::vector<ChatMessage> GetAllMessagesByUid(int uid);
 
     // === 离线消息 ===
     bool SaveOfflineMessage(const ChatMessage &msg);

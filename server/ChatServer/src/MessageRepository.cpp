@@ -218,39 +218,6 @@ bool MessageRepository::UpdateMessageContent(int64_t timestamp, int from_uid,
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
-std::vector<ChatMessage> MessageRepository::GetAllMessagesByUid(int uid)
-{
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard)
-        return {};
-    sqlite3 *db = guard.Get();
-
-    std::vector<ChatMessage> messages;
-    ScopedStmt stmt(db,
-        "SELECT from_uid, to_uid, content, timestamp, status, client_msg_id, "
-        "type, image_id, recalled, recalled_at, edited, edited_at "
-        "FROM messages WHERE from_uid = ? OR to_uid = ? ORDER BY timestamp ASC");
-    if (!stmt)
-        return messages;
-
-    sqlite3_bind_int(stmt, 1, uid);
-    sqlite3_bind_int(stmt, 2, uid);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW)
-    {
-        ChatMessage msg;
-        msg.from_uid = sqlite3_column_int(stmt, 0);
-        msg.to_uid = sqlite3_column_int(stmt, 1);
-        msg.content = SafeColumnText(stmt, 2);
-        msg.timestamp = sqlite3_column_int64(stmt, 3);
-        msg.status = sqlite3_column_int(stmt, 4);
-        msg.client_msg_id = SafeColumnText(stmt, 5);
-        ReadPhase7Columns(stmt, msg);
-        messages.push_back(msg);
-    }
-    return messages;
-}
-
 bool MessageRepository::SaveOfflineMessage(const ChatMessage &msg)
 {
     SQLiteConnectionGuard guard(_pool);
