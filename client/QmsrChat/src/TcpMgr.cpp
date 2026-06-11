@@ -241,7 +241,9 @@ void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
     slotSendData(RequestType::ID_REGISTER_USER,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode}}));
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode},
+                                   {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                   {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
 }
 
 /**
@@ -251,7 +253,9 @@ void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
     slotSendData(RequestType::ID_RESET_PWD,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode}}));
+                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode},
+                                   {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                   {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
 }
 
 /**

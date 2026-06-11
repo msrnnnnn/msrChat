@@ -7,6 +7,7 @@
 #include "services/AuthService.h"
 #include "services/DispatchGuard.h"
 #include "CServer.h"
+#include "NonceCache.h"
 #include "SQLiteMgr.h"
 #include "AuthRepository.h"
 #include "TokenManager.h"
@@ -86,6 +87,25 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
         std::string password_hash = json_data.value("passwd", "");
         std::string email = json_data.value("email", "");
         std::string verifycode = json_data.value("verifycode", "");
+
+        // Phase 6.4: 防重放校验（兼容旧客户端：nonce 为空时跳过）
+        std::string nonce = json_data.value("nonce", "");
+        if (!nonce.empty())
+        {
+            int64_t timestamp = json_data.value("timestamp", 0LL);
+            if (!NonceCache::Instance().IsWithinTimeWindow(timestamp))
+            {
+                nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "请求已过期"}};
+                session.Send(response.dump(), ID_REGISTER_USER);
+                return true;
+            }
+            if (!NonceCache::Instance().TryInsert(nonce))
+            {
+                nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "重复请求"}};
+                session.Send(response.dump(), ID_REGISTER_USER);
+                return true;
+            }
+        }
 
         if (username.empty() || password_hash.empty() || email.empty() || verifycode.empty())
         {
@@ -316,6 +336,25 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
         std::string email = json_data.value("email", "");
         std::string code = json_data.value("verifycode", "");
         std::string new_password_hash = json_data.value("passwd", "");
+
+        // Phase 6.4: 防重放校验（兼容旧客户端：nonce 为空时跳过）
+        std::string nonce = json_data.value("nonce", "");
+        if (!nonce.empty())
+        {
+            int64_t timestamp = json_data.value("timestamp", 0LL);
+            if (!NonceCache::Instance().IsWithinTimeWindow(timestamp))
+            {
+                nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "请求已过期"}};
+                session.Send(response.dump(), ID_RESET_PWD);
+                return true;
+            }
+            if (!NonceCache::Instance().TryInsert(nonce))
+            {
+                nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "重复请求"}};
+                session.Send(response.dump(), ID_RESET_PWD);
+                return true;
+            }
+        }
 
         if (username.empty() || email.empty() || code.empty() || new_password_hash.empty())
         {
