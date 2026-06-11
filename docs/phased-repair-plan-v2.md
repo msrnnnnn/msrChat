@@ -18,7 +18,7 @@
 | Phase 3 | 认证与会话加固 | ~18h | 堵住身份伪造与会话管理漏洞 | Phase 2 | ✅ `574f29c` |
 | Phase 4 | 性能与文件传输体验 | ~25.5h | 提升吞吐量与用户可感知体验 | Phase 2 | ✅ `39b126d` |
 | **Phase 4.5** | **Quick Wins + 测试安全网** | **~6h** | **零依赖小改动集中处理 + 为 Phase 5 提供自动化测试保护** | **Phase 4** | **✅ `fb9bf3a`** |
-| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **◀ 当前位置（5A 完成 `fb1fa76`，下一步：5F 基础过载防护）** |
+| **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **◀ 当前位置（5-I 完成 `babae2f`，下一步：5-II 客户端拆分）** |
 | Phase 6 | 协议演进与工程化 | ~18h | 保障二进制兼容与 CI 质量 | Phase 5 | ⏳ |
 | Phase 7 | 质量收口与可观测性 | ~19h | 补齐日志、限流补充、隐私 | Phase 5 | ⏳ |
 | Track T | TLS 全链路加密 | ~24h | 传输层加密 | 独立规划 | ⏳ |
@@ -436,22 +436,22 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 
 #### 5F：基础过载防护（~3h）
 
-| 序号 | 审查报告引用 | 修复方案 | 估算 |
-|------|-------------|----------|------|
-| 5F.1 | 容错#1 (高) | 消息发送频率限制（令牌桶，默认 10msg/s per user），在 ChatService 入口校验 | 1.5h |
-| 5F.2 | 容错#3 (高) | 连接数上限（默认 10000，超出拒绝），在 CServer::DoAccept 入口校验 | 0.5h |
-| 5F.3 | 容错#4 (中) | 线程池任务队列上限（默认 10000，超出返回 ERR_BUSY），在 LogicSystem::PostTask 入口校验 | 0.5h |
+| 序号 | 审查报告引用 | 修复方案 | 估算 | 状态 |
+|------|-------------|----------|------|------|
+| 5F.1 | 容错#1 (高) | 消息发送频率限制（令牌桶，默认 10msg/s per user），在 ChatService 入口校验 | 1.5h | ✅ `babae2f` |
+| 5F.2 | 容错#3 (高) | 连接数上限（默认 10000，超出拒绝），在 CServer::DoAccept 入口校验 | 0.5h | ✅ `babae2f` |
+| 5F.3 | 容错#4 (中) | 线程池任务队列上限（默认 10000，超出返回 ERR_BUSY），在 LogicSystem::PostTask 入口校验 | 0.5h | ✅ `babae2f` |
 
 #### 显式任务项（从 v2 顺带项升级）
 
 以下项在 v2 中为"顺带修复"，因其重要性升级为显式任务：
 
-| 序号 | 审查报告引用 | 内容 | 修复方案 | 估算 | 归属 |
-|------|-------------|------|----------|------|------|
-| 5X.1 | 逻辑#30 | SerializeToString 返回值未检查 | 所有 Service 中 SerializeToString 调用后检查返回值，失败则记日志+返回 ERR | 1h | 5-I（Service 拆分后逐个添加） |
-| 5X.2 | 逻辑#20 | 撤回推送后 ClearRecallNotifies 时序问题 | ChatService 中修正：先推送完成再清理，或使用快照模式 | 0.5h | 5-I（ChatService 内） |
-| 5X.3 | 逻辑#25 | 双线程池共存 | **不合并**，明确分离职责边界 + 文档化各自用途（CServer 处理网络 I/O，LogicSystem 处理业务逻辑）。实际合并留到后续迭代 | 1h | 5-I（独立于 Service 拆分） |
-| 5X.4 | 逻辑#36 | 编辑通知离线丢失 | ChatService 中补充离线编辑通知逻辑，与撤回通知对齐 | 0.5h | 5-I（ChatService 内） |
+| 序号 | 审查报告引用 | 内容 | 修复方案 | 估算 | 归属 | 状态 |
+|------|-------------|------|----------|------|------|------|
+| 5X.1 | 逻辑#30 | SerializeToString 返回值未检查 | 所有 Service 中 SerializeToString 调用后检查返回值，失败则记日志+返回 ERR | 1h | 5-I（Service 拆分后逐个添加） | ✅ `babae2f` |
+| 5X.2 | 逻辑#20 | 撤回推送后 ClearRecallNotifies 时序问题 | ChatService 中修正：先推送完成再清理，或使用快照模式 | 0.5h | 5-I（ChatService 内） | ✅ `babae2f` |
+| 5X.3 | 逻辑#25 | 双线程池共存 | **不合并**，明确分离职责边界 + 文档化各自用途（CServer 处理网络 I/O，LogicSystem 处理业务逻辑）。实际合并留到后续迭代 | 1h | 5-I（独立于 Service 拆分） | ✅ `babae2f` |
+| 5X.4 | 逻辑#36 | 编辑通知离线丢失 | ChatService 中补充离线编辑通知逻辑，与撤回通知对齐 | 0.5h | 5-I（ChatService 内） | ✅ `babae2f` |
 
 > **注**：5X.3 原估算为"统一为一个线程池"（1h），经审查后降级为"文档化职责边界"。理由：合并两个线程池涉及 CServer/LogicSystem/main.cpp 的初始化和关闭顺序，在 Phase 5-I 已经进行大规模拆分的情况下额外引入架构变更风险过高。实际合并留到项目稳定后的后续迭代。
 
@@ -460,13 +460,13 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 - [x] MessageDispatcher.cpp 行数 < 200（实际 49 行）
 - [x] SQLiteMgr.cpp 拆分为 3 个 Repository，各自 < 500 行
 - [x] SQLite 连接池 > 1，并发读写性能有提升
-- [ ] 洪泛消息被令牌桶限流，不进入 LogicSystem 队列
-- [ ] 超过连接数上限的新连接被拒绝（DoAccept 校验）
-- [ ] 线程池任务队列满时返回 ERR_BUSY，不 OOM
-- [ ] 所有 Service 中 SerializeToString 返回值已检查
+- [x] 洪泛消息被令牌桶限流，不进入 LogicSystem 队列
+- [x] 超过连接数上限的新连接被拒绝（DoAccept 校验）
+- [x] 线程池任务队列满时返回 ERR_BUSY，不 OOM
+- [x] 所有 Service 中 SerializeToString 返回值已检查
 - [ ] **T.1 + T.2 自动化测试仍全部绿色**
 - [ ] **全功能端到端回归通过**：认证、聊天、文件传输、图片上传/下载
-- [ ] INSERT OR REPLACE 操作有所有权校验
+- [x] INSERT OR REPLACE 操作有所有权校验
 
 ---
 
