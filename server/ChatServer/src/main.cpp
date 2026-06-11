@@ -18,11 +18,28 @@
 #include <ctime>
 #include <filesystem>
 #include <functional>
+#include <iomanip>
 #include <iostream>
+#include <random>
+#include <sstream>
 #include <spdlog/spdlog.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
+
+/**
+ * @brief 生成随机十六进制字符串（仅用于 Debug 构建的 dev token）
+ */
+static std::string GenerateRandomHexToken(int byte_count)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    std::ostringstream oss;
+    for (int i = 0; i < byte_count; ++i)
+        oss << std::hex << std::setfill('0') << std::setw(2) << dist(gen);
+    return oss.str();
+}
 
 struct ServerConfig
 {
@@ -144,14 +161,18 @@ int main(int argc, char *argv[])
 
 #ifndef NDEBUG
         const char *dev_token_env = std::getenv("MSRCHAT_DEV_TOKEN");
+        std::string dev_token;
         if (dev_token_env && dev_token_env[0] != '\0')
         {
-            TokenManager::Instance().SetToken(1001, dev_token_env);
+            dev_token = dev_token_env;
+            spdlog::info("[Main] Dev mode: using MSRCHAT_DEV_TOKEN from environment");
         }
         else
         {
-            TokenManager::Instance().SetToken(1001, "dev_token");
+            dev_token = GenerateRandomHexToken(32);
+            spdlog::warn("[Main] MSRCHAT_DEV_TOKEN not set, generated random dev token: {}", dev_token);
         }
+        TokenManager::Instance().SetToken(1001, dev_token);
         spdlog::info("[Main] Dev mode token registered for uid 1001");
 #endif
 

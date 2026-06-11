@@ -6,7 +6,6 @@
 #include "ImageStorage.h"
 #include <spdlog/spdlog.h>
 #include <climits>
-#include <cstring>
 #include <ctime>
 
 /// 业务层最大图片大小限制（100 MB）
@@ -108,80 +107,104 @@ bool ImageStorage::Insert(const ImageRecord &rec)
 }
 
 /**
- * @brief 分片追加图片二进制数据
+ * @brief 分片追加图片二进制数据（增量 I/O 版本）
  * @param image_id 图片唯一 ID
  * @param offset 写入偏移量（字节）
  * @param data 数据指针
  * @param len 数据长度
  * @return 追加成功返回 true
- * @details 先读取已有 blob，在内存中追加分片后写回；
- *          若 offset 大于已有大小，中间部分填零补齐
+ * @details 使用 sqlite3_blob_open + sqlite3_blob_write 在指定偏移处直接写入，
+ *          避免将整个 blob 加载到内存。若 blob 当前大小不足，先用 zeroblob 扩展。
  */
 bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
                                const uint8_t *data, size_t len)
 {
     if (!data || len == 0) return false;
-    SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
-    sqlite3 *db = guard.Get();
 
-    // 1. 读取当前 blob
-    const char *select_sql = "SELECT blob FROM image_storage WHERE image_id = ?;";
-    sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
-    sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
-
-    std::vector<uint8_t> full_blob;
-    if (sqlite3_step(stmt) == SQLITE_ROW)
+    // 业务上限 + sqlite3_bind_blob int 参数溢出检查
+    if (offset + len > MAX_IMAGE_SIZE)
     {
-        const void *blob = sqlite3_column_blob(stmt, 0);
-        int blob_size = sqlite3_column_bytes(stmt, 0);
-        if (blob && blob_size > 0)
-        {
-            full_blob.assign(static_cast<const uint8_t *>(blob),
-                             static_cast<const uint8_t *>(blob) + blob_size);
-        }
-    }
-    sqlite3_finalize(stmt);
-
-    // 2. 在内存中覆盖数据（chunk 可能乱序到达或重传）
-    if (static_cast<int64_t>(full_blob.size()) < offset + static_cast<int64_t>(len))
-    {
-        full_blob.resize(static_cast<size_t>(offset + static_cast<int64_t>(len)), 0);
-    }
-    std::memcpy(full_blob.data() + offset, data, len);
-
-    // 2.5 大小防护：业务上限 + sqlite3_bind_blob int 参数溢出检查
-    if (full_blob.size() > MAX_IMAGE_SIZE)
-    {
-        spdlog::error("[ImageStorage] AppendChunk: image too large {} > {} bytes, image_id={}",
-                      full_blob.size(), MAX_IMAGE_SIZE, image_id);
+        spdlog::error("[ImageStorage] AppendChunk: image too large offset+len={} > {} bytes, image_id={}",
+                      offset + len, MAX_IMAGE_SIZE, image_id);
         return false;
     }
-    if (full_blob.size() > static_cast<size_t>(INT_MAX))
+    if (offset + len > static_cast<size_t>(INT_MAX))
     {
         spdlog::error("[ImageStorage] AppendChunk: blob exceeds INT_MAX, image_id={}", image_id);
         return false;
     }
 
-    // 3. 写回完整 blob
-    const char *update_sql = "UPDATE image_storage SET blob = ? WHERE image_id = ?;";
-    if (sqlite3_prepare_v2(db, update_sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
-    sqlite3_bind_blob(stmt, 1, full_blob.data(), static_cast<int>(full_blob.size()), SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, image_id.c_str(), -1, SQLITE_TRANSIENT);
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard) return false;
+    sqlite3 *db = guard.Get();
 
-    int rc = sqlite3_step(stmt);
-    int changes = sqlite3_changes(db);
-    sqlite3_finalize(stmt);
-
-    if (rc != SQLITE_DONE || changes == 0)
+    // 1. 查询 rowid 和当前 blob 大小
+    sqlite3_stmt *stmt = nullptr;
+    const char *select_sql = "SELECT rowid, length(blob) FROM image_storage WHERE image_id = ?;";
+    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        spdlog::error("[ImageStorage] AppendChunk: write-back failed rc={} changes={} image_id={}",
-                      rc, changes, image_id);
+        spdlog::error("[ImageStorage] AppendChunk: prepare SELECT failed: {}", sqlite3_errmsg(db));
         return false;
     }
+    sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
+
+    sqlite3_int64 rowid = 0;
+    int64_t current_blob_size = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        rowid = sqlite3_column_int64(stmt, 0);
+        current_blob_size = sqlite3_column_int64(stmt, 1);
+    }
+    else
+    {
+        spdlog::error("[ImageStorage] AppendChunk: image_id={} not found", image_id);
+        sqlite3_finalize(stmt);
+        return false;
+    }
+    sqlite3_finalize(stmt);
+
+    // 2. 若 blob 不够大，用 zeroblob 扩展到所需大小
+    int64_t needed = offset + static_cast<int64_t>(len);
+    if (current_blob_size < needed)
+    {
+        int64_t pad_size = needed - current_blob_size;
+        const char *grow_sql = "UPDATE image_storage SET blob = blob || zeroblob(?) WHERE rowid = ?;";
+        if (sqlite3_prepare_v2(db, grow_sql, -1, &stmt, nullptr) != SQLITE_OK)
+        {
+            spdlog::error("[ImageStorage] AppendChunk: prepare grow failed: {}", sqlite3_errmsg(db));
+            return false;
+        }
+        sqlite3_bind_int64(stmt, 1, pad_size);
+        sqlite3_bind_int64(stmt, 2, rowid);
+        int rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+        if (rc != SQLITE_DONE)
+        {
+            spdlog::error("[ImageStorage] AppendChunk: grow failed rc={}: {}", rc, sqlite3_errmsg(db));
+            return false;
+        }
+    }
+
+    // 3. 增量写入：打开 blob → 写入 → 关闭
+    sqlite3_blob *blob_handle = nullptr;
+    int rc = sqlite3_blob_open(db, "main", "image_storage", "blob", rowid, 1, &blob_handle);
+    if (rc != SQLITE_OK)
+    {
+        spdlog::error("[ImageStorage] AppendChunk: blob_open failed rc={}: {}", rc, sqlite3_errmsg(db));
+        return false;
+    }
+
+    rc = sqlite3_blob_write(blob_handle, data, static_cast<int>(len), offset);
+    sqlite3_blob_close(blob_handle);
+
+    if (rc != SQLITE_OK)
+    {
+        spdlog::error("[ImageStorage] AppendChunk: blob_write failed rc={} offset={} len={}", rc, offset, len);
+        return false;
+    }
+
     spdlog::info("[ImageStorage] AppendChunk: ok image_id={} offset={} len={} blob_total={}",
-                 image_id, offset, len, full_blob.size());
+                 image_id, offset, len, std::max(current_blob_size, needed));
     return true;
 }
 

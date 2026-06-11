@@ -11,7 +11,6 @@
 #include <iomanip>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-#include <openssl/sha.h>
 #include <random>
 #include <spdlog/spdlog.h>
 #include <sstream>
@@ -19,18 +18,6 @@
 // ============================================================
 // 密码学辅助函数（文件内部）
 // ============================================================
-
-static std::string SHA256Hash(const std::string &input)
-{
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char *>(input.c_str()), input.size(), hash);
-    char hex_str[2 * SHA256_DIGEST_LENGTH + 1];
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
-    {
-        sprintf(hex_str + i * 2, "%02x", hash[i]);
-    }
-    return std::string(hex_str, 2 * SHA256_DIGEST_LENGTH);
-}
 
 static std::string SecureRandomHex(int bytes)
 {
@@ -150,64 +137,28 @@ AuthResult AuthRepository::LoginUser(const std::string &username, const std::str
         return r;
     }
 
-    // 解析存储的密码格式
+    // 仅支持 PBKDF2 格式: pbkdf2$salt$hash
     std::string stored = user->password_hash;
-    bool need_upgrade = false;
-
-    if (stored.compare(0, 7, "pbkdf2$") == 0)
+    if (stored.compare(0, 7, "pbkdf2$") != 0)
     {
-        // Phase 3 — PBKDF2 格式: pbkdf2$salt$hash
-        std::string rest = stored.substr(7);
-        auto sep = rest.find('$');
-        if (sep == std::string::npos)
-        {
-            AuthResult r; r.error = ERR_DB; return r;
-        }
-        std::string salt = rest.substr(0, sep);
-        std::string expected_hash = PBKDF2_SHA256(password_hash, salt);
-        std::string stored_hash = rest.substr(sep + 1);
-        if (expected_hash != stored_hash)
-        {
-            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
-        }
-    }
-    else if (stored.find('$') != std::string::npos)
-    {
-        // 旧格式: salt$sha256_hash → 验证后透明升级
-        auto dollar_pos = stored.find('$');
-        std::string salt = stored.substr(0, dollar_pos);
-        std::string expected_hash = SHA256Hash(password_hash + salt);
-        std::string stored_hash = stored.substr(dollar_pos + 1);
-        if (expected_hash != stored_hash)
-        {
-            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
-        }
-        need_upgrade = true;
-    }
-    else
-    {
-        // 旧版明文密码 → 验证后透明升级
-        if (stored != password_hash)
-        {
-            AuthResult r; r.error = ERR_PASSWD_ERR; return r;
-        }
-        need_upgrade = true;
+        spdlog::warn("[AuthRepository] Non-PBKDF2 password for user '{}', password reset required", username);
+        AuthResult r;
+        r.error = ERR_PASSWD_ERR;
+        return r;
     }
 
-    // 透明升级：将旧格式密码更新为 PBKDF2
-    if (need_upgrade)
+    std::string rest = stored.substr(7);
+    auto sep = rest.find('$');
+    if (sep == std::string::npos)
     {
-        std::string new_salt = GenerateSalt();
-        std::string new_hash = PBKDF2_SHA256(password_hash, new_salt);
-        std::string new_password = "pbkdf2$" + new_salt + "$" + new_hash;
-        ScopedStmt upd(db, "UPDATE users SET password_hash = ? WHERE uid = ?");
-        if (upd)
-        {
-            sqlite3_bind_text(upd, 1, new_password.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int(upd, 2, user->uid);
-            sqlite3_step(upd);
-        }
-        spdlog::info("[AuthRepository] Transparently upgraded password for uid {}", user->uid);
+        AuthResult r; r.error = ERR_DB; return r;
+    }
+    std::string salt = rest.substr(0, sep);
+    std::string expected_hash = PBKDF2_SHA256(password_hash, salt);
+    std::string stored_hash = rest.substr(sep + 1);
+    if (expected_hash != stored_hash)
+    {
+        AuthResult r; r.error = ERR_PASSWD_ERR; return r;
     }
 
     AuthResult r;

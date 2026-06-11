@@ -2,6 +2,7 @@
 #include "SQLiteMgr.h"
 #include <gtest/gtest.h>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 
 class ImageStorageTest : public ::testing::Test
@@ -100,4 +101,58 @@ TEST_F(ImageStorageTest, DeleteExpired_RemovesAllExpired)
     EXPECT_FALSE(ImageStorage::Instance().Get("old-recalled").has_value());
     EXPECT_FALSE(ImageStorage::Instance().Get("old-not-recalled").has_value());
     EXPECT_TRUE(ImageStorage::Instance().Get("fresh").has_value());
+}
+
+TEST_F(ImageStorageTest, AppendChunk_SequentialWrite)
+{
+    // 插入一条空 blob 的记录
+    ImageRecord rec;
+    rec.image_id = "chunk-seq-1";
+    rec.from_uid = 10; rec.to_uid = 20;
+    rec.ext = "bin"; rec.size = 12; rec.md5 = "abc";
+    rec.width = 1; rec.height = 1;
+    rec.created_at = std::time(nullptr);
+    rec.expires_at = rec.created_at + 3600;
+    ASSERT_TRUE(ImageStorage::Instance().Insert(rec));
+
+    // 分 3 个 chunk 顺序写入，每个 4 字节
+    uint8_t c1[] = {0xAA, 0xBB, 0xCC, 0xDD};
+    uint8_t c2[] = {0x11, 0x22, 0x33, 0x44};
+    uint8_t c3[] = {0xFF, 0xEE, 0xDD, 0xCC};
+    ASSERT_TRUE(ImageStorage::Instance().AppendChunk("chunk-seq-1", 0, c1, 4));
+    ASSERT_TRUE(ImageStorage::Instance().AppendChunk("chunk-seq-1", 4, c2, 4));
+    ASSERT_TRUE(ImageStorage::Instance().AppendChunk("chunk-seq-1", 8, c3, 4));
+
+    // 读取完整 blob 验证
+    std::vector<uint8_t> out;
+    ASSERT_TRUE(ImageStorage::Instance().ReadRange("chunk-seq-1", 0, 12, out));
+    ASSERT_EQ(out.size(), 12u);
+    uint8_t expected[] = {0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44, 0xFF, 0xEE, 0xDD, 0xCC};
+    EXPECT_EQ(std::memcmp(out.data(), expected, 12), 0);
+}
+
+TEST_F(ImageStorageTest, AppendChunk_OutOfOrderWrite)
+{
+    // 插入一条空 blob 的记录
+    ImageRecord rec;
+    rec.image_id = "chunk-ooo-1";
+    rec.from_uid = 10; rec.to_uid = 20;
+    rec.ext = "bin"; rec.size = 8; rec.md5 = "def";
+    rec.width = 1; rec.height = 1;
+    rec.created_at = std::time(nullptr);
+    rec.expires_at = rec.created_at + 3600;
+    ASSERT_TRUE(ImageStorage::Instance().Insert(rec));
+
+    // 乱序写入：先写 offset=4，再写 offset=0
+    uint8_t c2[] = {0x55, 0x66, 0x77, 0x88};
+    uint8_t c1[] = {0x11, 0x22, 0x33, 0x44};
+    ASSERT_TRUE(ImageStorage::Instance().AppendChunk("chunk-ooo-1", 4, c2, 4));
+    ASSERT_TRUE(ImageStorage::Instance().AppendChunk("chunk-ooo-1", 0, c1, 4));
+
+    // 读取完整 blob 验证：offset 0-3 应为 c1，offset 4-7 应为 c2
+    std::vector<uint8_t> out;
+    ASSERT_TRUE(ImageStorage::Instance().ReadRange("chunk-ooo-1", 0, 8, out));
+    ASSERT_EQ(out.size(), 8u);
+    uint8_t expected[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
+    EXPECT_EQ(std::memcmp(out.data(), expected, 8), 0);
 }

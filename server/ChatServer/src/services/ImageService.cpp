@@ -29,6 +29,50 @@ static int64_t NowMs()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+/// 发送 EditAck 响应（recall / edit 共用）
+void SendEditAck(CSession &session, int msg_type, int error, int64_t msg_timestamp,
+                 int64_t edit_ts = 0, const std::string &content = "",
+                 const std::string &message = "")
+{
+    qmsrchat::EditAck ack;
+    ack.set_error(error);
+    ack.set_msg_timestamp(msg_timestamp);
+    if (edit_ts > 0) ack.set_edit_ts(edit_ts);
+    if (!content.empty()) ack.set_new_content(content);
+    if (!message.empty()) ack.set_message(message);
+    std::string s;
+    ack.SerializeToString(&s);
+    session.Send(s, msg_type);
+}
+
+/// 向目标会话推送 RecallNotify，成功时清理通知队列
+void PushRecallNotify(int to_uid, int from_uid, int64_t msg_ts, int64_t recall_ts)
+{
+    auto target = SessionManager::Instance().GetSession(to_uid);
+    if (target)
+    {
+        spdlog::info("HandleChatRecall: pushing 1014 to uid={} session={}", to_uid, target->GetUuid());
+        qmsrchat::RecallNotify n;
+        n.set_msg_timestamp(msg_ts);
+        n.set_recall_uid(from_uid);
+        n.set_recalled_to(to_uid);
+        n.set_recall_ts(recall_ts);
+        std::string s;
+        n.SerializeToString(&s);
+        if (!MessageRouter::Instance().SendToSession(target, s, MSG_CHAT_RECALL_NOTIFY))
+            spdlog::error("HandleChatRecall: SendToSession 1014 FAILED for uid={}", to_uid);
+        else
+        {
+            spdlog::info("HandleChatRecall: SendToSession 1014 SUCCESS for uid={}", to_uid);
+            SQLiteMgr::Instance().Messages().ClearRecallNotifies(to_uid);
+        }
+    }
+    else
+    {
+        spdlog::info("HandleChatRecall: target uid={} offline, Notify queued (will deliver on login)", to_uid);
+    }
+}
+
 } // namespace
 
 // ─── HandleChatImage (MSG_CHAT_IMAGE 1009) ───
@@ -301,12 +345,7 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         {
             spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}",
                          req.msg_timestamp(), from);
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_RECALL_NOT_OWNER);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_RECALL);
+            SendEditAck(session, MSG_CHAT_RECALL, ERR_RECALL_NOT_OWNER, req.msg_timestamp());
             return true;
         }
 
@@ -314,12 +353,7 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         if (now_ms - req.msg_timestamp() > 2LL * 60 * 1000)
         {
             spdlog::warn("HandleChatRecall: timeout, age_ms={}", now_ms - req.msg_timestamp());
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_RECALL_TIMEOUT);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_RECALL);
+            SendEditAck(session, MSG_CHAT_RECALL, ERR_RECALL_TIMEOUT, req.msg_timestamp());
             return true;
         }
 
@@ -327,12 +361,7 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         if (orig->recalled)
         {
             spdlog::warn("HandleChatRecall: already recalled, ts={}", req.msg_timestamp());
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_MSG_ALREADY_RECALLED);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_RECALL);
+            SendEditAck(session, MSG_CHAT_RECALL, ERR_MSG_ALREADY_RECALLED, req.msg_timestamp());
             return true;
         }
 
@@ -347,12 +376,7 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         if (!SQLiteMgr::Instance().Messages().MarkMessageRecalled(req.msg_timestamp(), from, now_ms))
         {
             spdlog::error("HandleChatRecall: DB mark failed, ts={}", req.msg_timestamp());
-            qmsrchat::EditAck ack;
-            ack.set_error(1);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_RECALL);
+            SendEditAck(session, MSG_CHAT_RECALL, 1, req.msg_timestamp());
             return true;
         }
 
@@ -361,41 +385,10 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         spdlog::info("HandleChatRecall: Notify queued for uid={} ts={}", orig->to_uid, req.msg_timestamp());
 
         // 7. 尝试在线推送
-        auto target_session = SessionManager::Instance().GetSession(orig->to_uid);
-        if (target_session)
-        {
-            spdlog::info("HandleChatRecall: pushing 1014 to uid={} session={}", orig->to_uid, target_session->GetUuid());
-            qmsrchat::RecallNotify n;
-            n.set_msg_timestamp(req.msg_timestamp());
-            n.set_recall_uid(from);
-            n.set_recalled_to(orig->to_uid);
-            n.set_recall_ts(now_ms);
-            std::string s;
-            n.SerializeToString(&s);
-            if (!MessageRouter::Instance().SendToSession(target_session, s, MSG_CHAT_RECALL_NOTIFY))
-            {
-                spdlog::error("HandleChatRecall: SendToSession 1014 FAILED for uid={}", orig->to_uid);
-            }
-            else
-            {
-                spdlog::info("HandleChatRecall: SendToSession 1014 SUCCESS for uid={}", orig->to_uid);
-                SQLiteMgr::Instance().Messages().ClearRecallNotifies(orig->to_uid);
-            }
-        }
-        else
-        {
-            spdlog::info("HandleChatRecall: target uid={} offline, Notify queued (will deliver on login)", orig->to_uid);
-        }
+        PushRecallNotify(orig->to_uid, from, req.msg_timestamp(), now_ms);
 
         // 8. 回 RecallAck 给发起方
-        qmsrchat::EditAck ack;
-        ack.set_error(0);
-        ack.set_message("ok");
-        ack.set_msg_timestamp(req.msg_timestamp());
-        ack.set_edit_ts(now_ms);
-        std::string s;
-        ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_RECALL);
+        SendEditAck(session, MSG_CHAT_RECALL, 0, req.msg_timestamp(), now_ms, "", "ok");
     }
     catch (const std::exception &e)
     {
@@ -428,12 +421,7 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         // 1. 长度校验
         if (req.new_content().size() > 2000)
         {
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_EDIT_TOO_LONG);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_EDIT);
+            SendEditAck(session, MSG_CHAT_EDIT, ERR_EDIT_TOO_LONG, req.msg_timestamp());
             return true;
         }
 
@@ -442,24 +430,14 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         if (!orig.has_value())
         {
             spdlog::warn("HandleChatEdit: msg not found or not owner, ts={}", req.msg_timestamp());
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_EDIT_NOT_OWNER);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_EDIT);
+            SendEditAck(session, MSG_CHAT_EDIT, ERR_EDIT_NOT_OWNER, req.msg_timestamp());
             return true;
         }
 
         // 3. 2 分钟窗口校验
         if (now_ms - req.msg_timestamp() > 2LL * 60 * 1000)
         {
-            qmsrchat::EditAck ack;
-            ack.set_error(ERR_EDIT_TIMEOUT);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_EDIT);
+            SendEditAck(session, MSG_CHAT_EDIT, ERR_EDIT_TIMEOUT, req.msg_timestamp());
             return true;
         }
 
@@ -468,12 +446,7 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
                                                          req.new_content(), now_ms))
         {
             spdlog::error("HandleChatEdit: DB update failed, ts={}", req.msg_timestamp());
-            qmsrchat::EditAck ack;
-            ack.set_error(1);
-            ack.set_msg_timestamp(req.msg_timestamp());
-            std::string s;
-            ack.SerializeToString(&s);
-            session.Send(s, MSG_CHAT_EDIT);
+            SendEditAck(session, MSG_CHAT_EDIT, 1, req.msg_timestamp());
             return true;
         }
 
@@ -500,14 +473,7 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         }
 
         // 6. 回 EditAck 给发起方
-        qmsrchat::EditAck ack;
-        ack.set_error(0);
-        ack.set_msg_timestamp(req.msg_timestamp());
-        ack.set_edit_ts(now_ms);
-        ack.set_new_content(req.new_content());
-        std::string s;
-        ack.SerializeToString(&s);
-        session.Send(s, MSG_CHAT_EDIT);
+        SendEditAck(session, MSG_CHAT_EDIT, 0, req.msg_timestamp(), now_ms, req.new_content());
     }
     catch (const std::exception &e)
     {
