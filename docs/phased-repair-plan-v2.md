@@ -19,7 +19,7 @@
 | Phase 4 | 性能与文件传输体验 | ~25.5h | 提升吞吐量与用户可感知体验 | Phase 2 | ✅ `39b126d` |
 | **Phase 4.5** | **Quick Wins + 测试安全网** | **~6h** | **零依赖小改动集中处理 + 为 Phase 5 提供自动化测试保护** | **Phase 4** | **✅ `fb9bf3a`** |
 | **Phase 5** | **架构重构 + 基础过载防护** | **~67h** | **降低维护成本，为后续迭代打基础** | **Phase 4.5** | **✅ 5-I `babae2f` + 5-II `bd3de6c`** |
-| Phase 6 | 协议演进与工程化 | ~18h | 保障二进制兼容与 CI 质量 | Phase 5 | ⏳ |
+| Phase 6 | 协议演进与工程化 | ~18h | 保障二进制兼容与 CI 质量 | Phase 5 | ✅ `4db227b` |
 | Phase 7 | 质量收口与可观测性 | ~19h | 补齐日志、限流补充、隐私 | Phase 5 | ⏳ |
 | Track T | TLS 全链路加密 | ~24h | 传输层加密 | 独立规划 | ⏭️ 个人项目不启动 |
 
@@ -547,7 +547,7 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 | 6.1 | 可维护#26 | proto 无 schema 版本号 | 在 ChatTextMsg/ServerChatMsg/ImageMsg 添加 `int32 schema_version`，handler 入口校验 | 1h | ✅ |
 | 6.2 | 可维护#27 | proto 无 reserved 声明 | 当前无已删除字段，添加头部注释说明未来删除时必须 reserved | 0.5h | ✅ |
 | 6.3 | 可维护#28 | proto 缺 optional 标记 | 为所有字段添加 `[required]`/`[optional]` 文档注释 | 1.5h | ✅ |
-| 6.4 | 可维护#25 | 密码字段明文传输 | 在 proto 中对密码字段做应用层加密（AES-GCM），防止 proto 抓包暴露密码。**Track T 已废弃（个人项目），此项必须执行** | 1h | ⏳ |
+| 6.4 | 可维护#25 | 密码字段明文传输 | Auth JSON 消息添加 nonce+timestamp 防重放（复用 NonceCache） | 1h | ✅ `4db227b` |
 | 6.5 | 可维护#24 | SHA256() API 已弃用 | **已完成**：Phase 3 PBKDF2 迁移已使用 EVP_sha256() | 0h | ✅ |
 | 6.6 | 构建#1-4 | CMake 问题集 | 全局 → target 作用域；proto 移到根 `proto/` 目录；添加 BUILD_TESTS option | 2h | ✅ |
 | 6.7 | CI#2-3 | CI 缺客户端构建和 Windows | ci.yml 增加 Windows MSVC 构建 job | 3h | ✅ |
@@ -569,7 +569,7 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 - [ ] CI 在 Linux + Windows 上均绿色通过
 - [ ] Docker build 成功并可通过 docker run 启动服务端
 
-> **Phase 6 状态：6.1-6.3, 6.5-6.9 ✅ 代码完成，6.4 ⏳ 待执行**
+> **Phase 6 状态：✅ 代码完成（6.4 commit `4db227b`），待用户编译测试通过**
 
 ---
 
