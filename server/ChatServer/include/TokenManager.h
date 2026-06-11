@@ -40,6 +40,7 @@ public:
 
     void SetToken(int uid, const std::string &token);
     bool CheckToken(int uid, const std::string &token);
+    void RemoveToken(int uid);
     void LoadTokensFromDB();
 
 private:

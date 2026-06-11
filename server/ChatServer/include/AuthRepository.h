@@ -34,6 +34,8 @@ public:
 
     // === 用户查询 ===
     std::optional<User> GetUserByUsername(const std::string &username);
+    std::optional<User> GetUserByUid(int uid);
+    bool UpdateUserProfile(int uid, const std::string &username, const std::string &email);
 
     // === Token 持久化 ===
     bool SaveToken(int uid, const std::string &token);
