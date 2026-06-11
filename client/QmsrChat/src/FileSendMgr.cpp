@@ -61,6 +61,12 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
 
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
     _tasks.insert_or_assign(task_id, std::move(newTask));
+
+    auto &task = _tasks[task_id];
+    while (task.active && task.in_flight < task.window_size && task.sent_size < task.total_size)
+    {
+        SendNextChunk(task);
+    }
 }
 
 /**
@@ -73,7 +79,6 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
 {
     qDebug() << "[FileSendMgr] OnRecvReady called, task_id:" << task_id << "offset:" << offset;
     QMutexLocker locker(&_mutex);
-    // 查找任务；任务不存在或已标记为非活跃则忽略
     auto it = _tasks.find(task_id);
     if (it == _tasks.end() || !it->second.active)
     {
@@ -92,10 +97,12 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
         task.sent_size = offset;
     }
 
-    // 发送下一分片（同步读取 + TCP 发送）
-    SendNextChunk(task);
+    task.in_flight--;
+    while (task.active && task.in_flight < task.window_size && task.sent_size < task.total_size)
+    {
+        SendNextChunk(task);
+    }
 
-    // 若发送过程中任务被标记为非活跃（已完成或失败），从映射表移除
     if (!task.active)
     {
         _tasks.erase(it);
@@ -165,6 +172,7 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
     TcpMgr::Instance()->slotSendData(
         RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     task.sent_size += data.size();
+    task.in_flight++;
 
     // 发射进度信号，供 UI 层更新进度条
     int progress = static_cast<int>((task.sent_size * 100) / task.total_size);

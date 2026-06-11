@@ -19,13 +19,15 @@
  */
 struct FileSendTask
 {
-    int64_t task_id = 0;              ///< 任务ID
-    int to_uid = 0;                    ///< 接收方用户ID
-    QString filepath;                  ///< 本地文件路径
-    int64_t total_size = 0;            ///< 文件总大小（字节）
-    int64_t sent_size = 0;             ///< 已发送大小（字节）
-    bool active = false;               ///< 任务是否活跃
-    std::unique_ptr<QFile> file;       ///< 文件句柄（独占所有权）
+    int64_t task_id = 0;
+    int to_uid = 0;
+    QString filepath;
+    int64_t total_size = 0;
+    int64_t sent_size = 0;
+    bool active = false;
+    int in_flight = 0;
+    int window_size = 8;
+    std::unique_ptr<QFile> file;
 };
 
 /**
