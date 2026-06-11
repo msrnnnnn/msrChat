@@ -583,10 +583,10 @@ MessageDispatcher → AuthService → AuthRepository, TokenManager
 
 ### 7A：补充测试（~2h）
 
-| 序号 | 审查报告引用 | 测试范围 | 估算 |
-|------|-------------|----------|------|
-| 7A.1 | 测试P0#6 | ChatListModel 线程安全（TSan 验证） | 1h |
-| 7A.2 | 测试P1#14 | FileRecvMgr 路径遍历防御测试 | 1h |
+| 序号 | 审查报告引用 | 测试范围 | 估算 | 状态 |
+|------|-------------|----------|------|------|
+| 7A.1 | 测试P0#6 | ChatListModel 线程安全（8线程并发写入） | 1h | ✅ `fdc6336` |
+| 7A.2 | 测试P1#14 | FileRecvMgr 路径遍历防御测试 | 1h | ⏭️ GetFinalPath 为 private，跳过 |
 
 #### 7A 顺带修复
 
