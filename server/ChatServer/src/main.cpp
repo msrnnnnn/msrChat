@@ -23,6 +23,8 @@
 #include <random>
 #include <sstream>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -136,6 +138,13 @@ int main(int argc, char *argv[])
 
         auto config = LoadConfig();
 
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_st>();
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_st>(
+            "chatserver.log", 50 * 1024 * 1024, 5);
+        std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
+        auto logger = std::make_shared<spdlog::logger>("chatserver", sinks.begin(), sinks.end());
+        spdlog::set_default_logger(logger);
+
         if (!SQLiteMgr::Instance().Init(config.db_path, config.pool_size))
         {
             spdlog::error("Failed to initialize SQLite database at {}", config.db_path);
@@ -233,7 +242,62 @@ int main(int argc, char *argv[])
                 {
                     spdlog::info("[Main] Periodic cleanup: removed {} expired images", cleaned);
                 }
-                schedule_cleanup();
+        schedule_cleanup();
+
+        auto backup_timer = std::make_shared<boost::asio::steady_timer>(io_context);
+        std::function<void()> schedule_backup;
+        schedule_backup = [&io_context, backup_timer, &schedule_backup, &config]()
+        {
+            backup_timer->expires_after(std::chrono::hours(6));
+            backup_timer->async_wait([&io_context, backup_timer, &schedule_backup, &config](const boost::system::error_code &ec)
+            {
+                if (ec) return;
+                try
+                {
+                    auto now = std::time(nullptr);
+                    auto tm = *std::localtime(&now);
+                    char time_buf[32];
+                    std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H", &tm);
+                    std::string backup_name = "chatserver.db.bak." + std::string(time_buf);
+                    std::filesystem::copy_file(
+                        config.db_path, backup_name,
+                        std::filesystem::copy_options::overwrite_existing);
+                    spdlog::info("[Main] Database backup: {}", backup_name);
+
+                    for (auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
+                    {
+                        if (entry.path().filename().string().find("chatserver.db.bak.") == 0)
+                        {
+                            std::string name = entry.path().filename().string();
+                            std::string date_part = name.substr(19, 8);
+                            if (date_part.size() == 8)
+                            {
+                                int year = std::stoi(date_part.substr(0, 4));
+                                int month = std::stoi(date_part.substr(4, 2));
+                                int day = std::stoi(date_part.substr(6, 2));
+                                std::tm entry_tm = {};
+                                entry_tm.tm_year = year - 1900;
+                                entry_tm.tm_mon = month - 1;
+                                entry_tm.tm_mday = day;
+                                std::time_t entry_time = std::mktime(&entry_tm);
+                                double diff_days = std::difftime(now, entry_time) / 86400.0;
+                                if (diff_days > 7)
+                                {
+                                    std::filesystem::remove(entry.path());
+                                    spdlog::info("[Main] Removed old backup: {}", name);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    spdlog::error("[Main] Backup failed: {}", e.what());
+                }
+                schedule_backup();
+            });
+        };
+        schedule_backup();
             });
         };
         schedule_cleanup();
