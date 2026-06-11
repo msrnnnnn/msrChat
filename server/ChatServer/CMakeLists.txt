@@ -2,74 +2,14 @@ cmake_minimum_required(VERSION 3.15)
 project(ChatServer VERSION 1.0.0 LANGUAGES CXX)
 
 # =============================================================
-# 1. 基础设置 (Basic Settings)
+# 1. 基础设置
 # =============================================================
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # =============================================================
-# 2. 平台检测与编译器设置 (Platform Detection)
-# TODO: 将 add_compile_options/add_compile_definitions 改为 target_compile_options/definitions
-# =============================================================
-# =============================================================
-if(WIN32)
-    message(STATUS "Building ChatServer on Windows (MSVC/MinGW)")
-    add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
-    
-    if(MSVC)
-        add_compile_options(/W3 /utf-8)
-        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(/Od /Zi /MDd /fsanitize=address)
-        else()
-            add_compile_options(/O2 /Oi /GL)
-        endif()
-    else()
-        # MinGW
-        add_compile_options(-fno-omit-frame-pointer)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(-g -O0)
-        else()
-            add_compile_options(-O3)
-        endif()
-    endif()
-    
-elseif(UNIX AND NOT APPLE)
-    message(STATUS "Building ChatServer on Linux (GCC/Clang)")
-    add_compile_options(
-        -fno-omit-frame-pointer
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
-    
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(
-            -g3
-            -O0
-            -fsanitize=address
-            -fno-omit-frame-pointer
-        )
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-    else()
-        add_compile_options(-O3 -march=native)
-    endif()
-    
-    find_package(Threads REQUIRED)
-    
-elseif(APPLE)
-    message(STATUS "Building ChatServer on macOS")
-    add_compile_options(-fno-omit-frame-pointer -Wall)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(-g -O0)
-    else()
-        add_compile_options(-O3)
-    endif()
-endif()
-
-# =============================================================
-# 3. 依赖查找 (Dependencies)
+# 2. 依赖查找
 # =============================================================
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Threads REQUIRED)
@@ -80,13 +20,13 @@ find_package(Protobuf REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 # =============================================================
-# Protobuf 自动化生成
+# 3. Protobuf 编译（共享 proto/ 目录）
 # =============================================================
-set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../client/QmsrChat/proto/Message.proto")
+set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../proto/Message.proto")
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
 
 # =============================================================
-# 3. 源文件列表 (Source Files)
+# 4. 源文件列表
 # =============================================================
 set(SERVER_SOURCES
     src/main.cpp
@@ -114,9 +54,47 @@ set(SERVER_SOURCES
 )
 
 # =============================================================
-# 5. 创建可执行文件 (Create Executable)
+# 5. 创建可执行文件
 # =============================================================
 add_executable(ChatServer ${SERVER_SOURCES})
+
+# =============================================================
+# 6. Target 作用域编译选项（Phase 6: 替代全局 add_compile_options）
+# =============================================================
+target_compile_definitions(ChatServer PRIVATE _WIN32_WINNT=0x0601 WINVER=0x0601)
+
+if(WIN32 AND MSVC)
+    target_compile_options(ChatServer PRIVATE /W3 /utf-8)
+    target_compile_definitions(ChatServer PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(ChatServer PRIVATE /Od /Zi /MDd /fsanitize=address)
+    else()
+        target_compile_options(ChatServer PRIVATE /O2 /Oi /GL)
+    endif()
+elseif(WIN32)
+    # MinGW
+    target_compile_options(ChatServer PRIVATE -fno-omit-frame-pointer)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(ChatServer PRIVATE -g -O0)
+    else()
+        target_compile_options(ChatServer PRIVATE -O3)
+    endif()
+elseif(UNIX AND NOT APPLE)
+    target_compile_options(ChatServer PRIVATE -fno-omit-frame-pointer -Wall -Wextra -Wpedantic)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(ChatServer PRIVATE -g3 -O0 -fsanitize=address -fno-omit-frame-pointer)
+        target_link_options(ChatServer PRIVATE -fsanitize=address)
+    else()
+        target_compile_options(ChatServer PRIVATE -O3 -march=native)
+    endif()
+elseif(APPLE)
+    target_compile_options(ChatServer PRIVATE -fno-omit-frame-pointer -Wall)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(ChatServer PRIVATE -g -O0)
+    else()
+        target_compile_options(ChatServer PRIVATE -O3)
+    endif()
+endif()
 
 target_include_directories(ChatServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -124,9 +102,6 @@ target_include_directories(ChatServer PRIVATE
     ${Boost_INCLUDE_DIRS}
 )
 
-# =============================================================
-# 6. 链接库 (Link Libraries)
-# =============================================================
 target_link_libraries(ChatServer PRIVATE
     ${Boost_LIBRARIES}
     Threads::Threads
@@ -139,7 +114,7 @@ target_link_libraries(ChatServer PRIVATE
 )
 
 # =============================================================
-# 7. 安装目标 (Install Target - Optional)
+# 7. 安装目标
 # =============================================================
 install(TARGETS ChatServer
     RUNTIME DESTINATION bin
@@ -178,9 +153,21 @@ if(BUILD_TESTS)
         src/TokenManager.cpp
     )
 
+    # 测试 target 编译选项（继承主 target 的设置）
+    if(WIN32 AND MSVC)
+        target_compile_options(ChatServerTests PRIVATE /W3 /utf-8)
+        target_compile_definitions(ChatServerTests PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=0x0601 WINVER=0x0601)
+    elseif(UNIX AND NOT APPLE)
+        target_compile_options(ChatServerTests PRIVATE -fno-omit-frame-pointer -Wall -Wextra -Wpedantic)
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            target_compile_options(ChatServerTests PRIVATE -g3 -O0 -fsanitize=address)
+            target_link_options(ChatServerTests PRIVATE -fsanitize=address)
+        endif()
+    endif()
+
     target_include_directories(ChatServerTests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
         ${Boost_INCLUDE_DIRS}
     )
 

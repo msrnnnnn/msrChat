@@ -1,0 +1,10 @@
+build/
+*.db
+*.db-shm
+*.db-wal
+*.o
+*.obj
+.git/
+.github/
+docs/
+client/

@@ -124,8 +124,8 @@ private:
      */
     bool CreateTables();
 
-    std::shared_ptr<SQLiteConnectionPool> _pool; ///< SQLite 连接池（外部传入，不持有所有权）
-    std::mutex _mutex;                            ///< 保护写操作的互斥锁
+    std::shared_ptr<SQLiteConnectionPool> _pool;
+    std::mutex _mutex;
 };
 
 #endif
