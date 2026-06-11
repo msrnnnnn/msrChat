@@ -41,7 +41,7 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
     {
         spdlog::info("[SessionManager] User {} has existing session, closing old connection.", uid);
         // 发送踢出通知
-        nlohmann::json kick{{"error", ERR_KICKED}, {"message", "logged in from another device"}};
+        nlohmann::json kick{{"error", ERR_KICKED}, {"message", "已在其他设备登录"}};
         old_session->Send(kick.dump(), 0);
         old_session->Close();
     }

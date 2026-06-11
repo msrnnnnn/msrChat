@@ -730,7 +730,8 @@ void ChatController::slotOnChatLoginRsp(const ChatLoginRspStruct &rsp)
         qWarning() << "ChatController: chat login re-auth failed, error:" << rsp.error;
         _is_connected = false;
         emit sigConnectionStatusChanged();
-        emit sigError(rsp.message.isEmpty() ? QStringLiteral("聊天会话恢复失败") : rsp.message);
+        QString errStr = rsp.message.isEmpty() ? QStringLiteral("聊天会话恢复失败") : rsp.message;
+        emit sigError(errStr);
         return;
     }
     if (!_is_connected)

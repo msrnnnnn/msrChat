@@ -46,10 +46,11 @@ struct ChatTextReqStruct
  */
 struct LoginRspStruct
 {
-    int error;       ///< 错误码（0成功）
-    int uid;         ///< 用户ID
-    QString token;   ///< 登录令牌
-    QString user;    ///< 用户名
+    int error;        ///< 错误码（0成功）
+    int uid;          ///< 用户ID
+    QString token;    ///< 登录令牌
+    QString user;     ///< 用户名
+    QString message;  ///< 错误信息
 };
 
 /**
@@ -114,9 +115,10 @@ struct VerifyCodeReqStruct
  */
 struct VerifyCodeRspStruct
 {
-    int error;       ///< 错误码
-    QString email;   ///< 邮箱地址
-    int code = 0;    ///< 验证码
+    int error;        ///< 错误码
+    QString email;    ///< 邮箱地址
+    int code = 0;     ///< 验证码
+    QString message;  ///< 错误信息
 };
 
 /**
@@ -156,7 +158,8 @@ struct ResetPwdReqStruct
  */
 struct ResetPwdRspStruct
 {
-    int error;  ///< 错误码
+    int error;        ///< 错误码
+    QString message;  ///< 错误信息
 };
 
 Q_DECLARE_METATYPE(ChatTextMsgStruct)

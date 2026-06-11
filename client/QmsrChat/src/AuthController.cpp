@@ -45,12 +45,7 @@ void AuthController::login(const QString &username, const QString &password) {
 void AuthController::slotLoginRsp(const LoginRspStruct &rsp) {
     _is_logging_in = false; emit sigIsLoggingInChanged();
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
-        QString errStr;
-        switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::PasswdErr: errStr = tr("密码错误"); break;
-            case ERRORCODES::UserNotExist: errStr = tr("用户不存在"); break;
-            default: errStr = tr("登录失败"); break;
-        }
+        QString errStr = rsp.message.isEmpty() ? tr("登录失败") : rsp.message;
         emit loginResult(false, errStr); return;
     }
     _uid = rsp.uid; _token = rsp.token;
@@ -65,7 +60,8 @@ void AuthController::slotLoginRsp(const LoginRspStruct &rsp) {
 void AuthController::slotChatLoginRsp(const ChatLoginRspStruct &rsp) {
     if (rsp.error != 0) {
         _uid = 0; _token.clear(); UserMgr::Instance()->SetToken("");
-        emit tokenInvalid(rsp.message.isEmpty() ? tr("聊天登录失败") : rsp.message); return;
+        QString errStr = rsp.message.isEmpty() ? tr("聊天登录失败") : rsp.message;
+        emit tokenInvalid(errStr); return;
     }
     emit chatLoginSuccess();
 }
@@ -95,11 +91,7 @@ void AuthController::registerUser(const QString &username, const QString &email,
 
 void AuthController::slotVerifyCodeRsp(const VerifyCodeRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
-        QString errStr;
-        switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::EmailNotMatch: errStr = tr("邮箱格式不正确"); break;
-            default: errStr = tr("获取验证码失败 (%1)").arg(rsp.error); break;
-        }
+        QString errStr = rsp.message.isEmpty() ? tr("获取验证码失败") : rsp.message;
         emit verifyCodeResult(false, errStr); return;
     }
     emit verifyCodeResult(true, tr("验证码: %1").arg(rsp.code));
@@ -107,17 +99,7 @@ void AuthController::slotVerifyCodeRsp(const VerifyCodeRspStruct &rsp) {
 
 void AuthController::slotRegisterRsp(const RegisterRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
-        QString errStr;
-        if (!rsp.message.isEmpty()) {
-            errStr = rsp.message;
-        } else {
-            switch (static_cast<ERRORCODES>(rsp.error)) {
-                case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
-                case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
-                case ERRORCODES::UserExist:         errStr = tr("用户名已存在"); break;
-                default: errStr = tr("注册失败 (%1)").arg(rsp.error); break;
-            }
-        }
+        QString errStr = rsp.message.isEmpty() ? tr("注册失败") : rsp.message;
         emit registerResult(false, errStr); return;
     }
     emit registerResult(true, tr("注册成功！"));
@@ -136,15 +118,7 @@ void AuthController::resetPassword(const QString &username, const QString &email
 
 void AuthController::slotResetPwdRsp(const ResetPwdRspStruct &rsp) {
     if (rsp.error != static_cast<int>(ERRORCODES::SUCCESS)) {
-        QString errStr;
-        switch (static_cast<ERRORCODES>(rsp.error)) {
-            case ERRORCODES::VerifyCodeExpired: errStr = tr("验证码已过期，请重新获取"); break;
-            case ERRORCODES::VerifyCodeErr:     errStr = tr("验证码错误"); break;
-            case ERRORCODES::UserNotExist:      errStr = tr("用户不存在"); break;
-            case ERRORCODES::EmailNotMatch:     errStr = tr("邮箱与注册邮箱不匹配"); break;
-            case ERRORCODES::PasswdUpFailed:    errStr = tr("密码更新失败，请重试"); break;
-            default: errStr = tr("重置密码失败 (%1)").arg(rsp.error); break;
-        }
+        QString errStr = rsp.message.isEmpty() ? tr("重置密码失败") : rsp.message;
         emit resetPasswordResult(false, errStr); return;
     }
     emit resetPasswordResult(true, tr("密码已重置，请登录"));

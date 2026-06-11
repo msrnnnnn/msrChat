@@ -239,7 +239,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     {
         spdlog::warn("[CSession] Token invalid for uid {}", uid);
         response["error"] = 1;
-        response["message"] = "token invalid";
+        response["message"] = "令牌无效";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
         ContinueReading();
@@ -249,7 +249,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     if (_user_uid > 0)
     {
         response["error"] = 1;
-        response["message"] = "already login";
+        response["message"] = "已登录";
         response["uid"] = _user_uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
         ContinueReading();
@@ -263,7 +263,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         _user_uid = uid;
 
         response["error"] = 0;
-        response["message"] = "login success";
+        response["message"] = "登录成功";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
         server->SendOfflineMessages(uid, shared_from_this());
@@ -271,7 +271,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     else
     {
         response["error"] = 1;
-        response["message"] = "server shutting down";
+        response["message"] = "服务器关闭中";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
     }

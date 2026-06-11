@@ -36,6 +36,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         rsp.uid = jsonObj["uid"].toInt();
         rsp.token = jsonObj["token"].toString();
         rsp.user = jsonObj["user"].toString();
+        rsp.message = jsonObj["message"].toString();
 
         emit _tcpMgr.sigLoginRsp(rsp);
     }
@@ -45,6 +46,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
         rsp.error = jsonObj["error"].toInt();
         rsp.email = jsonObj["email"].toString();
         rsp.code = jsonObj["code"].toInt();
+        rsp.message = jsonObj["message"].toString();
 
         emit _tcpMgr.sigVerifyCodeRsp(rsp);
     }
@@ -61,6 +63,7 @@ void TcpProtocolParser::parseLoginPacket(RequestType req_type, const QByteArray 
     {
         ResetPwdRspStruct rsp;
         rsp.error = jsonObj["error"].toInt();
+        rsp.message = jsonObj["message"].toString();
 
         emit _tcpMgr.sigResetPwdRsp(rsp);
     }
