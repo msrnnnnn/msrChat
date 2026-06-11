@@ -6,7 +6,20 @@
  */
 
 #include "CSession.h"
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+#include <vector>
+
+struct ImageDownloadState
+{
+    std::vector<uint8_t> data;
+    int64_t offset = 0;
+    int64_t task_id = 0;
+    std::weak_ptr<CSession> session;
+};
 
 class ImageService
 {
@@ -15,4 +28,9 @@ public:
     static bool HandleImageDownloadReq(CSession &session, const std::string &body_data);
     static bool HandleChatRecall(CSession &session, const std::string &body_data);
     static bool HandleChatEdit(CSession &session, const std::string &body_data);
+    static void ContinueImageDownload(int64_t task_id);
+
+private:
+    static std::mutex _download_mutex;
+    static std::unordered_map<int64_t, std::shared_ptr<ImageDownloadState>> _pending_downloads;
 };

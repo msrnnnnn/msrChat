@@ -18,6 +18,9 @@
 #include "Message.pb.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
+
+std::mutex ImageService::_download_mutex;
+std::unordered_map<int64_t, std::shared_ptr<ImageDownloadState>> ImageService::_pending_downloads;
 #include <ctime>
 #include <functional>
 
@@ -332,51 +335,92 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         session.Send(req_ser, MSG_FILE_REQ);
     }
 
-    // 2. 分块发送 FileChunk
+    // 2. 存储下载状态，发送第一个 chunk（后续由 ContinueImageDownload 发送）
     {
+        auto state = std::make_shared<ImageDownloadState>();
+        state->data = std::move(image_data);
+        state->offset = 0;
+        state->task_id = task_id;
+        state->session = session.shared_from_this();
+
+        {
+            std::lock_guard<std::mutex> lock(_download_mutex);
+            _pending_downloads[task_id] = state;
+        }
+
         constexpr int64_t kChunkSize = 4 * 1024;
-        int64_t offset = 0;
-        int64_t remaining = static_cast<int64_t>(image_data.size());
-        while (remaining > 0)
-        {
-            int64_t this_chunk = std::min(kChunkSize, remaining);
-            qmsrchat::FileChunk chunk;
-            chunk.set_task_id(task_id);
-            chunk.set_offset(offset);
-            chunk.set_size(this_chunk);
-            chunk.set_data(image_data.data() + offset, this_chunk);
+        int64_t this_chunk = std::min(kChunkSize, static_cast<int64_t>(state->data.size()));
+        qmsrchat::FileChunk chunk;
+        chunk.set_task_id(task_id);
+        chunk.set_offset(0);
+        chunk.set_size(this_chunk);
+        chunk.set_data(state->data.data(), this_chunk);
 
-            std::string chunk_ser;
-            if (!chunk.SerializeToString(&chunk_ser))
-            {
-                spdlog::error("[ImageService] HandleImageDownloadReq: FileChunk serialize failed at offset={}", offset);
-                return true;
-            }
+        std::string chunk_ser;
+        if (chunk.SerializeToString(&chunk_ser))
+        {
             session.Send(chunk_ser, MSG_FILE_CHUNK);
-
-            offset += this_chunk;
-            remaining -= this_chunk;
         }
-        spdlog::info("[ImageService] HandleImageDownloadReq: pushed {} bytes in {} chunks",
-                     image_data.size(), (image_data.size() + kChunkSize - 1) / kChunkSize);
-    }
+        state->offset = this_chunk;
 
-    // 3. 发送 FileAck（完成通知）
-    qmsrchat::FileAck fileAck;
-    fileAck.set_task_id(task_id);
-    fileAck.set_error(0);
-    fileAck.set_message("complete");
-    {
-        std::string ack_ser;
-        if (!fileAck.SerializeToString(&ack_ser))
-        {
-            spdlog::error("[ImageService] HandleImageDownloadReq: FileAck serialize failed");
-            return true;
-        }
-        session.Send(ack_ser, MSG_FILE_ACK);
+        spdlog::info("[ImageService] HandleImageDownloadReq: {} streaming {} bytes, first chunk sent",
+                     req.image_id(), state->data.size());
     }
 
     return true;
+}
+
+void ImageService::ContinueImageDownload(int64_t task_id)
+{
+    std::shared_ptr<ImageDownloadState> state;
+    {
+        std::lock_guard<std::mutex> lock(_download_mutex);
+        auto it = _pending_downloads.find(task_id);
+        if (it == _pending_downloads.end()) return;
+        state = it->second;
+    }
+
+    auto session = state->session.lock();
+    if (!session || session->IsClosed())
+    {
+        std::lock_guard<std::mutex> lock(_download_mutex);
+        _pending_downloads.erase(task_id);
+        return;
+    }
+
+    constexpr int64_t kChunkSize = 4 * 1024;
+    int64_t remaining = static_cast<int64_t>(state->data.size()) - state->offset;
+
+    if (remaining <= 0)
+    {
+        qmsrchat::FileAck fileAck;
+        fileAck.set_task_id(task_id);
+        fileAck.set_error(0);
+        fileAck.set_message("complete");
+        std::string ack_ser;
+        if (fileAck.SerializeToString(&ack_ser))
+        {
+            session->Send(ack_ser, MSG_FILE_ACK);
+        }
+        std::lock_guard<std::mutex> lock(_download_mutex);
+        _pending_downloads.erase(task_id);
+        spdlog::info("[ImageService] ContinueImageDownload: task {} complete", task_id);
+        return;
+    }
+
+    int64_t this_chunk = std::min(kChunkSize, remaining);
+    qmsrchat::FileChunk chunk;
+    chunk.set_task_id(task_id);
+    chunk.set_offset(state->offset);
+    chunk.set_size(this_chunk);
+    chunk.set_data(state->data.data() + state->offset, this_chunk);
+
+    std::string chunk_ser;
+    if (chunk.SerializeToString(&chunk_ser))
+    {
+        session->Send(chunk_ser, MSG_FILE_CHUNK);
+    }
+    state->offset += this_chunk;
 }
 
 // ─── HandleChatRecall (MSG_CHAT_RECALL 1011) ───

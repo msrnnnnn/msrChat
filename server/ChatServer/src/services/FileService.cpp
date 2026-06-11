@@ -6,6 +6,7 @@
 
 #include "services/FileService.h"
 #include "services/DispatchGuard.h"
+#include "services/ImageService.h"
 #include "CServer.h"
 #include "CSession.h"
 #include "FileTransfer.h"
@@ -388,7 +389,6 @@ bool FileService::HandleFileAck(CSession &session, const std::string &body_data)
 
         if (fileAck.received() >= task->GetTotalSize())
         {
-            // Image mode: mark image_storage complete
             if (task->IsImage())
             {
                 ImageStorage::Instance().MarkCompleted(task->GetImageId());
@@ -397,6 +397,10 @@ bool FileService::HandleFileAck(CSession &session, const std::string &body_data)
             FileTransfer::Instance().RemoveTask(task_id);
             spdlog::info("[FileService] File transfer completed (received={}, total={}), task_id={} removed",
                          fileAck.received(), task->GetTotalSize(), task_id);
+        }
+        else if (task->IsImage() && task->IsTargetOffline())
+        {
+            ImageService::ContinueImageDownload(task_id);
         }
     }
     catch (const std::exception &e)

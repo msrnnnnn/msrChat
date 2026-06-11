@@ -242,6 +242,9 @@ int main(int argc, char *argv[])
                 {
                     spdlog::info("[Main] Periodic cleanup: removed {} expired images", cleaned);
                 }
+                schedule_cleanup();
+            });
+        };
         schedule_cleanup();
 
         auto backup_timer = std::make_shared<boost::asio::steady_timer>(io_context);
@@ -298,9 +301,6 @@ int main(int argc, char *argv[])
             });
         };
         schedule_backup();
-            });
-        };
-        schedule_cleanup();
 
         server = std::make_shared<CServer>(io_context, config.port);
         server->Start();
