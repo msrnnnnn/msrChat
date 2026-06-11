@@ -72,6 +72,30 @@ bool MessageRepository::SaveMessage(const ChatMessage &msg)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
+bool MessageRepository::MessageExists(const std::string &client_msg_id)
+{
+    if (client_msg_id.empty())
+    {
+        return false;
+    }
+
+    SQLiteConnectionGuard guard(_pool);
+    if (!guard)
+    {
+        return false;
+    }
+    sqlite3 *db = guard.Get();
+
+    ScopedStmt stmt(db, "SELECT 1 FROM messages WHERE client_msg_id = ? LIMIT 1");
+    if (!stmt)
+    {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, client_msg_id.c_str(), -1, SQLITE_TRANSIENT);
+    return sqlite3_step(stmt) == SQLITE_ROW;
+}
+
 std::vector<ChatMessage> MessageRepository::GetMessages(int uid1, int uid2, int64_t before_time, int limit)
 {
     SQLiteConnectionGuard guard(_pool);

@@ -259,18 +259,23 @@ private:
      */
     void AsyncWriteMsg();
 
+    void ScheduleWriteDeadlineCheck();
+
     std::string _uuid;
     int _user_uid = 0;
 
     boost::asio::ip::tcp::socket _socket;
     boost::asio::steady_timer _read_deadline;
+    boost::asio::steady_timer _write_deadline;
     boost::asio::strand<boost::asio::io_context::executor_type> _strand;
     std::chrono::steady_clock::time_point _expiry_time;
+    std::chrono::steady_clock::time_point _last_write_time;
 
     std::shared_ptr<RecvNode> _recv_head_node;
     std::shared_ptr<RecvNode> _recv_msg_node;
 
     std::deque<std::shared_ptr<SendNode>> _send_queue;
+    static constexpr size_t MAX_SEND_QUEUE = 1000;
     std::atomic<bool> _is_writing{false};
     std::atomic<bool> _closed{false};
     std::atomic<bool> _read_active{false};

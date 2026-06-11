@@ -64,6 +64,27 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
             }
         }
 
+        // Phase 6: schema_version 校验（0 = 未设置，视为 v1 兼容）
+        if (chatMsg.schema_version() != 0 && chatMsg.schema_version() != SCHEMA_VERSION) {
+            spdlog::warn("[ChatService] Unsupported schema_version={} from uid={}",
+                         chatMsg.schema_version(), session.GetUserUid());
+            return true;
+        }
+
+        if (!client_msg_id.empty() && SQLiteMgr::Instance().Messages().MessageExists(client_msg_id))
+        {
+            qmsrchat::ChatAck ack;
+            ack.set_error(0);
+            ack.set_message("duplicate");
+            ack.set_client_msg_id(client_msg_id);
+            std::string serialized;
+            if (ack.SerializeToString(&serialized))
+            {
+                session.Send(serialized, MSG_CHAT_ACK);
+            }
+            return true;
+        }
+
         if (session.GetUserUid() <= 0)
         {
             qmsrchat::ChatAck ack;

@@ -29,8 +29,10 @@
 CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server)
     : _socket(ioc),
       _read_deadline(ioc),
+      _write_deadline(ioc),
       _strand(boost::asio::make_strand(ioc)),
       _expiry_time(std::chrono::steady_clock::now() + kReadTimeout),
+      _last_write_time(std::chrono::steady_clock::now()),
       _server(server)
 {
     _uuid = std::to_string(CServer::s_session_id_allocator.fetch_add(1));
@@ -70,6 +72,7 @@ void CSession::Close()
     }
     boost::system::error_code ec;
     _read_deadline.cancel(ec);
+    _write_deadline.cancel(ec);
     _socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
     _socket.close(ec);
 }
@@ -87,6 +90,7 @@ void CSession::Start()
         {
             ResetReadDeadline();
             ScheduleReadDeadlineCheck();
+            ScheduleWriteDeadlineCheck();
             AsyncReadHead();
         });
 }
@@ -132,6 +136,42 @@ void CSession::ScheduleReadDeadlineCheck()
                 }
 
                 ScheduleReadDeadlineCheck();
+            }));
+}
+
+/**
+ * @brief 7C.2: 调度写超时检查
+ * @details 如果队列有数据且长时间未成功写入，关闭连接
+ */
+void CSession::ScheduleWriteDeadlineCheck()
+{
+    _write_deadline.expires_after(kReadCheckInterval);
+    auto self = shared_from_this();
+    _write_deadline.async_wait(
+        boost::asio::bind_executor(
+            _strand,
+            [this, self](const boost::system::error_code &ec)
+            {
+                if (ec)
+                {
+                    return;
+                }
+                if (_closed.load())
+                {
+                    return;
+                }
+                // 仅在队列非空时检查写超时
+                if (!_send_queue.empty())
+                {
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now - _last_write_time >= kWriteTimeout)
+                    {
+                        spdlog::warn("[CSession] write timeout, closing session {}", _uuid);
+                        TerminateSession("Write timeout");
+                        return;
+                    }
+                }
+                ScheduleWriteDeadlineCheck();
             }));
 }
 
@@ -297,6 +337,11 @@ void CSession::Send(const std::string &msg, short msg_id)
             {
                 return;
             }
+            if (_send_queue.size() >= MAX_SEND_QUEUE)
+            {
+                spdlog::warn("[CSession] Send queue full ({}), dropping msg_id={}", _send_queue.size(), send_node->_msg_id);
+                return;
+            }
             _send_queue.push_back(send_node);
             if (_is_writing)
             {
@@ -333,6 +378,7 @@ void CSession::AsyncWriteMsg()
                     return;
                 }
 
+                _last_write_time = std::chrono::steady_clock::now();
                 _send_queue.pop_front();
                 if (_send_queue.empty())
                 {

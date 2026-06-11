@@ -9,6 +9,9 @@
 #include <chrono>
 #include <cstdint>
 
+// Phase 6: Proto schema 版本号（客户端未设置时默认 0，服务端接受 0 或 CURRENT）
+constexpr int SCHEMA_VERSION = 1;
+
 constexpr uint16_t MSG_HELLO = 1000;             ///< 心跳消息 (0x3E8)
 constexpr uint16_t ID_GET_VERIFY_CODE = 1001;    ///< 获取验证码
 constexpr uint16_t ID_REGISTER_USER = 1002;      ///< 用户注册
@@ -41,6 +44,7 @@ constexpr int MAX_LENGTH = 1024 * 1024; ///< 单包最大长度
 // 读取超时
 constexpr auto kReadTimeout = std::chrono::seconds(30);
 constexpr auto kReadCheckInterval = std::chrono::seconds(5);
+constexpr auto kWriteTimeout = std::chrono::seconds(30);
 
 // 文件传输
 constexpr size_t CHUNK_SIZE = 4 * 1024;

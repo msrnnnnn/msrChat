@@ -19,6 +19,7 @@ public:
 
     // === 消息 CRUD ===
     bool SaveMessage(const ChatMessage &msg);
+    bool MessageExists(const std::string &client_msg_id);
     std::vector<ChatMessage> GetMessages(int uid1, int uid2,
                                           int64_t before_time, int limit = 50);
     std::optional<ChatMessage> GetMessageByTimestamp(int64_t timestamp, int from_uid);
