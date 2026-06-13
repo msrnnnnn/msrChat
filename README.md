@@ -8,6 +8,8 @@
   <img src="https://img.shields.io/badge/tests-Google%20Test-brightgreen.svg" alt="Tests">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/UI-QML%20Pure-purple.svg" alt="UI">
+  <img src="https://img.shields.io/badge/proto-Protobuf%203-orange.svg" alt="Proto">
+  <a href="https://github.com/shuair/msrChat/actions"><img src="https://github.com/shuair/msrChat/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 ---
@@ -22,13 +24,15 @@
 
 | 功能 | 说明 |
 |------|------|
-| **用户认证** | 邮箱验证码注册、SHA256 密码登录、重置密码 |
-| **消息收发** | 文本消息、图片消息、离线消息分页拉取、消息已读回执（ACK）、消息撤回与编辑 |
-| **文件传输** | 分块传输（64KB/chunk）、断点续传、MD5 校验 |
-| **图片传输** | 上传/下载管线、缩略图+原图存储、全屏 ImageViewer 查看器 |
-| **心跳检测** | 客户端定时 ping/pong（15s 间隔，45s 超时），超时自动重连 |
-| **自动重连** | 连接断开后指数退避重连（3s → 6s → 12s → ... → 60s） |
-| **本地消息存储** | 客户端 SQLite 持久化聊天记录 |
+| **用户认证** | 邮箱验证码注册、SHA256+盐值密码登录、Token 鉴权、重置密码 |
+| **消息收发** | 文本/图片消息、消息已读回执（ACK）、撤回（2 分钟窗口）、编辑、离线消息分页拉取 |
+| **文件传输** | 分块传输（64KB/chunk）、断点续传（offset 恢复）、MD5 完整性校验 |
+| **图片传输** | 上传/下载管线、缩略图+原图存储、全屏 ImageViewer（缩放/旋转/翻页）、7 天过期清理 |
+| **心跳保活** | 客户端定时 ping/pong（15s 间隔，45s 超时），超时自动重连 |
+| **自动重连** | TCP 断线指数退避重连（3s → 6s → 12s → ... → 60s） |
+| **本地持久化** | 客户端 SQLite 聊天记录存取，服务端用户/消息/Token 持久化 |
+| **过载防护** | 服务端限流（RateLimiter）、连接数上限、防重放（NonceCache） |
+| **Schema 治理** | 统一错误码枚举、消息类型枚举、Schema 版本号向前/向后兼容 |
 
 ---
 
@@ -58,6 +62,8 @@ graph TD
         UI["QML 界面层<br>AuthWindow / MainWindow / ChatView"]
         AC["AuthController"]
         CC["ChatController"]
+        FA["FileCoordinator"]
+        MA["MessageActions"]
         TM["TcpMgr"]
         TPP["TcpProtocolParser"]
         TW["TcpWorker"]
@@ -70,6 +76,8 @@ graph TD
 
         UI --> AC
         UI --> CC
+        CC --> FA
+        CC --> MA
         CC --> TM
         TM --> TPP
         TPP --> TW
@@ -90,12 +98,16 @@ graph TD
         LS["LogicSystem"]
         MD["MessageDispatcher"]
         MR["MessageRouter"]
+        SVCS["Service 层<br>Auth/Chat/File/Image"]
+        REPOS["Repository 层<br>Auth/Message"]
         DB["SQLiteMgr"]
-        UD["UserData"]
-        OS["OfflineStorage"]
         TMGR["TokenManager"]
+        OS["OfflineStorage"]
         FT["FileTransfer"]
         IS["ImageStorage"]
+        RL["RateLimiter"]
+        NC["NonceCache"]
+        SCH["SchemaManager"]
 
         CS --> ASIOP
         CS --> S
@@ -105,14 +117,18 @@ graph TD
         LS --> MR
         MR --> SM
         MR --> OS
-        MD --> DB
-        MD --> UD
-        MD --> TMGR
-        MD --> FT
-        MD --> IS
+        MD --> SVCS
+        SVCS --> REPOS
+        MD --> RL
+        MD --> NC
+        MD --> SCH
+        REPOS --> DB
+        REPOS --> TMGR
+        REPOS --> FT
+        REPOS --> IS
     end
 
-    Client -->|"TCP 长连接 (6B头 + Protobuf体)"| Server
+    Client -->|"TCP 长连接 (6B头 + Protobuf体 + Nonce)"| Server
 
     DB -.->|"访问"| SQLiteS[("SQLite · 服务端")]
     DW -.->|"访问"| SQLiteC[("SQLite · 客户端")]
@@ -122,33 +138,38 @@ graph TD
 ### 客户端架构（三层分离）
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   QML 界面层                      │
-│  AuthWindow / LoginView / RegisterView / ResetView │
-│  MainWindow / ChatView / MessageBubble / ImageBubble │
-│  ImageViewer / MessageActionMenu / EditMessageDialog │
-└──────────────────────┬──────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                      QML 界面层                           │
+│  AuthWindow / LoginView / RegisterView / ResetView        │
+│  MainWindow / ChatView / ChatWindow                       │
+│  ChatHeader / MessageInputArea / FileProgressPanel         │
+│  MessageDelegate / MessageBubble / ImageBubble             │
+│  ImagePreviewBar / EmptyState / ErrorBanner                │
+│  ImageViewer / MessageActionMenu / EditMessageDialog       │
+│  CardTopAccent / AuthBanner / AuthCardHeader / PasswordField│
+└──────────────────────┬───────────────────────────────────┘
                        │ 信号/槽
-┌──────────────────────▼──────────────────────────┐
-│                C++ 业务控制器层                    │
-│  AuthController    ChatController    UserMgr     │
-│  ChatListModel     DbService         ImageDownloadMgr │
-│  FileSendMgr       FileRecvMgr                  │
-└──────────────────────┬──────────────────────────┘
+┌──────────────────────▼───────────────────────────────────┐
+│                   C++ 业务控制器层                          │
+│  AuthController    ChatController    UserMgr               │
+│  FileCoordinator   MessageActions    ChatListModel         │
+│  DbService         ImageDownloadMgr FileSendMgr FileRecvMgr│
+└──────────────────────┬───────────────────────────────────┘
                        │ 信号/槽
-┌──────────────────────▼──────────────────────────┐
-│                C++ 网络通信层                      │
-│  TcpMgr → TcpProtocolParser → TcpWorker (独立线程) │
-│                RingBuffer                        │
-└─────────────────────────────────────────────────┘
+┌──────────────────────▼───────────────────────────────────┐
+│                   C++ 网络通信层                            │
+│  TcpMgr → TcpProtocolParser → TcpWorker (独立线程)         │
+│                   RingBuffer                               │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### 服务端架构（四层流水线）
+### 服务端架构（四层 + Service/Repository）
 
 ```
 ┌──────────────────────────────────────────────────┐
 │              网络 I/O 层 (AsioIOServicePool)       │
 │   CServer (acceptor) → CSession (会话管理)        │
+│   RateLimiter (限流) + NonceCache (防重放)         │
 └──────────────────────┬───────────────────────────┘
                        │ PostTask
 ┌──────────────────────▼───────────────────────────┐
@@ -157,14 +178,22 @@ graph TD
                        │ Dispatch
 ┌──────────────────────▼───────────────────────────┐
 │           消息分发层 (MessageDispatcher)            │
-│   根据 msg_id 分发到对应的 MessageHandler          │
+│   根据 msg_id 分发 + 鉴权检查 + SchemaManager      │
 └──────────────────────┬───────────────────────────┘
                        │
 ┌──────────────────────▼───────────────────────────┐
-│             处理器层 (各个 Handler)                 │
-│  UserData   TokenManager   FileTransfer           │
-│  MessageRouter   OfflineStorage   ImageStorage    │
-│  SessionManager   SQLiteMgr                       │
+│              Service 层 (业务逻辑)                  │
+│  AuthService    ChatService                       │
+│  FileService    ImageService                      │
+└──────────────────────┬───────────────────────────┘
+                       │
+┌──────────────────────▼───────────────────────────┐
+│           Repository 层 (数据访问)                  │
+│  AuthRepository      MessageRepository             │
+│  TokenManager        SQLiteMgr                     │
+│  MessageRouter       OfflineStorage                │
+│  FileTransfer        ImageStorage                  │
+│  SessionManager                                    │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -176,14 +205,16 @@ graph TD
 msrChat/
 ├── client/                              # Qt 客户端
 │   └── QmsrChat/
-│       ├── include/                     # C++ 头文件 (18 个)
-│       │   ├── AuthController.h         #   认证控制器
+│       ├── include/                     # C++ 头文件 (19 个)
+│       │   ├── AuthController.h         #   认证控制器 (QML 可调用)
 │       │   ├── ChatController.h         #   聊天业务控制器
-│       │   ├── ChatListModel.h          #   QAbstractListModel（QML 数据模型）
+│       │   ├── FileCoordinator.h        #   文件传输协调器
+│       │   ├── MessageActions.h         #   消息操作封装 (撤回/编辑/删除)
+│       │   ├── ChatListModel.h          #   QAbstractListModel (QML 数据模型)
 │       │   ├── TcpMgr.h                 #   TCP 连接管理器
-│       │   ├── TcpWorker.h              #   TCP 通信核心（独立线程）
+│       │   ├── TcpWorker.h              #   TCP 通信核心 (独立线程)
 │       │   ├── TcpProtocolParser.h      #   协议解析分发
-│       │   ├── RingBuffer.h             #   环形缓冲区
+│       │   ├── RingBuffer.h             #   环形缓冲区 (64KB~4MB)
 │       │   ├── FileSendMgr.h            #   文件发送管理
 │       │   ├── FileRecvMgr.h            #   文件接收管理
 │       │   ├── ImageDownloadMgr.h       #   图片下载管线
@@ -195,65 +226,87 @@ msrChat/
 │       │   ├── Utils.h                  #   工具函数
 │       │   ├── singleton.h              #   CRTP 单例模板
 │       │   └── DPIHelper.h              #   DPI 辅助
-│       ├── src/                         # C++ 源文件 (14 个)
-│       ├── proto/                       # Protobuf 协议定义
-│       │   └── Message.proto            #   统一协议文件
+│       ├── src/                         # C++ 源文件 (16 个)
 │       ├── tests/                       # 单元测试 (3 个)
-│       ├── qml/                         # QML 界面文件 (12 个)
-│       │   ├── AuthWindow.qml           #   认证窗口（无边框）
+│       ├── qml/                        # QML 界面文件 (21 个)
+│       │   ├── AuthWindow.qml           #   认证窗口 (无边框, 376×540px)
 │       │   ├── LoginView.qml            #   登录视图
-│       │   ├── RegisterView.qml         #   注册视图（邮箱验证码）
+│       │   ├── RegisterView.qml         #   注册视图 (邮箱验证码)
 │       │   ├── ResetView.qml            #   重置密码视图
-│       │   ├── MainWindow.qml           #   主窗口（StackView 页面切换）
-│       │   ├── ChatView.qml             #   核心聊天视图 (~1100 行)
+│       │   ├── MainWindow.qml           #   主窗口 (StackView 页面切换)
+│       │   ├── ChatView.qml             #   核心聊天视图 (组合层, <250行)
 │       │   ├── ChatWindow.qml           #   聊天窗口容器
+│       │   ├── ChatHeader.qml           #   聊天顶部栏
+│       │   ├── MessageInputArea.qml      #   消息输入区域 (工具栏+TextArea)
+│       │   ├── MessageDelegate.qml      #   消息项委托 (ListView delegate)
 │       │   ├── MessageBubble.qml        #   文字消息气泡
 │       │   ├── ImageBubble.qml          #   图片消息气泡
 │       │   ├── ImageViewer.qml          #   全屏图片查看器
 │       │   ├── MessageActionMenu.qml    #   消息右键操作菜单
-│       │   └── EditMessageDialog.qml    #   消息编辑对话框
-│       ├── resources/                   # 平台资源（图标等）
+│       │   ├── EditMessageDialog.qml    #   消息编辑对话框
+│       │   ├── FileProgressPanel.qml    #   文件传输进度面板 (右上角浮层)
+│       │   ├── ImagePreviewBar.qml      #   图片预览条
+│       │   ├── EmptyState.qml           #   空状态引导层
+│       │   ├── CardTopAccent.qml        #   卡片顶部装饰条
+│       │   ├── AuthBanner.qml           #   认证页面 Banner
+│       │   ├── AuthCardHeader.qml       #   认证卡片标题
+│       │   └── PasswordField.qml        #   密码输入框组件
+│       ├── resources/                   # 平台资源 (图标等)
 │       ├── image/                       # 图标文件
 │       ├── style/                       # QSS 样式表
+│       │   └── stylesheet.qss           #   Indigo 主题全局样式
 │       ├── config.ini.example           # 客户端配置模板
 │       ├── build.sh                     # Linux 一键构建脚本
 │       └── CMakeLists.txt               # 客户端 CMake 构建
 ├── server/                              # 服务端
 │   └── ChatServer/
-│       ├── include/                     # C++ 头文件 (21 个)
+│       ├── include/                     # C++ 头文件 (24 个)
 │       │   ├── CServer.h                #   TCP 服务器入口
-│       │   ├── CSession.h               #   单会话管理
-│       │   ├── AsioIOServicePool.h       #   I/O 上下文池
+│       │   ├── CSession.h               #   单会话管理 (strand 串行化)
+│       │   ├── AsioIOServicePool.h      #   I/O 上下文池 (Boss-Worker)
 │       │   ├── LogicSystem.h            #   业务逻辑调度
-│       │   ├── MessageDispatcher.h      #   消息分发
-│       │   ├── MessageRouter.h          #   消息路由（在线/离线）
-│       │   ├── SessionManager.h         #   在线会话管理
-│       │   ├── SQLiteMgr.h              #   SQLite 连接池
-│       │   ├── UserData.h               #   用户 CRUD
+│       │   ├── MessageDispatcher.h      #   消息分发 + 鉴权
+│       │   ├── MessageRouter.h          #   消息路由 (在线/离线)
+│       │   ├── SessionManager.h         #   在线会话管理 (ShardedMap)
+│       │   ├── SQLiteMgr.h              #   SQLite 连接池 (8 连接)
+│       │   ├── AuthRepository.h         #   认证数据访问层
+│       │   ├── MessageRepository.h      #   消息数据访问层
 │       │   ├── TokenManager.h           #   Token 管理
 │       │   ├── OfflineStorage.h         #   离线消息存储
 │       │   ├── FileTransfer.h           #   文件传输核心
 │       │   ├── ImageStorage.h           #   图片存储管理
+│       │   ├── RateLimiter.h            #   消息频率限流器
+│       │   ├── NonceCache.h             #   防重放 Nonce 缓存
+│       │   ├── SchemaManager.h          #   Protobuf Schema 版本兼容
 │       │   ├── ThreadPool.h             #   通用线程池
-│       │   ├── ShardedMap.h             #   分片哈希表
-│       │   ├── ObjectPool.h             #   对象池
+│       │   ├── ShardedMap.h             #   分片哈希表 (32 分片)
+│       │   ├── ObjectPool.h             #   对象池 (SendNode/RecvNode)
 │       │   ├── const.h                  #   消息 ID 常量
+│       │   ├── CSingleton.h             #   线程安全单例基类
 │       │   └── ...                      #   其他辅助头文件
-│       ├── src/                         # C++ 源文件 (13 个)
+│       ├── src/                         # C++ 源文件 (21 个)
+│       │   ├── services/                #   Service 层实现
+│       │   │   ├── AuthService.cpp
+│       │   │   ├── ChatService.cpp
+│       │   │   ├── FileService.cpp
+│       │   │   └── ImageService.cpp
+│       │   └── ...                      #   其他源文件
 │       ├── tests/                       # 单元测试 (4 个)
 │       ├── config.ini.example           # 服务端配置模板
 │       ├── build.sh                     # Linux 一键构建脚本
 │       └── CMakeLists.txt               # 服务端 CMake 构建
+├── proto/                               # Protobuf 协议定义 (双端共享)
+│   └── Message.proto                    #   统一协议文件 (含 ErrorCode/MsgType 枚举)
 ├── docs/                                # 项目文档
-│   ├── architecture-design.md           #   架构设计文档
-│   ├── ui-modern-preview.html           #   现代化 UI 预览
-│   ├── ui-refactor-phase1-chat-styling.md     #   UI 重构 Phase 1
-│   └── ui-refactor-phase2-full-qml.md         #   UI 重构 Phase 2
+│   ├── architecture-design.md           #   系统架构设计文档
+│   └── ...                              #   其他技术文档
+├── .github/workflows/                   # CI/CD
+│   └── ci.yml                           #   GitHub Actions (Linux + Windows)
 ├── scripts/                             # 辅助脚本
 │   └── asan_benchmark.py                #   AddressSanitizer 基准测试
 ├── .clang-format                        # Google 风格代码格式化
 ├── .gitignore                           # Git 忽略规则
-├── AGENTS.md                            # AI Agent 操作指引（GitNexus）
+├── AGENTS.md                            # AI Agent 操作指引 (GitNexus)
 ├── CLAUDE.md                            # AI 开发规范
 └── README.md
 ```
@@ -264,18 +317,19 @@ msrChat/
 
 | 类别 | 技术 | 说明 |
 |------|------|------|
-| **语言** | C++17 | Lambda、智能指针、atomic、string_view |
-| **网络** | Boost.Asio | 异步 I/O、strand、steady_timer |
-| **序列化** | Protobuf | 消息序列化与反序列化 |
-| **数据库** | SQLite3 | 嵌入式，事务支持，连接池 |
-| **客户端 UI** | Qt 6 Quick/QML | 纯 QML 页面，无 Widget |
+| **语言** | C++17 | Lambda、智能指针、atomic、string_view、optional |
+| **网络** | Boost.Asio | 异步 I/O、strand、steady_timer、post |
+| **序列化** | Protobuf 3 | 消息序列化与反序列化、enum 定义、Schema 版本管理 |
+| **数据库** | SQLite3 | 嵌入式，WAL 事务，8 连接池（服务端） |
+| **客户端 UI** | Qt 6 Quick/QML | 纯 QML 页面（21 个组件），StackView + fade 过渡 |
 | **客户端网络** | Qt Network (QTcpSocket) | 独立线程 + moveToThread |
-| **日志** | spdlog | 服务端/客户端统一日志 |
-| **加密** | OpenSSL | SHA256 密码哈希 |
+| **日志** | spdlog | 服务端/客户端统一异步日志 |
+| **加密** | OpenSSL | SHA256 密码哈希 + 随机盐值、HMAC 签名 |
 | **JSON** | nlohmann_json | 配置解析 |
 | **测试** | Google Test | 单元测试框架 |
-| **构建** | CMake | 跨平台构建，支持 MSVC/GCC/Clang |
-| **分析** | GitNexus | 代码智能，符号索引 |
+| **构建** | CMake 3.16+ | 跨平台构建，支持 MSVC/GCC/Clang |
+| **CI/CD** | GitHub Actions | Linux + Windows 双平台自动构建测试 |
+| **分析** | GitNexus | 代码智能，符号索引（2224 symbols, 56 execution flows） |
 
 ---
 
@@ -379,12 +433,12 @@ pacman -S mingw-w64-x86_64-qt6-base mingw-w64-x86_64-qt6-declarative
 
 Protobuf 代码由 CMake 在构建时**自动生成**（通过 `protobuf_generate_cpp`），无需手动操作。
 
-协议定义位于 `client/QmsrChat/proto/Message.proto`，**客户端与服务端共用同一份定义**。CMake 构建时会自动调用 `protoc` 生成 `.pb.h` 和 `.pb.cc` 文件。
+协议定义位于 `proto/Message.proto`（项目根目录），**客户端与服务端共用同一份定义**。CMake 构建时会自动调用 `protoc` 生成 `.pb.h` 和 `.pb.cc` 文件。
 
 如需手动重新生成：
 
 ```bash
-protoc --cpp_out=. client/QmsrChat/proto/Message.proto
+protoc --cpp_out=. proto/Message.proto
 ```
 
 ### 4. 配置
@@ -406,14 +460,11 @@ cp client/QmsrChat/config.ini.example client/QmsrChat/config.ini
 ```ini
 [ChatServer]
 Port = 8080               # 监听端口
-ThreadPoolSize = 0        # 线程池大小 (0=自动, 即 CPU 核心数)
-MaxConnections = 1000     # 最大并发连接
-DebugMode = 1             # 调试模式
-
-[Log]
-Level = INFO              # 日志级别: DEBUG / INFO / WARNING / ERROR
-File = ./logs/chatserver.log
-Console = 1               # 是否输出到控制台
+DbPath = chatserver.db    # 数据库文件路径
+PoolSize = 8              # SQLite 连接池大小
+MaxConnections = 10000    # 最大并发连接
+RateLimitPerSec = 10      # 每秒消息限制数
+RateLimitBurst = 20       # 突发消息限制数
 ```
 
 **客户端默认配置 (`client/QmsrChat/config.ini`)**：
@@ -578,11 +629,11 @@ QmsrChat.exe   # Windows
 ```
 用户 A (客户端)                  服务端                    用户 B (客户端)
     |                              |                          |
-    |--- (6) MSG_CHAT_TEXT ------->|                          |
-    |                              |--- (6) MSG_CHAT_TEXT --->|
+    |--- MSG_ID_CHAT_TEXT -------->|                          |
+    |                              |--- MSG_ID_CHAT_TEXT ----->|
     |                              |                          |
-    |<-- (7) MSG_CHAT_ACK --------|                          |
-    |                              |<-- (7) MSG_CHAT_ACK ----|
+    |<-- MSG_ID_CHAT_ACK ---------|                          |
+    |                              |<-- MSG_ID_CHAT_ACK ------|
     |                              |                          |
 ```
 
@@ -656,6 +707,8 @@ ctest --output-on-failure
 | `test_ShardedMap.cpp` | 多分片哈希表并发读写正确性 |
 | `test_ThreadPool.cpp` | 线程池任务提交与执行 |
 | `test_ImageStorage.cpp` | 图片存储/缩放/格式转换 |
+| `test_AuthFlow.cpp` | 认证流程端到端测试（注册→登录→Token） |
+| `test_MessageOps.cpp` | 消息操作测试（发送/撤回/编辑/离线） |
 | `stress_image_upload.cpp` | 图片上传压力测试 |
 
 **客户端测试：**
@@ -699,49 +752,90 @@ ctest --output-on-failure
 ```
 
 - **MsgID**: 2 字节无符号整数，标识消息类型（大端序）
-- **BodyLen**: 4 字节无符号整数，标识 Protobuf 数据体长度（大端序）
-- **Body**: Protobuf 序列化后的消息体
+- **BodyLen**: 4 字节无符号整数，标识 Protobuf 数据体长度（大端序，单包最大 1MB）
+- **Body**: Protobuf 序列化后的消息体，含 NonceHeader 防重放字段
 
-### 消息类型
+### 消息类型 (MsgType 枚举)
 
-| MsgID | 常量名 | 说明 | 方向 |
+协议定义位于 `proto/Message.proto`，客户端与服务端共用同一份定义。使用 Protobuf `enum MsgType` 统一编号。
+
+| MsgID | 枚举名 | 说明 | 方向 |
 |-------|--------|------|------|
-| 1000 | `MSG_HELLO` | 心跳 ping/pong | 双向 |
-| 1001 | `ID_GET_VARIFY_CODE` | 获取邮箱验证码 | 客户端→服务端 |
-| 1002 | `ID_REGISTER_USER` | 用户注册 | 客户端→服务端 |
-| 1003 | `ID_RESET_PWD` | 重置密码 | 客户端→服务端 |
-| 1004 | `ID_LOGIN_USER` | 用户登录 | 客户端→服务端 |
-| 1005 | `MSG_CHAT_LOGIN` | 聊天会话认证 | 客户端→服务端 |
-| 1006 | `MSG_CHAT_TEXT` | 文本消息 | 双向 |
-| 1007 | `MSG_CHAT_ACK` | 消息确认 | 双向 |
-| 1008 | `MSG_OFFLINE_ACK` | 离线消息分页确认 | 客户端→服务端 |
-| 1009 | `MSG_CHAT_IMAGE` | 图片消息 | 客户端→服务端 |
-| 1010 | `MSG_IMAGE_DOWNLOAD_REQ` | 图片下载请求 | 客户端→服务端 |
-| 1011 | `MSG_IMAGE_DOWNLOAD_RSP` | 图片下载响应 | 服务端→客户端 |
-| 1012 | `MSG_CHAT_RECALL` | 撤回消息 | 双向 |
-| 1013 | `MSG_CHAT_EDIT` | 编辑消息 | 双向 |
-| 1014 | `MSG_FRIEND_REQ` | 好友请求 | 客户端→服务端 |
-| 1015 | `MSG_FRIEND_RSP` | 好友响应 | 服务端→客户端 |
-| 2001 | `MSG_FILE_REQ` | 文件传输请求 | 客户端→服务端 |
-| 2002 | `MSG_FILE_RSP` | 文件传输响应（支持断点续传） | 服务端→客户端 |
-| 2003 | `MSG_FILE_CHUNK` | 文件数据分片 | 双向 |
-| 2004 | `MSG_FILE_ACK` | 数据块接收确认 | 双向 |
+| 1000 | `MSG_ID_HELLO` | 心跳 ping/pong | 双向 |
+| 1001 | `MSG_ID_GET_VERIFY_CODE` | 获取邮箱验证码 | C→S |
+| 1002 | `MSG_ID_REGISTER_USER` | 用户注册 | C→S |
+| 1003 | `MSG_ID_RESET_PWD` | 重置密码 | C→S |
+| 1004 | `MSG_ID_LOGIN_USER` | 用户登录 | C→S |
+| 1005 | `MSG_ID_CHAT_LOGIN` | 聊天会话认证（Token） | C→S |
+| 1006 | `MSG_ID_CHAT_TEXT` | 文本消息（含 Nonce） | 双向 |
+| 1007 | `MSG_ID_CHAT_ACK` | 消息确认 | 双向 |
+| 1008 | `MSG_ID_OFFLINE_ACK` | 离线消息分页确认 | C→S |
+| 1009 | `MSG_ID_CHAT_IMAGE` | 图片消息（含缩略图元数据） | 双向 |
+| 1010 | `MSG_ID_IMAGE_DOWNLOAD_RSP` | 图片下载响应（分片） | S→C |
+| 1011 | `MSG_ID_CHAT_RECALL` | 撤回消息请求 | C→S |
+| 1012 | `MSG_ID_CHAT_EDIT` | 编辑消息请求 | C→S |
+| 1013 | `MSG_ID_IMAGE_DOWNLOAD_REQ` | 图片下载请求 | C→S |
+| 1014 | `MSG_ID_CHAT_RECALL_NOTIFY` | 撤回通知广播 | S→C |
+| 1015 | `MSG_ID_CHAT_EDIT_NOTIFY` | 编辑通知广播 | S→C |
+| 2001 | `MSG_ID_FILE_REQ` | 文件传输请求（含 MD5/offset） | C→S |
+| 2002 | `MSG_ID_FILE_RSP` | 文件传输响应（断点续传） | S→C |
+| 2003 | `MSG_ID_FILE_CHUNK` | 文件数据分片（64KB） | 双向 |
+| 2004 | `MSG_ID_FILE_ACK` | 数据块接收确认 | 双向 |
+
+### 统一错误码 (ErrorCode 枚举)
+
+所有协议响应统一使用 `ErrorCode` 枚举（定义于 `proto/Message.proto`）：
+
+| 错误码 | 枚举名 | 说明 |
+|--------|--------|------|
+| 0 | `ERR_SUCCESS` | 成功 |
+| 1001 | `ERR_PARSE_ERROR` | 消息解析失败 |
+| 1002 | `ERR_INVALID_PARAM` | 参数校验失败 |
+| 1003 | `ERR_VERIFY_EXPIRED` | 验证码过期 |
+| 1004 | `ERR_VERIFY_WRONG` | 验证码错误 |
+| 1005 | `ERR_USER_EXIST` | 用户已存在 |
+| 1006 | `ERR_PASSWD_ERR` | 密码错误 |
+| 1007 | `ERR_USER_NOT_EXIST` | 用户不存在 |
+| 1008 | `ERR_EMAIL_NOT_MATCH` | 邮箱不匹配 |
+| 1013 | `ERR_KICKED` | 被另一设备踢出 |
+| 1014 | `ERR_BUSY` | 服务器繁忙/限流 |
+| 1015 | `ERR_RATE_LIMITED` | 消息频率超限 |
+| 4001 | `ERR_RECALL_TIMEOUT` | 超过 2 分钟无法撤回 |
+| 4002 | `ERR_RECALL_NOT_OWNER` | 非本人消息无法撤回 |
+| 4003 | `ERR_EDIT_TIMEOUT` | 超过 2 分钟无法编辑 |
+| 4004 | `ERR_EDIT_NOT_OWNER` | 非本人消息无法编辑 |
+| 4005 | `ERR_EDIT_TOO_LONG` | 编辑内容超长（>2000字符） |
+| 4006 | `ERR_MSG_ALREADY_RECALLED` | 消息已撤回 |
+| 4040 | `ERR_IMAGE_EXPIRED` | 图片已过期（7天） |
+
+### Schema 版本兼容
+
+每条消息携带 `schema_version` 字段（Proto 字段号 7/11），`SchemaManager` 负责向前/向后兼容校验。当前 Schema 版本 = 1。
+
+### 防重放机制
+
+关键写操作（注册、重置密码、聊天消息、撤回、编辑）的请求消息均携带 `NonceHeader`：
+- `nonce`: 客户端生成的 UUID v4
+- `timestamp`: 毫秒级时间戳
+- `signature`: HMAC-SHA256 签名（防篡改）
+
+服务端 `NonceCache` 缓存已处理的 nonce，拒绝重复请求。
 
 ### 文件传输流程
 
 ```
 发送端                          接收端                          协议 (<MsgID>)
   |                               |                             |
-  |--- MSG_FILE_REQ ------------->|  (task_id, filename, size)  2001
-  |<-- MSG_FILE_RSP --------------|  (task_id, offset=0 Ready)  2002
+  |--- MSG_ID_FILE_REQ ---------->|  (task_id, filename, size)  2001
+  |<-- MSG_ID_FILE_RSP -----------|  (task_id, offset=0 Ready)  2002
   |                               |                             |
-  |-- MSG_FILE_CHUNK (0, 64KB) -->|                              2003
-  |<-- MSG_FILE_ACK --------------|  (task_id, received=64KB)   2004
+  |-- MSG_ID_FILE_CHUNK (0,64KB)->|                              2003
+  |<-- MSG_ID_FILE_ACK -----------|  (task_id, received=64KB)   2004
   |                               |                             |
-  |-- MSG_FILE_CHUNK (64KB, ...)->|                              2003
+  |-- MSG_ID_FILE_CHUNK (64KB,...)>|                              2003
   ... 循环直到发完 ...            |                             |
   |                               |                             |
-  |<-- MSG_FILE_ACK (complete) ---|                              2004
+  |<-- MSG_ID_FILE_ACK (complete)-|                              2004
 ```
 
 ---
@@ -755,36 +849,48 @@ ctest --output-on-failure
 | QML 文件 | 功能 |
 |----------|------|
 | `AuthWindow.qml` | 无边框认证窗口（376×540px），StackView 管理 Login/Register/Reset 三页切换 |
-| `LoginView.qml` | 登录视图 — UID/密码输入，渐变紫色主题，跳转注册/重置链接 |
+| `LoginView.qml` | 登录视图 — UID/密码输入，渐变紫色主题 |
 | `RegisterView.qml` | 注册视图 — 邮箱+验证码两步注册，倒计时按钮 |
 | `ResetView.qml` | 重置密码视图 — 邮箱验证后设置新密码 |
-| `MainWindow.qml` | 主窗口 — StackView 页面切换 + fade 动画过渡，管理聊天视图生命周期 |
-| `ChatView.qml` | 核心聊天视图（~1100 行）— ListView 消息流 + 输入区 + 文件进度面板 |
+| `MainWindow.qml` | 主窗口 — StackView 页面切换 + fade 动画过渡 |
+| `ChatView.qml` | 核心聊天视图（组合层，<250 行） |
 | `ChatWindow.qml` | 聊天窗口容器 |
+| `ChatHeader.qml` | 聊天顶部栏 — 对方信息 + 状态指示 |
+| `MessageInputArea.qml` | 消息输入区域 — TextArea + 工具栏（文件/图片/表情） |
+| `MessageDelegate.qml` | 消息项委托 — 根据类型选择 MessageBubble 或 ImageBubble |
 | `MessageBubble.qml` | 文字消息气泡 — 己方蓝底/对方白底，支持撤回/编辑/已读状态 |
 | `ImageBubble.qml` | 图片消息气泡 — 缩略图 + caption + 加载/失败占位 |
 | `ImageViewer.qml` | 全屏图片查看器 — 缩放/旋转/翻页/另存为 |
 | `MessageActionMenu.qml` | 右键操作菜单 — 回复/复制/撤回/编辑/另存为/删除 |
 | `EditMessageDialog.qml` | 消息编辑对话框（modal） |
+| `FileProgressPanel.qml` | 文件传输进度面板（右上角浮层，实时进度+速度） |
+| `ImagePreviewBar.qml` | 图片预览条（发送前预览） |
+| `EmptyState.qml` | 空状态引导层 — "开始聊天" 引导 |
+| `CardTopAccent.qml` | 卡片顶部渐变装饰条 |
+| `AuthBanner.qml` | 认证页面 Banner — 渐变背景+Logo |
+| `AuthCardHeader.qml` | 认证卡片标题 — 标题+副标题 |
+| `PasswordField.qml` | 密码输入框组件 — 显隐切换+强度指示 |
 
 #### C++ 业务层
 
 | 组件 | 文件 | 说明 |
 |------|------|------|
 | **AuthController** | `AuthController.h/.cpp` | 认证业务控制器 — 登录/注册/重置密码，QML 可调用接口 |
-| **ChatController** | `ChatController.h/.cpp` | 聊天业务控制器 — 发送/接收/撤回/编辑/历史消息路由 |
+| **ChatController** | `ChatController.h/.cpp` | 聊天业务控制器 — 消息收发/撤回/编辑/历史路由 |
+| **FileCoordinator** | `FileCoordinator.h/.cpp` | 文件传输协调器 — 统一管理 FileSendMgr 和 FileRecvMgr |
+| **MessageActions** | `MessageActions.h/.cpp` | 消息操作封装 — 撤回/编辑/删除操作的状态和参数校验 |
 | **TcpMgr** | `TcpMgr.h/.cpp` | TCP 连接管理器（单例），对外暴露连接管理接口 |
 | **TcpWorker** | `TcpWorker.h/.cpp` | TCP 通信核心，独立线程运行（moveToThread），含 RingBuffer 和心跳 |
 | **TcpProtocolParser** | `TcpProtocolParser.h/.cpp` | 协议解析分发，分离登录/聊天双路径消息处理 |
 | **RingBuffer** | `RingBuffer.h` | 环形缓冲区，自动扩容（64KB ~ 4MB） |
-| **FileSendMgr** | `FileSendMgr.h/.cpp` | 文件发送管理，分块发送（64KB/chunk） |
-| **FileRecvMgr** | `FileRecvMgr.h/.cpp` | 文件接收管理，临时文件 + rename 机制 |
-| **ImageDownloadMgr** | `ImageDownloadMgr.h/.cpp` | 图片下载管线管理 + LRU 缓存 + 重试 |
+| **FileSendMgr** | `FileSendMgr.h/.cpp` | 文件发送管理，分块发送（64KB/chunk）+ 断点续传 |
+| **FileRecvMgr** | `FileRecvMgr.h/.cpp` | 文件接收管理，临时文件 + rename 机制 + MD5 校验 |
+| **ImageDownloadMgr** | `ImageDownloadMgr.h/.cpp` | 图片下载管线管理 + LRU 缓存 + 重试（最多 3 次） |
 | **DbService** | `DbService.h/.cpp` | 数据库服务接口，信号驱动 DbWorker |
 | **DbWorker** | `DbWorker.h/.cpp` | SQLite 数据库操作工作线程 |
 | **ChatListModel** | `ChatListModel.h/.cpp` | QAbstractListModel 子类，供 QML ListView 使用 |
 | **UserMgr** | `UserMgr.h/.cpp` | 用户数据管理（单例） |
-| **Utils** | `Utils.h/.cpp` | 工具函数（字符串处理等） |
+| **Utils** | `Utils.h/.cpp` | 工具函数（字符串处理、密码哈希等） |
 
 ### 服务端核心组件
 
@@ -797,12 +903,20 @@ ctest --output-on-failure
 | **MessageDispatcher** | `MessageDispatcher.h/.cpp` | 消息处理器注册表，根据 msg_id 分发，支持鉴权检查 |
 | **MessageRouter** | `MessageRouter.h/.cpp` | 消息路由，在线转发 / 离线存储 |
 | **SessionManager** | `SessionManager.h/.cpp` | 用户会话管理器，ShardedMap 多分片并发读写 |
-| **SQLiteMgr** | `SQLiteMgr.h/.cpp` | SQLite 连接池（RAII），支持优雅关闭 |
-| **UserData** | `UserData.h/.cpp` | 用户数据操作（注册、登录、密码重置） |
+| **SQLiteMgr** | `SQLiteMgr.h/.cpp` | SQLite 连接池（8 连接），RAII 管理，支持优雅关闭 |
+| **AuthService** | `services/AuthService.cpp` | 认证业务服务 — 登录/注册/重置密码/Token 签发 |
+| **ChatService** | `services/ChatService.cpp` | 聊天业务服务 — 消息收发/撤回/编辑/离线消息 |
+| **FileService** | `services/FileService.cpp` | 文件业务服务 — 文件传输请求/响应/分片路由 |
+| **ImageService** | `services/ImageService.cpp` | 图片业务服务 — 图片上传/下载请求路由 |
+| **AuthRepository** | `AuthRepository.h/.cpp` | 认证数据访问 — 用户 CRUD、密码验证 |
+| **MessageRepository** | `MessageRepository.h/.cpp` | 消息数据访问 — 消息存储/查询/标记状态 |
 | **TokenManager** | `TokenManager.h/.cpp` | Token 生成与验证/持久化 |
 | **OfflineStorage** | `OfflineStorage.h/.cpp` | 离线消息存储与批量发送（shared_mutex） |
 | **FileTransfer** | `FileTransfer.h/.cpp` | 文件传输核心，分块传输和断点续传 |
 | **ImageStorage** | `ImageStorage.h/.cpp` | 图片存储管理，缩略图生成，7 天过期清理 |
+| **RateLimiter** | `RateLimiter.h/.cpp` | 消息频率限流器 — 按 UID 分桶计数 |
+| **NonceCache** | `NonceCache.h` | 防重放缓存 — LRU 淘汰已处理 nonce |
+| **SchemaManager** | `SchemaManager.h/.cpp` | Protobuf Schema 版本兼容管理 |
 | **ThreadPool** | `ThreadPool.h/.cpp` | 通用任务线程池，固定线程数 |
 | **ShardedMap** | `ShardedMap.h` | 多分片哈希表模板（32 分片），高并发读写 |
 | **ObjectPool** | `ObjectPool.h` | 对象池模板，SendNode/RecvNode 复用，减少内存分配 |
@@ -839,25 +953,37 @@ CSession::AsyncReadHead()
     → ThreadPool::enqueue()
     → LogicSystem::ProcessTask()
     → MessageDispatcher::Dispatch()
-    → 注册的 MessageHandler (handler)
+        → RateLimiter 检查 → NonceCache 校验 → SchemaManager 兼容检查
+        → Service 层 (Auth/Chat/File/Image)
+            → Repository 层 (Auth/Message) → SQLiteMgr
 ```
 
-### MessageDispatcher（消息分发）
+### MessageDispatcher（消息分发 + 安全防护）
 
 ```cpp
 class MessageDispatcher {
-    // handler 注册表，每个 msg_id 注册一个 handler + 鉴权标记
+    // handler 注册表，每个 msg_id 注册一个 Service + 鉴权标记
     std::unordered_map<uint16_t, HandlerInfo> _handlers;
 
     bool Dispatch(CSession &session, uint16_t msg_id, const std::string &body_data) {
+        // 1. 限流检查 (RateLimiter)
+        if (_rate_limiter.IsLimited(session.GetUserUid(), msg_id)) return false;
+
+        // 2. 防重放检查 (NonceCache，仅写操作)
+        if (_nonce_cache.HasNonce(extract_nonce(body_data))) return false;
+
+        // 3. Schema 兼容检查 (SchemaManager)
+        if (!_schema_manager.IsCompatible(extract_schema_version(body_data))) return false;
+
         auto it = _handlers.find(msg_id);
         if (it == _handlers.end()) return false;
 
+        // 4. 鉴权检查
         const auto &info = it->second;
-        // 鉴权检查：需要登录态的消息，未登录直接拒绝
         if (info.requires_auth && session.GetUserUid() == 0) return false;
 
-        return info.handler(session, body_data);
+        // 5. 分发到 Service 层
+        return info.service(session, body_data);
     }
 };
 ```
@@ -875,6 +1001,56 @@ class RingBuffer {
     std::atomic<size_t> _write_pos;
 };
 ```
+
+---
+
+## CI/CD
+
+项目通过 GitHub Actions 自动化构建与测试。
+
+### Workflow (`.github/workflows/ci.yml`)
+
+| Job | 平台 | 构建内容 | 触发条件 |
+|-----|------|---------|---------|
+| `server-linux` | Ubuntu | ChatServer + 测试（含 gtest） | push/PR to main, new |
+| `server-windows` | Windows | ChatServer（MSVC + vcpkg） | push/PR to main, new |
+| `client-ringbuffer-test` | Ubuntu | RingBuffer 单元测试（最小依赖） | push/PR to main, new |
+
+**CI 环境依赖自动安装：** Boost.Asio、SQLite3、Protobuf、spdlog、nlohmann_json、OpenSSL。
+
+### 本地 CI 模拟
+
+```bash
+# 模拟 server-linux job
+cd server/ChatServer
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
+cmake --build build --target ChatServerTests -j$(nproc)
+cd build && ctest --output-on-failure
+
+# 模拟 client-ringbuffer-test job
+g++ -std=c++17 \
+  -I client/QmsrChat/include \
+  client/QmsrChat/tests/test_RingBuffer.cpp \
+  -lgtest -lgtest_main -lpthread \
+  -o test_ringbuffer
+./test_ringbuffer
+```
+
+---
+
+## 系统安全
+
+| 措施 | 实现 |
+|------|------|
+| 密码存储 | SHA-256 + 随机盐值（`Utils::hashPassword`） |
+| 会话鉴权 | 登录后生成 Token，后续操作需 Token 校验 |
+| Token 持久化 | 内存缓存 + 数据库持久化，服务端重启不丢失 |
+| 防篡改 | HMAC-SHA256 签名（NonceHeader.signature） |
+| 防重放 | NonceCache LRU 缓存已处理 nonce，拒绝重复请求 |
+| 速率限制 | RateLimiter 按 UID + msg_id 分桶限流 |
+| 消息验证 | 撤回/编辑需验证所有权 + 2 分钟时间窗口 |
+| Schema 兼容 | SchemaManager 检查消息版本，向前/向后兼容 |
+| 连接安全 | 读超时（30s）+ CAS 防并发 + strand 串行化 |
 
 ---
 
@@ -1032,11 +1208,11 @@ git diff --name-only | grep -E '\.(cpp|h)$' | xargs clang-format -i
 
 - **Qt 元对象**：如果修改了含 `Q_OBJECT` 的头文件，确保 CMakeLists.txt 中已添加对应文件路径，CMake 的 `AUTOMOC` 会自动处理
 
-- **Protobuf 修改**：如果修改了 `Message.proto`，重新生成后需同时更新客户端和服务端的 Protobuf 代码：
+- **Protobuf 修改**：如果修改了 `proto/Message.proto`，重新生成后需同时更新客户端和服务端的 Protobuf 代码：
 
 ```bash
-protoc --cpp_out=. client/QmsrChat/proto/Message.proto
-# 将生成的 .pb.h 和 .pb.cc 复制到客户端和服务端各自的 proto 目录
+protoc --cpp_out=. proto/Message.proto
+# 将生成的 .pb.h 和 .pb.cc 复制到客户端和服务端各自的构建目录
 ```
 
 - **QML 修改**：修改 QML 文件后（`client/QmsrChat/*.qml`），无需重新编译即可通过 Qt Quick 的热加载预览变化（Qt Creator 中按 `Ctrl+R` 刷新）
