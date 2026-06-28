@@ -12,8 +12,9 @@
 class DispatchGuard
 {
 public:
-    explicit DispatchGuard(CSession &session)
-        : _session(&session), _released(false) {}
+    explicit DispatchGuard(CSession &session) : _session(&session), _released(false)
+    {
+    }
 
     ~DispatchGuard()
     {
@@ -24,7 +25,10 @@ public:
     }
 
     /// 解除绑定（异步 handler 在 Enqueue 后调用）
-    void Release() { _released = true; }
+    void Release()
+    {
+        _released = true;
+    }
 
     DispatchGuard(const DispatchGuard &) = delete;
     DispatchGuard &operator=(const DispatchGuard &) = delete;

@@ -10,8 +10,7 @@
 /**
  * @brief 构造函数，初始化工作线程池
  */
-LogicSystem::LogicSystem()
-    : _thread_pool(DEFAULT_THREAD_NUM)
+LogicSystem::LogicSystem() : _thread_pool(DEFAULT_THREAD_NUM)
 {
     spdlog::info("[LogicSystem] Initialized with {} worker threads", DEFAULT_THREAD_NUM);
 }
@@ -54,8 +53,8 @@ void LogicSystem::PostTask(MessageTask task)
     auto shared_task = std::make_shared<MessageTask>(std::move(task));
     if (!_thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); }))
     {
-        spdlog::warn("[LogicSystem] Queue full, rejecting msg_id={} for session={}", 
-                     shared_task->msg_id, session->GetUuid());
+        spdlog::warn("[LogicSystem] Queue full, rejecting msg_id={} for session={}", shared_task->msg_id,
+                     session->GetUuid());
         session->ContinueReading();
     }
 }
@@ -107,4 +106,3 @@ void LogicSystem::Shutdown()
     _thread_pool.Shutdown();
     spdlog::info("[LogicSystem] Shutdown complete");
 }
-

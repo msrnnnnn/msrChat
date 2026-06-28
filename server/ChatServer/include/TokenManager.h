@@ -53,7 +53,7 @@ private:
     TokenManager &operator=(TokenManager &&) = delete;
 
     ShardedMap<int, TokenEntry> _uid_tokens{16};
-    static constexpr int64_t TOKEN_TTL_SEC = 7 * 24 * 3600;  ///< Token 有效期 7 天
+    static constexpr int64_t TOKEN_TTL_SEC = 7 * 24 * 3600; ///< Token 有效期 7 天
 };
 
 #endif

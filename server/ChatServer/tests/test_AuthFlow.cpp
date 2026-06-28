@@ -19,8 +19,7 @@ class AuthFlowTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        _db_path = "test_auth_flow_" + std::to_string(std::time(nullptr)) + "_" +
-                   std::to_string(std::rand()) + ".db";
+        _db_path = "test_auth_flow_" + std::to_string(std::time(nullptr)) + "_" + std::to_string(std::rand()) + ".db";
         ASSERT_TRUE(SQLiteMgr::Instance().Init(_db_path, 2));
     }
 
@@ -127,8 +126,7 @@ TEST_F(AuthFlowTest, VerifyCode_FullFlow)
     EXPECT_EQ(SQLiteMgr::Instance().Auth().CheckVerifyCode("eve@test.com", "000000"), ERR_VERIFY_WRONG);
 
     // 5. 重置密码（使用正确验证码）
-    int reset_result = SQLiteMgr::Instance().Auth().ResetPassword(
-        "eve", "eve@test.com", code_str, "new_password_hash");
+    int reset_result = SQLiteMgr::Instance().Auth().ResetPassword("eve", "eve@test.com", code_str, "new_password_hash");
     EXPECT_EQ(reset_result, ERR_SUCCESS);
 
     // 6. 用新密码登录成功

@@ -8,8 +8,8 @@ TEST(ImageDownloadMgrTest, ExpiredImageEmitsFailed)
 {
     auto &mgr = ImageDownloadMgr::Instance();
     QString id = "test-expired-" + QString::number(QDateTime::currentMSecsSinceEpoch());
-    mgr.Request(id);
     QSignalSpy spy(&mgr, &ImageDownloadMgr::sigImageFailed);
+    mgr.Request(id);
     mgr.OnDownloadRsp(4040, id, 0);
     EXPECT_EQ(spy.count(), 1);
     auto args = spy.takeFirst();

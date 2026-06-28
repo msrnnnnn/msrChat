@@ -16,7 +16,8 @@ static void ReadPhase7Columns(sqlite3_stmt *stmt, ChatMessage &msg)
 {
     msg.type = sqlite3_column_int(stmt, 6);
     const unsigned char *iid = sqlite3_column_text(stmt, 7);
-    if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+    if (iid)
+        msg.image_id = std::string(reinterpret_cast<const char *>(iid));
     msg.recalled = sqlite3_column_int(stmt, 8) != 0;
     msg.recalled_at = sqlite3_column_int64(stmt, 9);
     msg.edited = sqlite3_column_int(stmt, 10) != 0;
@@ -27,8 +28,7 @@ static void ReadPhase7Columns(sqlite3_stmt *stmt, ChatMessage &msg)
 // MessageRepository 实现
 // ============================================================
 
-MessageRepository::MessageRepository(std::shared_ptr<SQLiteConnectionPool> pool)
-    : _pool(std::move(pool))
+MessageRepository::MessageRepository(std::shared_ptr<SQLiteConnectionPool> pool) : _pool(std::move(pool))
 {
 }
 
@@ -47,10 +47,9 @@ bool MessageRepository::SaveMessage(const ChatMessage &msg)
     }
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db,
-        "INSERT INTO messages (from_uid, to_uid, content, timestamp, status, "
-        "client_msg_id, type, image_id, recalled, recalled_at, edited, edited_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    ScopedStmt stmt(db, "INSERT INTO messages (from_uid, to_uid, content, timestamp, status, "
+                        "client_msg_id, type, image_id, recalled, recalled_at, edited, edited_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -146,7 +145,8 @@ std::vector<ChatMessage> MessageRepository::GetMessages(int uid1, int uid2, int6
 std::optional<ChatMessage> MessageRepository::GetMessageByTimestamp(int64_t timestamp, int from_uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return std::nullopt;
+    if (!guard)
+        return std::nullopt;
     sqlite3 *db = guard.Get();
 
     const char *sql = R"SQL(
@@ -158,7 +158,8 @@ std::optional<ChatMessage> MessageRepository::GetMessageByTimestamp(int64_t time
     )SQL";
 
     ScopedStmt stmt(db, sql);
-    if (!stmt) return std::nullopt;
+    if (!stmt)
+        return std::nullopt;
     sqlite3_bind_int64(stmt, 1, timestamp);
     sqlite3_bind_int(stmt, 2, from_uid);
 
@@ -173,7 +174,8 @@ std::optional<ChatMessage> MessageRepository::GetMessageByTimestamp(int64_t time
         msg.status = sqlite3_column_int(stmt, 5);
         msg.type = sqlite3_column_int(stmt, 6);
         const unsigned char *iid = sqlite3_column_text(stmt, 7);
-        if (iid) msg.image_id = std::string(reinterpret_cast<const char *>(iid));
+        if (iid)
+            msg.image_id = std::string(reinterpret_cast<const char *>(iid));
         msg.recalled = sqlite3_column_int(stmt, 8) != 0;
         msg.recalled_at = sqlite3_column_int64(stmt, 9);
         msg.edited = sqlite3_column_int(stmt, 10) != 0;
@@ -186,12 +188,13 @@ std::optional<ChatMessage> MessageRepository::GetMessageByTimestamp(int64_t time
 bool MessageRepository::MarkMessageRecalled(int64_t timestamp, int from_uid, int64_t recall_ts)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db,
-        "UPDATE messages SET recalled = 1, recalled_at = ? WHERE timestamp = ? AND from_uid = ?");
-    if (!stmt) return false;
+    ScopedStmt stmt(db, "UPDATE messages SET recalled = 1, recalled_at = ? WHERE timestamp = ? AND from_uid = ?");
+    if (!stmt)
+        return false;
     sqlite3_bind_int64(stmt, 1, recall_ts);
     sqlite3_bind_int64(stmt, 2, timestamp);
     sqlite3_bind_int(stmt, 3, from_uid);
@@ -199,17 +202,18 @@ bool MessageRepository::MarkMessageRecalled(int64_t timestamp, int from_uid, int
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
-bool MessageRepository::UpdateMessageContent(int64_t timestamp, int from_uid,
-                                              const std::string &new_content, int64_t edit_ts)
+bool MessageRepository::UpdateMessageContent(int64_t timestamp, int from_uid, const std::string &new_content,
+                                             int64_t edit_ts)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db,
-        "UPDATE messages SET content = ?, edited = 1, edited_at = ? "
-        "WHERE timestamp = ? AND from_uid = ?");
-    if (!stmt) return false;
+    ScopedStmt stmt(db, "UPDATE messages SET content = ?, edited = 1, edited_at = ? "
+                        "WHERE timestamp = ? AND from_uid = ?");
+    if (!stmt)
+        return false;
     sqlite3_bind_text(stmt, 1, new_content.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 2, edit_ts);
     sqlite3_bind_int64(stmt, 3, timestamp);
@@ -227,8 +231,8 @@ bool MessageRepository::SaveOfflineMessage(const ChatMessage &msg)
     }
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(
-        db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status, client_msg_id, type, image_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    ScopedStmt stmt(db, "INSERT INTO offline_messages (from_uid, to_uid, content, timestamp, status, client_msg_id, "
+                        "type, image_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     if (!stmt)
     {
         return false;
@@ -311,11 +315,9 @@ std::vector<ChatMessage> MessageRepository::GetOfflineMessages(int uid, int limi
         }
         msg.timestamp = sqlite3_column_int64(stmt, 4);
         msg.status = sqlite3_column_int(stmt, 5);
-        const char *client_msg_id_text =
-            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+        const char *client_msg_id_text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
         msg.client_msg_id = client_msg_id_text ? std::string(client_msg_id_text) : "";
-        const char *image_id_text =
-            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
+        const char *image_id_text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
         msg.image_id = image_id_text ? std::string(image_id_text) : "";
         messages.push_back(msg);
     }
@@ -372,17 +374,18 @@ bool MessageRepository::ClearOfflineMessages(int uid)
     return sqlite3_step(stmt) == SQLITE_DONE;
 }
 
-bool MessageRepository::EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid,
-                                             int64_t recall_ts, int recalled_to)
+bool MessageRepository::EnqueueRecallNotify(int uid, int64_t msg_timestamp, int recall_uid, int64_t recall_ts,
+                                            int recalled_to)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db,
-        "INSERT INTO recall_notify_queue (uid, msg_timestamp, recall_uid, recall_ts, recalled_to) "
-        "VALUES (?, ?, ?, ?, ?)");
-    if (!stmt) return false;
+    ScopedStmt stmt(db, "INSERT INTO recall_notify_queue (uid, msg_timestamp, recall_uid, recall_ts, recalled_to) "
+                        "VALUES (?, ?, ?, ?, ?)");
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
     sqlite3_bind_int64(stmt, 2, msg_timestamp);
     sqlite3_bind_int(stmt, 3, recall_uid);
@@ -395,15 +398,16 @@ bool MessageRepository::EnqueueRecallNotify(int uid, int64_t msg_timestamp, int 
 std::vector<RecallNotifyEntry> MessageRepository::PopRecallNotifies(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return {};
+    if (!guard)
+        return {};
     sqlite3 *db = guard.Get();
 
     std::vector<RecallNotifyEntry> entries;
-    ScopedStmt stmt(db,
-        "SELECT id, uid, msg_timestamp, recall_uid, recall_ts, recalled_to "
-        "FROM recall_notify_queue WHERE uid = ? "
-        "ORDER BY id ASC");
-    if (!stmt) return entries;
+    ScopedStmt stmt(db, "SELECT id, uid, msg_timestamp, recall_uid, recall_ts, recalled_to "
+                        "FROM recall_notify_queue WHERE uid = ? "
+                        "ORDER BY id ASC");
+    if (!stmt)
+        return entries;
     sqlite3_bind_int(stmt, 1, uid);
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
@@ -423,11 +427,13 @@ std::vector<RecallNotifyEntry> MessageRepository::PopRecallNotifies(int uid)
 bool MessageRepository::ClearRecallNotifies(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(db, "DELETE FROM recall_notify_queue WHERE uid = ?");
-    if (!stmt) return false;
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
 
     return sqlite3_step(stmt) == SQLITE_DONE;
@@ -436,11 +442,13 @@ bool MessageRepository::ClearRecallNotifies(int uid)
 bool MessageRepository::ClearRecallNotifyByTimestamp(int uid, int64_t msg_timestamp)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(db, "DELETE FROM recall_notify_queue WHERE uid = ? AND msg_timestamp = ?");
-    if (!stmt) return false;
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
     sqlite3_bind_int64(stmt, 2, msg_timestamp);
 
@@ -451,17 +459,18 @@ bool MessageRepository::ClearRecallNotifyByTimestamp(int uid, int64_t msg_timest
 // 编辑通知队列
 // ============================================================
 
-bool MessageRepository::EnqueueEditNotify(int uid, int64_t msg_timestamp, int from_uid,
-                                          const std::string &new_content, int64_t edit_ts)
+bool MessageRepository::EnqueueEditNotify(int uid, int64_t msg_timestamp, int from_uid, const std::string &new_content,
+                                          int64_t edit_ts)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
-    ScopedStmt stmt(db,
-        "INSERT INTO edit_notify_queue (uid, msg_timestamp, from_uid, new_content, edit_ts) "
-        "VALUES (?, ?, ?, ?, ?)");
-    if (!stmt) return false;
+    ScopedStmt stmt(db, "INSERT INTO edit_notify_queue (uid, msg_timestamp, from_uid, new_content, edit_ts) "
+                        "VALUES (?, ?, ?, ?, ?)");
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
     sqlite3_bind_int64(stmt, 2, msg_timestamp);
     sqlite3_bind_int(stmt, 3, from_uid);
@@ -474,15 +483,16 @@ bool MessageRepository::EnqueueEditNotify(int uid, int64_t msg_timestamp, int fr
 std::vector<EditNotifyEntry> MessageRepository::PopEditNotifies(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return {};
+    if (!guard)
+        return {};
     sqlite3 *db = guard.Get();
 
     std::vector<EditNotifyEntry> entries;
-    ScopedStmt stmt(db,
-        "SELECT id, uid, msg_timestamp, from_uid, new_content, edit_ts "
-        "FROM edit_notify_queue WHERE uid = ? "
-        "ORDER BY id ASC");
-    if (!stmt) return entries;
+    ScopedStmt stmt(db, "SELECT id, uid, msg_timestamp, from_uid, new_content, edit_ts "
+                        "FROM edit_notify_queue WHERE uid = ? "
+                        "ORDER BY id ASC");
+    if (!stmt)
+        return entries;
     sqlite3_bind_int(stmt, 1, uid);
 
     while (sqlite3_step(stmt) == SQLITE_ROW)
@@ -502,11 +512,13 @@ std::vector<EditNotifyEntry> MessageRepository::PopEditNotifies(int uid)
 bool MessageRepository::ClearEditNotifies(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
     ScopedStmt stmt(db, "DELETE FROM edit_notify_queue WHERE uid = ?");
-    if (!stmt) return false;
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
 
     return sqlite3_step(stmt) == SQLITE_DONE;

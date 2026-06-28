@@ -76,7 +76,8 @@ ServerConfig LoadConfig()
             int raw_pool = pt.get<int>("ChatServer.PoolSize", config.pool_size);
             if (raw_pool < 1 || raw_pool > 64)
             {
-                spdlog::warn("Invalid PoolSize in config: {}, must be 1-64, using default {}", raw_pool, config.pool_size);
+                spdlog::warn("Invalid PoolSize in config: {}, must be 1-64, using default {}", raw_pool,
+                             config.pool_size);
             }
             else
             {
@@ -139,8 +140,7 @@ int main(int argc, char *argv[])
         auto config = LoadConfig();
 
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_st>();
-        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_st>(
-            "chatserver.log", 50 * 1024 * 1024, 5);
+        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_st>("chatserver.log", 50 * 1024 * 1024, 5);
         std::vector<spdlog::sink_ptr> sinks{console_sink, file_sink};
         auto logger = std::make_shared<spdlog::logger>("chatserver", sinks.begin(), sinks.end());
         spdlog::set_default_logger(logger);
@@ -234,16 +234,18 @@ int main(int argc, char *argv[])
         schedule_cleanup = [&io_context, cleanup_timer, &schedule_cleanup]()
         {
             cleanup_timer->expires_after(std::chrono::hours(6));
-            cleanup_timer->async_wait([&io_context, cleanup_timer, &schedule_cleanup](const boost::system::error_code &ec)
-            {
-                if (ec) return; // cancelled or error
-                int cleaned = ImageStorage::Instance().DeleteExpired(static_cast<int64_t>(std::time(nullptr)));
-                if (cleaned > 0)
+            cleanup_timer->async_wait(
+                [&io_context, cleanup_timer, &schedule_cleanup](const boost::system::error_code &ec)
                 {
-                    spdlog::info("[Main] Periodic cleanup: removed {} expired images", cleaned);
-                }
-                schedule_cleanup();
-            });
+                    if (ec)
+                        return; // cancelled or error
+                    int cleaned = ImageStorage::Instance().DeleteExpired(static_cast<int64_t>(std::time(nullptr)));
+                    if (cleaned > 0)
+                    {
+                        spdlog::info("[Main] Periodic cleanup: removed {} expired images", cleaned);
+                    }
+                    schedule_cleanup();
+                });
         };
         schedule_cleanup();
 
@@ -252,53 +254,54 @@ int main(int argc, char *argv[])
         schedule_backup = [&io_context, backup_timer, &schedule_backup, &config]()
         {
             backup_timer->expires_after(std::chrono::hours(6));
-            backup_timer->async_wait([&io_context, backup_timer, &schedule_backup, &config](const boost::system::error_code &ec)
-            {
-                if (ec) return;
-                try
+            backup_timer->async_wait(
+                [&io_context, backup_timer, &schedule_backup, &config](const boost::system::error_code &ec)
                 {
-                    auto now = std::time(nullptr);
-                    auto tm = *std::localtime(&now);
-                    char time_buf[32];
-                    std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H", &tm);
-                    std::string backup_name = "chatserver.db.bak." + std::string(time_buf);
-                    std::filesystem::copy_file(
-                        config.db_path, backup_name,
-                        std::filesystem::copy_options::overwrite_existing);
-                    spdlog::info("[Main] Database backup: {}", backup_name);
-
-                    for (auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
+                    if (ec)
+                        return;
+                    try
                     {
-                        if (entry.path().filename().string().find("chatserver.db.bak.") == 0)
+                        auto now = std::time(nullptr);
+                        auto tm = *std::localtime(&now);
+                        char time_buf[32];
+                        std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H", &tm);
+                        std::string backup_name = "chatserver.db.bak." + std::string(time_buf);
+                        std::filesystem::copy_file(config.db_path, backup_name,
+                                                   std::filesystem::copy_options::overwrite_existing);
+                        spdlog::info("[Main] Database backup: {}", backup_name);
+
+                        for (auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
                         {
-                            std::string name = entry.path().filename().string();
-                            std::string date_part = name.substr(19, 8);
-                            if (date_part.size() == 8)
+                            if (entry.path().filename().string().find("chatserver.db.bak.") == 0)
                             {
-                                int year = std::stoi(date_part.substr(0, 4));
-                                int month = std::stoi(date_part.substr(4, 2));
-                                int day = std::stoi(date_part.substr(6, 2));
-                                std::tm entry_tm = {};
-                                entry_tm.tm_year = year - 1900;
-                                entry_tm.tm_mon = month - 1;
-                                entry_tm.tm_mday = day;
-                                std::time_t entry_time = std::mktime(&entry_tm);
-                                double diff_days = std::difftime(now, entry_time) / 86400.0;
-                                if (diff_days > 7)
+                                std::string name = entry.path().filename().string();
+                                std::string date_part = name.substr(19, 8);
+                                if (date_part.size() == 8)
                                 {
-                                    std::filesystem::remove(entry.path());
-                                    spdlog::info("[Main] Removed old backup: {}", name);
+                                    int year = std::stoi(date_part.substr(0, 4));
+                                    int month = std::stoi(date_part.substr(4, 2));
+                                    int day = std::stoi(date_part.substr(6, 2));
+                                    std::tm entry_tm = {};
+                                    entry_tm.tm_year = year - 1900;
+                                    entry_tm.tm_mon = month - 1;
+                                    entry_tm.tm_mday = day;
+                                    std::time_t entry_time = std::mktime(&entry_tm);
+                                    double diff_days = std::difftime(now, entry_time) / 86400.0;
+                                    if (diff_days > 7)
+                                    {
+                                        std::filesystem::remove(entry.path());
+                                        spdlog::info("[Main] Removed old backup: {}", name);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                catch (const std::exception &e)
-                {
-                    spdlog::error("[Main] Backup failed: {}", e.what());
-                }
-                schedule_backup();
-            });
+                    catch (const std::exception &e)
+                    {
+                        spdlog::error("[Main] Backup failed: {}", e.what());
+                    }
+                    schedule_backup();
+                });
         };
         schedule_backup();
 

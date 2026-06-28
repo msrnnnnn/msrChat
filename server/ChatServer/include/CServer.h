@@ -97,7 +97,7 @@ private:
     boost::asio::ip::tcp::acceptor _acceptor;
     ThreadPool _thread_pool;
     std::atomic<bool> _stopped{false};
-    size_t _max_connections{0};  ///< 最大连接数上限，0 表示不限制
+    size_t _max_connections{0}; ///< 最大连接数上限，0 表示不限制
 };
 
 #endif // CSERVER_H

@@ -23,8 +23,8 @@ namespace
 
 static int64_t NowMs()
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
 }
 
 } // namespace
@@ -52,22 +52,26 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         client_msg_id = chatMsg.client_msg_id();
 
         // Phase 5E: 防重放 Nonce 校验
-        if (chatMsg.has_nonce_header()) {
+        if (chatMsg.has_nonce_header())
+        {
             const auto &nh = chatMsg.nonce_header();
-            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp()))
+            {
                 spdlog::warn("[ChatService] Nonce time window exceeded for uid={}", session.GetUserUid());
                 return true;
             }
-            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+            if (!NonceCache::Instance().TryInsert(nh.nonce()))
+            {
                 spdlog::warn("[ChatService] Duplicate nonce detected for uid={}", session.GetUserUid());
                 return true;
             }
             // 7E: HMAC 签名校验（兼容旧客户端：signature 为空时跳过）
-            if (!nh.signature().empty()) {
-                std::string expected = ComputeHmacSha256(
-                    std::string(HMAC_KEY),
-                    nh.nonce() + std::to_string(nh.timestamp()));
-                if (nh.signature() != expected) {
+            if (!nh.signature().empty())
+            {
+                std::string expected =
+                    ComputeHmacSha256(std::string(HMAC_KEY), nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected)
+                {
                     spdlog::warn("[ChatService] HMAC signature mismatch for uid={}", session.GetUserUid());
                     return true;
                 }
@@ -75,9 +79,10 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         }
 
         // Phase 6: schema_version 校验（0 = 未设置，视为 v1 兼容）
-        if (chatMsg.schema_version() != 0 && chatMsg.schema_version() != SCHEMA_VERSION) {
-            spdlog::warn("[ChatService] Unsupported schema_version={} from uid={}",
-                         chatMsg.schema_version(), session.GetUserUid());
+        if (chatMsg.schema_version() != 0 && chatMsg.schema_version() != SCHEMA_VERSION)
+        {
+            spdlog::warn("[ChatService] Unsupported schema_version={} from uid={}", chatMsg.schema_version(),
+                         session.GetUserUid());
             return true;
         }
 
@@ -99,7 +104,7 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         {
             qmsrchat::ChatAck ack;
             ack.set_error(1);
-            ack.set_message("not login");
+            ack.set_message("未登录");
             ack.set_client_msg_id(client_msg_id);
 
             std::string serialized;
@@ -146,7 +151,7 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         {
             qmsrchat::ChatAck ack;
             ack.set_error(1);
-            ack.set_message("invalid message");
+            ack.set_message("无效消息");
             ack.set_client_msg_id(client_msg_id);
 
             std::string serialized;
@@ -182,8 +187,7 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
             server_msg.set_to_uid(to_uid);
             server_msg.set_content(content);
             server_msg.set_client_msg_id(client_msg_id);
-            server_msg.set_timestamp(chatMsg.timestamp() > 0 ? chatMsg.timestamp()
-                : NowMs());
+            server_msg.set_timestamp(chatMsg.timestamp() > 0 ? chatMsg.timestamp() : NowMs());
             std::string serialized;
             if (server_msg.SerializeToString(&serialized))
             {
@@ -202,21 +206,25 @@ bool ChatService::HandleChatText(CSession &session, const std::string &body_data
         db_msg.from_uid = session.GetUserUid();
         db_msg.to_uid = to_uid;
         db_msg.content = content;
-        db_msg.timestamp = chatMsg.timestamp() > 0 ? chatMsg.timestamp()
-                                                    : NowMs();
+        db_msg.timestamp = chatMsg.timestamp() > 0 ? chatMsg.timestamp() : NowMs();
         db_msg.status = delivered ? 1 : (stored ? 2 : 0);
         db_msg.client_msg_id = client_msg_id;
         db_msg.type = 0; // text
         SQLiteMgr::Instance().Messages().SaveMessage(db_msg);
 
         qmsrchat::ChatAck ack;
-        if (delivered) {
+        if (delivered)
+        {
             ack.set_error(0);
             ack.set_message("delivered");
-        } else if (stored) {
+        }
+        else if (stored)
+        {
             ack.set_error(0);
             ack.set_message("stored");
-        } else {
+        }
+        else
+        {
             ack.set_error(1);
             ack.set_message("failed");
         }

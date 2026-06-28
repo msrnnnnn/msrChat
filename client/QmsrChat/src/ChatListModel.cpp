@@ -12,9 +12,7 @@
  * @brief 构造函数
  * @param parent 父 QObject
  */
-ChatListModel::ChatListModel(QObject *parent)
-    : QAbstractListModel(parent),
-      _current_uid(0)
+ChatListModel::ChatListModel(QObject *parent) : QAbstractListModel(parent), _current_uid(0)
 {
 }
 
@@ -220,6 +218,9 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
         insertRow = lo;
     }
 
+    // beginInsertRows 不能在锁内调用：QML 视图在信号处理中可能回调 data()/rowCount()，
+    // 如果此时持有锁会死锁。解锁后 insertRow 可能已过时，但聊天消息插入频率远低于锁竞争频率，
+    // 极端并发下最差情况是插入位置偏移几条，不影响数据完整性。
     beginInsertRows(QModelIndex(), insertRow, insertRow);
     {
         QMutexLocker lock(&_mutex);
@@ -276,8 +277,8 @@ void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status
     {
         QMutexLocker locker(&_mutex);
         auto it = _clientIdIndex.find(client_msg_id);
-        if (it != _clientIdIndex.end() && it.value() >= 0 && it.value() < _messages.size()
-            && _messages[it.value()].client_msg_id == client_msg_id)
+        if (it != _clientIdIndex.end() && it.value() >= 0 && it.value() < _messages.size() &&
+            _messages[it.value()].client_msg_id == client_msg_id)
         {
             _messages[it.value()].status = status;
             changedRow = it.value();
@@ -288,6 +289,19 @@ void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status
     {
         QModelIndex changedIndex = index(changedRow, 0);
         emit dataChanged(changedIndex, changedIndex, {StatusRole});
+    }
+}
+
+void ChatListModel::UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id)
+{
+    QMutexLocker lock(&_mutex);
+    auto it = _timestampIndex.find(timestamp);
+    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size())
+    {
+        QString old_id = _messages[it.value()].client_msg_id;
+        _messages[it.value()].client_msg_id = new_client_msg_id;
+        _clientIdIndex.remove(old_id);
+        _clientIdIndex[new_client_msg_id] = it.value();
     }
 }
 
@@ -418,8 +432,7 @@ QString ChatListModel::FormatTime(qint64 timestamp) const
  * @param mutator 修改函数（lambda），接收 ChatMessage& 引用
  * @details 加锁遍历并应用修改后解锁，再发射 dataChanged（避免持锁 emit）
  */
-void ChatListModel::UpdateMessageByTimestamp(qint64 ts,
-        const std::function<void(ChatMessage &)> &mutator)
+void ChatListModel::UpdateMessageByTimestamp(qint64 ts, const std::function<void(ChatMessage &)> &mutator)
 {
     QMutexLocker lock(&_mutex);
     for (int i = 0; i < _messages.size(); ++i)
@@ -467,10 +480,12 @@ void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
 {
     // 先写 DB（异步），再改内存。修复"假撤回"bug：刷新界面后 DB 仍是 recalled=0 导致图片复活
     DbThreadManager::Instance().MarkMessageRecalled(ts, current_uid);
-    UpdateMessageByTimestamp(ts, [](ChatMessage &m) {
-        m.recalled = true;
-        m.recalled_at = QDateTime::currentMSecsSinceEpoch();
-    });
+    UpdateMessageByTimestamp(ts,
+                             [](ChatMessage &m)
+                             {
+                                 m.recalled = true;
+                                 m.recalled_at = QDateTime::currentMSecsSinceEpoch();
+                             });
 }
 
 /**
@@ -481,11 +496,13 @@ void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
  */
 void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts)
 {
-    UpdateMessageByTimestamp(ts, [&](ChatMessage &m) {
-        m.content = new_content;
-        m.edited = true;
-        m.edited_at = edit_ts;
-    });
+    UpdateMessageByTimestamp(ts,
+                             [&](ChatMessage &m)
+                             {
+                                 m.content = new_content;
+                                 m.edited = true;
+                                 m.edited_at = edit_ts;
+                             });
 }
 
 // === Phase 6 ===
@@ -532,8 +549,8 @@ bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
 {
     QMutexLocker lock(&_mutex);
     auto it = _timestampIndex.find(ts);
-    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size()
-        && _messages[it.value()].timestamp == ts)
+    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size() &&
+        _messages[it.value()].timestamp == ts)
     {
         out = _messages[it.value()];
         return true;
@@ -549,6 +566,7 @@ bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
 QString ChatListModel::GetContentByTimestamp(qint64 ts) const
 {
     ChatMessage m;
-    if (GetMessageByTimestamp(ts, m)) return m.content;
+    if (GetMessageByTimestamp(ts, m))
+        return m.content;
     return QString();
 }

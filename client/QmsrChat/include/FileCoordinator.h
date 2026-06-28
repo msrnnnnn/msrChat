@@ -10,9 +10,18 @@
 
 #include "ChatListModel.h"
 #include "ProtocolStructs.h"
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+
+struct PendingFileReq
+{
+    FileReqStruct req;
+    bool is_image = false;
+    ChatImageStruct imgMsg;
+    QString cleanPath;
+};
 
 class FileCoordinator : public QObject
 {
@@ -56,11 +65,15 @@ public slots:
     void slotOnChatImage(const ChatImageStruct &msg);
     void slotOnImageDownloadRsp(const ImageDownloadRspStruct &rsp);
 
+private slots:
+    void onMd5Ready(int64_t task_id, const QString &md5);
+
 private:
     ChatListModel *_chat_model = nullptr;
     int _target_uid = 0;
     int _current_uid = 0;
     qint64 *_max_received_ts = nullptr;
+    QHash<int64_t, PendingFileReq> _pending_reqs;
 };
 
 #endif // FILECOORDINATOR_H

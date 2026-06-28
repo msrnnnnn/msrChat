@@ -19,28 +19,17 @@ constexpr int INITIAL_RECONNECT_INTERVAL_MS = 3000;
 constexpr size_t RECV_BUFFER_SIZE = 2 * 1024 * 1024;
 
 TcpWorker::TcpWorker(QObject *parent)
-    : QObject(parent),
-      _socket(nullptr),
-      _host(""),
-      _port(0),
-      _pending_connect(std::nullopt),
-      _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)),
-      _head_parsed(false),
-      _message_id(0),
-      _message_len(0),
-      _heartbeat_timer(nullptr),
-      _pong_check_timer(nullptr),
-      _reconnect_timer(nullptr),
-      _reconnect_interval(INITIAL_RECONNECT_INTERVAL_MS),
-      _last_pong_time(0),
-      _state(ConnectionState::Idle)
+    : QObject(parent), _socket(nullptr), _host(""), _port(0), _pending_connect(std::nullopt),
+      _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)), _head_parsed(false), _message_id(0), _message_len(0),
+      _heartbeat_timer(nullptr), _pong_check_timer(nullptr), _reconnect_timer(nullptr),
+      _reconnect_interval(INITIAL_RECONNECT_INTERVAL_MS), _last_pong_time(0), _state(ConnectionState::Idle)
 {
 }
 
 TcpWorker::~TcpWorker()
 {
     // 防御性清理：若 TcpMgr 未能通过 BlockingQueuedConnection 调用 slot_stop()
-    //（如异常关机路径），此处兜底停止 timer 和 socket
+    // （如异常关机路径），此处兜底停止 timer 和 socket
     slot_stop();
 }
 
@@ -94,9 +83,21 @@ void TcpWorker::slot_stop()
     _state.store(ConnectionState::Stopping);
     _pending_connect.reset();
 
-    if (_heartbeat_timer) { _heartbeat_timer->stop(); _heartbeat_timer->disconnect(); }
-    if (_pong_check_timer) { _pong_check_timer->stop(); _pong_check_timer->disconnect(); }
-    if (_reconnect_timer) { _reconnect_timer->stop(); _reconnect_timer->disconnect(); }
+    if (_heartbeat_timer)
+    {
+        _heartbeat_timer->stop();
+        _heartbeat_timer->disconnect();
+    }
+    if (_pong_check_timer)
+    {
+        _pong_check_timer->stop();
+        _pong_check_timer->disconnect();
+    }
+    if (_reconnect_timer)
+    {
+        _reconnect_timer->stop();
+        _reconnect_timer->disconnect();
+    }
 
     if (_socket)
     {
@@ -157,7 +158,8 @@ void TcpWorker::slotSendData(RequestType reqId, const QByteArray &data)
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load()) << "reqId:" << static_cast<int>(reqId);
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load())
+                   << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -341,6 +343,8 @@ void TcpWorker::slot_disconnected()
 
 /**
  * @brief 发送心跳 Ping 包（MSG_HELLO + "{}"）
+ * @note "{}" 是 2 字节 JSON 对象，QByteArray 构造时不会额外添加 null 终止符
+ *       （QByteArray(const char*) 依赖 strlen 确定长度，"{}" 长度为 2）
  */
 void TcpWorker::slot_send_ping()
 {
@@ -495,5 +499,6 @@ void TcpWorker::stop_timers()
  */
 bool TcpWorker::can_send() const
 {
-    return _state.load() == ConnectionState::Connected && _socket && _socket->state() == QAbstractSocket::ConnectedState;
+    return _state.load() == ConnectionState::Connected && _socket &&
+           _socket->state() == QAbstractSocket::ConnectedState;
 }

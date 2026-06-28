@@ -25,7 +25,8 @@ static std::string SecureRandomHex(int bytes)
     if (RAND_bytes(buf.data(), bytes) != 1)
     {
         std::random_device rd;
-        for (int i = 0; i < bytes; ++i) buf[i] = static_cast<unsigned char>(rd());
+        for (int i = 0; i < bytes; ++i)
+            buf[i] = static_cast<unsigned char>(rd());
     }
     std::stringstream ss;
     for (int i = 0; i < bytes; ++i)
@@ -45,8 +46,8 @@ static std::string PBKDF2_SHA256(const std::string &password, const std::string 
     constexpr size_t hash_len = 32;
     unsigned char hash[hash_len];
     PKCS5_PBKDF2_HMAC(password.c_str(), static_cast<int>(password.size()),
-                      reinterpret_cast<const unsigned char *>(salt.c_str()), static_cast<int>(salt.size()),
-                      iterations, EVP_sha256(), static_cast<int>(hash_len), hash);
+                      reinterpret_cast<const unsigned char *>(salt.c_str()), static_cast<int>(salt.size()), iterations,
+                      EVP_sha256(), static_cast<int>(hash_len), hash);
     char hex_str[2 * hash_len + 1];
     for (size_t i = 0; i < hash_len; ++i)
         sprintf(hex_str + i * 2, "%02x", hash[i]);
@@ -57,13 +58,12 @@ static std::string PBKDF2_SHA256(const std::string &password, const std::string 
 // AuthRepository 实现
 // ============================================================
 
-AuthRepository::AuthRepository(std::shared_ptr<SQLiteConnectionPool> pool)
-    : _pool(std::move(pool))
+AuthRepository::AuthRepository(std::shared_ptr<SQLiteConnectionPool> pool) : _pool(std::move(pool))
 {
 }
 
-AuthResult AuthRepository::RegisterUser(
-    const std::string &username, const std::string &password_hash, const std::string &email)
+AuthResult AuthRepository::RegisterUser(const std::string &username, const std::string &password_hash,
+                                        const std::string &email)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
@@ -151,14 +151,18 @@ AuthResult AuthRepository::LoginUser(const std::string &username, const std::str
     auto sep = rest.find('$');
     if (sep == std::string::npos)
     {
-        AuthResult r; r.error = ERR_DB; return r;
+        AuthResult r;
+        r.error = ERR_DB;
+        return r;
     }
     std::string salt = rest.substr(0, sep);
     std::string expected_hash = PBKDF2_SHA256(password_hash, salt);
     std::string stored_hash = rest.substr(sep + 1);
     if (expected_hash != stored_hash)
     {
-        AuthResult r; r.error = ERR_PASSWD_ERR; return r;
+        AuthResult r;
+        r.error = ERR_PASSWD_ERR;
+        return r;
     }
 
     AuthResult r;
@@ -178,7 +182,8 @@ bool AuthRepository::SendVerifyCode(const std::string &email, int &out_code)
     }
     sqlite3 *db = guard.Get();
 
-    const int code = []() {
+    const int code = []()
+    {
         static std::mt19937 rng(std::random_device{}());
         static std::uniform_int_distribution<int> dist(100000, 999999);
         return dist(rng);
@@ -246,9 +251,8 @@ int AuthRepository::CheckVerifyCode(const std::string &email, const std::string 
     return ERR_VERIFY_WRONG;
 }
 
-int AuthRepository::ResetPassword(
-    const std::string &username, const std::string &email, const std::string &code,
-    const std::string &new_password_hash)
+int AuthRepository::ResetPassword(const std::string &username, const std::string &email, const std::string &code,
+                                  const std::string &new_password_hash)
 {
     SQLiteConnectionGuard guard(_pool);
     if (!guard)
@@ -336,10 +340,12 @@ std::optional<User> AuthRepository::GetUserByUsernameUnlocked(sqlite3 *db, const
 bool AuthRepository::SaveToken(int uid, const std::string &token)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     ScopedStmt stmt(db, "INSERT OR REPLACE INTO tokens (uid, token, created_at) VALUES (?, ?, ?)");
-    if (!stmt) return false;
+    if (!stmt)
+        return false;
     sqlite3_bind_int(stmt, 1, uid);
     sqlite3_bind_text(stmt, 2, token.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 3, time(nullptr));
@@ -349,10 +355,12 @@ bool AuthRepository::SaveToken(int uid, const std::string &token)
 std::optional<std::string> AuthRepository::GetTokenFromDB(int uid)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return std::nullopt;
+    if (!guard)
+        return std::nullopt;
     sqlite3 *db = guard.Get();
     ScopedStmt stmt(db, "SELECT token FROM tokens WHERE uid = ?");
-    if (!stmt) return std::nullopt;
+    if (!stmt)
+        return std::nullopt;
     sqlite3_bind_int(stmt, 1, uid);
     if (sqlite3_step(stmt) == SQLITE_ROW)
     {
@@ -364,11 +372,13 @@ std::optional<std::string> AuthRepository::GetTokenFromDB(int uid)
 std::vector<TokenRecord> AuthRepository::GetAllTokens()
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return {};
+    if (!guard)
+        return {};
     sqlite3 *db = guard.Get();
     std::vector<TokenRecord> tokens;
     ScopedStmt stmt(db, "SELECT uid, token, created_at FROM tokens");
-    if (!stmt) return tokens;
+    if (!stmt)
+        return tokens;
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
         TokenRecord rec;

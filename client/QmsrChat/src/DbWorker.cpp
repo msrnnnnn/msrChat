@@ -9,10 +9,7 @@
  * @brief DbWorker 构造函数
  * @param parent 父 QObject
  */
-DbWorker::DbWorker(QObject *parent)
-    : QObject(parent),
-      _dbInitialized(false),
-      _stop_flag(false)
+DbWorker::DbWorker(QObject *parent) : QObject(parent), _dbInitialized(false), _stop_flag(false)
 {
 }
 
@@ -38,7 +35,6 @@ void DbWorker::stopAsync()
  */
 void DbWorker::slot_db_destroy()
 {
-
     if (_dbInitialized)
     {
         DbService::Destroy();
@@ -54,7 +50,6 @@ void DbWorker::slot_db_destroy()
  */
 void DbWorker::slot_init(const QString &db_path)
 {
-
     _dbInitialized = DbService::Instance().Init(db_path);
 
     if (_dbInitialized)
@@ -74,7 +69,6 @@ void DbWorker::slot_init(const QString &db_path)
  */
 void DbWorker::slot_save_message(const ChatMessage &msg)
 {
-
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring save message request";
@@ -105,7 +99,6 @@ void DbWorker::slot_save_message(const ChatMessage &msg)
  */
 void DbWorker::slot_update_message_status(const QString &client_msg_id, int status)
 {
-
     if (_stop_flag.load())
     {
         emit sigMessagesSaved(false);
@@ -126,6 +119,14 @@ void DbWorker::slot_update_message_status(const QString &client_msg_id, int stat
     {
         emit sigError(QString("Failed to update message status: %1").arg(client_msg_id));
     }
+}
+
+void DbWorker::slot_update_message_client_id(qint64 timestamp, const QString &new_client_msg_id)
+{
+    if (_stop_flag.load() || !_dbInitialized)
+        return;
+
+    DbService::Instance().UpdateMessageClientId(timestamp, new_client_msg_id);
 }
 
 /**
@@ -152,7 +153,6 @@ void DbWorker::slot_update_image_path(const QString &image_id, const QString &lo
  */
 void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int limit)
 {
-
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring get messages request";
@@ -180,7 +180,6 @@ void DbWorker::slot_get_messages(int uid1, int uid2, qint64 before_time, int lim
  */
 void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, int limit)
 {
-
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring search messages request";
@@ -206,7 +205,6 @@ void DbWorker::slot_search_messages(int uid1, int uid2, const QString &keyword, 
  */
 void DbWorker::slot_delete_messages(int uid1, int uid2)
 {
-
     if (_stop_flag.load())
     {
         qDebug() << "DbWorker is stopping, ignoring delete messages request";
@@ -304,10 +302,7 @@ DbThreadManager &DbThreadManager::Instance()
  * @details 注册 ChatMessage 和 QVector<ChatMessage> 到 Qt 元对象系统，
  *          以支持跨线程信号槽传递自定义类型
  */
-DbThreadManager::DbThreadManager()
-    : QObject(nullptr),
-      _thread(nullptr),
-      _worker(nullptr)
+DbThreadManager::DbThreadManager() : QObject(nullptr), _thread(nullptr), _worker(nullptr)
 {
     qRegisterMetaType<ChatMessage>("ChatMessage");
     qRegisterMetaType<QVector<ChatMessage>>("QVector<ChatMessage>");
@@ -387,13 +382,19 @@ bool DbThreadManager::Init(const QString &db_path)
     connect(this, &DbThreadManager::sigInitDb, _worker, &DbWorker::slot_init, Qt::BlockingQueuedConnection);
     connect(this, &DbThreadManager::sigDestroyDb, _worker, &DbWorker::slot_db_destroy, Qt::BlockingQueuedConnection);
     connect(this, &DbThreadManager::sigSaveMsg, _worker, &DbWorker::slot_save_message, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sigUpdateMsgStatus, _worker, &DbWorker::slot_update_message_status, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sigUpdateImagePath, _worker, &DbWorker::slot_update_image_path, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigUpdateMsgStatus, _worker, &DbWorker::slot_update_message_status,
+            Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigUpdateMsgClientId, _worker, &DbWorker::slot_update_message_client_id,
+            Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigUpdateImagePath, _worker, &DbWorker::slot_update_image_path,
+            Qt::QueuedConnection);
     connect(this, &DbThreadManager::sigGetMsgs, _worker, &DbWorker::slot_get_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sigSearchMsgs, _worker, &DbWorker::slot_search_messages, Qt::QueuedConnection);
     connect(this, &DbThreadManager::sigDeleteMsgs, _worker, &DbWorker::slot_delete_messages, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sigDeleteMsgByTs, _worker, &DbWorker::slot_delete_message_by_timestamp, Qt::QueuedConnection);
-    connect(this, &DbThreadManager::sigMarkMsgRecalled, _worker, &DbWorker::slot_mark_message_recalled, Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigDeleteMsgByTs, _worker, &DbWorker::slot_delete_message_by_timestamp,
+            Qt::QueuedConnection);
+    connect(this, &DbThreadManager::sigMarkMsgRecalled, _worker, &DbWorker::slot_mark_message_recalled,
+            Qt::QueuedConnection);
 
     _thread->start();
 
@@ -455,6 +456,17 @@ void DbThreadManager::UpdateImagePath(const QString &image_id, const QString &lo
     }
 
     emit sigUpdateImagePath(image_id, local_path);
+}
+
+void DbThreadManager::UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id)
+{
+    if (_worker == nullptr)
+    {
+        qWarning() << "DbThreadManager not initialized";
+        return;
+    }
+
+    emit sigUpdateMsgClientId(timestamp, new_client_msg_id);
 }
 
 /**

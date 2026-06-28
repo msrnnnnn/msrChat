@@ -95,8 +95,7 @@ public:
      * @param out 输出缓冲区
      * @return 是否读取成功
      */
-    bool ReadRange(const std::string &image_id, int64_t offset, int64_t size,
-                   std::vector<uint8_t> &out);
+    bool ReadRange(const std::string &image_id, int64_t offset, int64_t size, std::vector<uint8_t> &out);
 
     /**
      * @brief 标记图片已撤回

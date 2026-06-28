@@ -30,7 +30,8 @@ public:
      */
     bool TryInsert(const std::string &nonce)
     {
-        if (nonce.empty()) return true;  // 空 nonce 视为可选字段未设置，跳过
+        if (nonce.empty())
+            return true; // 空 nonce 视为可选字段未设置，跳过
 
         std::lock_guard<std::mutex> lock(_mutex);
         EvictExpired();
@@ -38,24 +39,27 @@ public:
         auto it = _cache.find(nonce);
         if (it != _cache.end())
         {
-            return false;  // 重复
+            // 命中时移到前端，实现真正的 LRU
+            _lru_order.erase(it->second.list_it);
+            _lru_order.push_front(nonce);
+            it->second.list_it = _lru_order.begin();
+            return false; // 重复
         }
 
         // 容量检查
         if (_cache.size() >= _max_size)
         {
-            // 淘汰最旧的
             if (!_lru_order.empty())
             {
-                std::string oldest = _lru_order.back();
-                _lru_order.pop_back();
+                const std::string &oldest = _lru_order.back();
                 _cache.erase(oldest);
+                _lru_order.pop_back();
             }
         }
 
         auto now = std::chrono::steady_clock::now();
-        _cache[nonce] = now;
-        _lru_order.push_front(nonce);
+        auto list_it = _lru_order.insert(_lru_order.begin(), nonce);
+        _cache[nonce] = CacheEntry{now, list_it};
         return true;
     }
 
@@ -63,11 +67,15 @@ public:
      * @brief 校验消息时间戳是否在允许窗口内
      * @param msg_timestamp_ms 消息中的毫秒时间戳
      * @return true = 在窗口内，false = 超时
+     * @note 使用 steady_clock 计算时间差，不受系统时间修改影响。
+     *       msg_timestamp_ms 是 system_clock 时钟，这里用两个时钟的差值做比较，
+     *       因为时间窗口是相对的（±5 分钟），不受时钟偏移影响。
      */
     bool IsWithinTimeWindow(int64_t msg_timestamp_ms) const
     {
-        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+        auto now_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count();
         int64_t diff_sec = std::abs(now_ms - msg_timestamp_ms) / 1000;
         return diff_sec <= _ttl_seconds;
     }
@@ -76,6 +84,12 @@ private:
     NonceCache() = default;
     NonceCache(const NonceCache &) = delete;
     NonceCache &operator=(const NonceCache &) = delete;
+
+    struct CacheEntry
+    {
+        std::chrono::steady_clock::time_point insert_time;
+        std::list<std::string>::iterator list_it;
+    };
 
     void EvictExpired()
     {
@@ -86,23 +100,24 @@ private:
         {
             const std::string &oldest = _lru_order.back();
             auto it = _cache.find(oldest);
-            if (it == _cache.end() || (now - it->second) > ttl)
+            if (it == _cache.end() || (now - it->second.insert_time) > ttl)
             {
-                if (it != _cache.end()) _cache.erase(it);
+                if (it != _cache.end())
+                    _cache.erase(it);
                 _lru_order.pop_back();
             }
             else
             {
-                break;  // 剩余的都还在有效期内
+                break; // 剩余的都还在有效期内
             }
         }
     }
 
     mutable std::mutex _mutex;
     size_t _max_size = 10000;
-    int _ttl_seconds = 300;  // 5 分钟
-    std::unordered_map<std::string, std::chrono::steady_clock::time_point> _cache;
-    std::list<std::string> _lru_order;  // 前端 = 最近使用
+    int _ttl_seconds = 300; // 5 分钟
+    std::unordered_map<std::string, CacheEntry> _cache;
+    std::list<std::string> _lru_order; // 前端 = 最近使用
 };
 
 #endif // NONCECACHE_H

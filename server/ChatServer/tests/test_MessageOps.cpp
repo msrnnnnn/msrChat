@@ -18,8 +18,7 @@ class MessageOpsTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        _db_path = "test_msg_ops_" + std::to_string(std::time(nullptr)) + "_" +
-                   std::to_string(std::rand()) + ".db";
+        _db_path = "test_msg_ops_" + std::to_string(std::time(nullptr)) + "_" + std::to_string(std::rand()) + ".db";
         ASSERT_TRUE(SQLiteMgr::Instance().Init(_db_path, 2));
     }
 
@@ -182,7 +181,8 @@ TEST_F(MessageOpsTest, RecallNotify_Flow)
     constexpr int64_t recall_ts = 1700000061000LL;
     constexpr int recalled_to = 70;
 
-    ASSERT_TRUE(SQLiteMgr::Instance().Messages().EnqueueRecallNotify(target_uid, msg_ts, recall_uid, recall_ts, recalled_to));
+    ASSERT_TRUE(
+        SQLiteMgr::Instance().Messages().EnqueueRecallNotify(target_uid, msg_ts, recall_uid, recall_ts, recalled_to));
 
     auto entries = SQLiteMgr::Instance().Messages().PopRecallNotifies(target_uid);
     ASSERT_EQ(entries.size(), 1u);

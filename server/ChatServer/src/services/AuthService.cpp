@@ -130,8 +130,8 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
             }
         }
 
-        if (email.size() < 5 || email.size() > 254 || email.find('@') == std::string::npos
-            || email.find('.') == std::string::npos)
+        if (email.size() < 5 || email.size() > 254 || email.find('@') == std::string::npos ||
+            email.find('.') == std::string::npos)
         {
             nlohmann::json response{{"error", ERR_INVALID_PARAM}, {"message", "邮箱格式不正确"}};
             session.Send(response.dump(), ID_REGISTER_USER);
@@ -148,7 +148,8 @@ bool AuthService::HandleRegisterRequest(CSession &session, const std::string &bo
         server->GetThreadPool().Enqueue(
             [safe_session, username, password_hash, email, verifycode]()
             {
-                if (safe_session->IsClosed()) return;
+                if (safe_session->IsClosed())
+                    return;
 
                 int verifyResult = SQLiteMgr::Instance().Auth().CheckVerifyCode(email, verifycode);
                 if (verifyResult != 0)
@@ -224,7 +225,8 @@ bool AuthService::HandleLoginAuthRequest(CSession &session, const std::string &b
         server->GetThreadPool().Enqueue(
             [safe_session, server, username, password_hash]()
             {
-                if (safe_session->IsClosed()) return;
+                if (safe_session->IsClosed())
+                    return;
 
                 AuthResult result = SQLiteMgr::Instance().Auth().LoginUser(username, password_hash);
 
@@ -292,12 +294,14 @@ bool AuthService::HandleGetVerifyCodeRequest(CSession &session, const std::strin
         server->GetThreadPool().Enqueue(
             [safe_session, email]()
             {
-                if (safe_session->IsClosed()) return;
+                if (safe_session->IsClosed())
+                    return;
 
                 int code = 0;
                 bool success = SQLiteMgr::Instance().Auth().SendVerifyCode(email, code);
 
-                nlohmann::json response{{"error", success ? ERR_SUCCESS : ERR_INVALID_PARAM}, {"email", email}, {"code", code}};
+                nlohmann::json response{
+                    {"error", success ? ERR_SUCCESS : ERR_INVALID_PARAM}, {"email", email}, {"code", code}};
                 if (!success)
                 {
                     response["message"] = "验证码发送失败";
@@ -373,7 +377,8 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
         server->GetThreadPool().Enqueue(
             [safe_session, username, email, code, new_password_hash]()
             {
-                if (safe_session->IsClosed()) return;
+                if (safe_session->IsClosed())
+                    return;
 
                 int verify_result = SQLiteMgr::Instance().Auth().CheckVerifyCode(email, code);
                 int error_code = verify_result;
@@ -381,7 +386,8 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
 
                 if (verify_result == 0)
                 {
-                    int reset_result = SQLiteMgr::Instance().Auth().ResetPassword(username, email, code, new_password_hash);
+                    int reset_result =
+                        SQLiteMgr::Instance().Auth().ResetPassword(username, email, code, new_password_hash);
                     if (reset_result == 0)
                     {
                         error_code = 0;
@@ -389,12 +395,14 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
                         if (user.has_value())
                         {
                             int uid = user->uid;
-                            AuthResult login_result = SQLiteMgr::Instance().Auth().LoginUser(username, new_password_hash);
+                            AuthResult login_result =
+                                SQLiteMgr::Instance().Auth().LoginUser(username, new_password_hash);
                             if (login_result.error == 0)
                             {
                                 new_token = login_result.token;
                                 auto srv = safe_session->GetServer();
-                                if (srv) TokenManager::Instance().SetToken(uid, new_token);
+                                if (srv)
+                                    TokenManager::Instance().SetToken(uid, new_token);
                             }
                         }
                     }
@@ -414,12 +422,24 @@ bool AuthService::HandleResetPwdRequest(CSession &session, const std::string &bo
                 {
                     switch (error_code)
                     {
-                        case ERR_VERIFY_EXPIRED: response["message"] = "验证码已过期"; break;
-                        case ERR_VERIFY_WRONG: response["message"] = "验证码错误"; break;
-                        case ERR_USER_NOT_EXIST: response["message"] = "用户不存在"; break;
-                        case ERR_EMAIL_NOT_MATCH: response["message"] = "邮箱不匹配"; break;
-                        case ERR_PASSWD_UPDATE: response["message"] = "密码更新失败"; break;
-                        default: response["message"] = "重置密码失败"; break;
+                        case ERR_VERIFY_EXPIRED:
+                            response["message"] = "验证码已过期";
+                            break;
+                        case ERR_VERIFY_WRONG:
+                            response["message"] = "验证码错误";
+                            break;
+                        case ERR_USER_NOT_EXIST:
+                            response["message"] = "用户不存在";
+                            break;
+                        case ERR_EMAIL_NOT_MATCH:
+                            response["message"] = "邮箱不匹配";
+                            break;
+                        case ERR_PASSWD_UPDATE:
+                            response["message"] = "密码更新失败";
+                            break;
+                        default:
+                            response["message"] = "重置密码失败";
+                            break;
                     }
                 }
                 safe_session->Send(response.dump(), ID_RESET_PWD);

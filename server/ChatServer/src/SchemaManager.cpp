@@ -118,14 +118,12 @@ bool SchemaManager::CreateAllTables(sqlite3 *db)
     }
 
     // === Phase 7 — messages 表增 6 列（recall/edit + type/image_id）===
-    const char *p7_migrations[] = {
-        "ALTER TABLE messages ADD COLUMN type INTEGER DEFAULT 0",
-        "ALTER TABLE messages ADD COLUMN image_id TEXT DEFAULT ''",
-        "ALTER TABLE messages ADD COLUMN recalled INTEGER DEFAULT 0",
-        "ALTER TABLE messages ADD COLUMN recalled_at INTEGER DEFAULT 0",
-        "ALTER TABLE messages ADD COLUMN edited INTEGER DEFAULT 0",
-        "ALTER TABLE messages ADD COLUMN edited_at INTEGER DEFAULT 0"
-    };
+    const char *p7_migrations[] = {"ALTER TABLE messages ADD COLUMN type INTEGER DEFAULT 0",
+                                   "ALTER TABLE messages ADD COLUMN image_id TEXT DEFAULT ''",
+                                   "ALTER TABLE messages ADD COLUMN recalled INTEGER DEFAULT 0",
+                                   "ALTER TABLE messages ADD COLUMN recalled_at INTEGER DEFAULT 0",
+                                   "ALTER TABLE messages ADD COLUMN edited INTEGER DEFAULT 0",
+                                   "ALTER TABLE messages ADD COLUMN edited_at INTEGER DEFAULT 0"};
     for (const char *p7_sql : p7_migrations)
     {
         char *p7_err = nullptr;
@@ -157,9 +155,8 @@ bool SchemaManager::CreateAllTables(sqlite3 *db)
         }
     }
     {
-        const char *idx_sql =
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client_msg_id "
-            "ON messages(client_msg_id) WHERE client_msg_id != ''";
+        const char *idx_sql = "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client_msg_id "
+                              "ON messages(client_msg_id) WHERE client_msg_id != ''";
         char *idx_err = nullptr;
         sqlite3_exec(db, idx_sql, nullptr, nullptr, &idx_err);
         if (idx_err)
@@ -171,9 +168,8 @@ bool SchemaManager::CreateAllTables(sqlite3 *db)
 
     // === Phase 4 — 离线消息查询索引 ===
     {
-        const char *oidx_sql =
-            "CREATE INDEX IF NOT EXISTS idx_offline_to_uid "
-            "ON offline_messages(to_uid, id)";
+        const char *oidx_sql = "CREATE INDEX IF NOT EXISTS idx_offline_to_uid "
+                               "ON offline_messages(to_uid, id)";
         char *oidx_err = nullptr;
         sqlite3_exec(db, oidx_sql, nullptr, nullptr, &oidx_err);
         if (oidx_err)
@@ -184,10 +180,8 @@ bool SchemaManager::CreateAllTables(sqlite3 *db)
     }
 
     // === Phase D — offline_messages 表增 type + image_id 列 ===
-    const char *pd_migrations[] = {
-        "ALTER TABLE offline_messages ADD COLUMN type INTEGER DEFAULT 0",
-        "ALTER TABLE offline_messages ADD COLUMN image_id TEXT DEFAULT ''"
-    };
+    const char *pd_migrations[] = {"ALTER TABLE offline_messages ADD COLUMN type INTEGER DEFAULT 0",
+                                   "ALTER TABLE offline_messages ADD COLUMN image_id TEXT DEFAULT ''"};
     for (const char *pd_sql : pd_migrations)
     {
         char *pd_err = nullptr;

@@ -25,6 +25,10 @@
 struct PendingMessageInfo
 {
     qint64 send_time = 0;
+    int retry_count = 0;
+    QString content;
+    int to_uid = 0;
+    qint64 original_timestamp = 0;
 };
 
 class ChatController : public QObject
@@ -46,6 +50,9 @@ public:
     Q_INVOKABLE void sendImage(const QString &imagePath, const QString &caption);
     Q_INVOKABLE void openImageViewer(const QString &imageId);
     Q_INVOKABLE QVariantList getImageListForViewer() const;
+
+    // ── 消息重发 ──
+    Q_INVOKABLE void resendMessage(qint64 timestamp);
 
     // ── 右键菜单（委托给 MessageActions） ──
     Q_INVOKABLE void actionReply(qint64 timestamp);
@@ -101,6 +108,7 @@ public slots:
 private:
     void ConnectSignals();
     void DisconnectSignals();
+    void retryMessage(const QString &client_msg_id);
 
     int _target_uid;
     int _current_uid;
@@ -113,6 +121,8 @@ private:
     qint64 _max_received_timestamp = 0;
     QTimer *_cleanup_timer;
     static constexpr int MESSAGE_TIMEOUT_SEC = 30;
+    static constexpr int MAX_RETRY_COUNT = 3;
+    static constexpr int RETRY_INTERVAL_SEC = 5;
     static constexpr int HISTORY_PAGE_SIZE = 50;
 
     // ── Phase 5B.6 子组件 ──

@@ -31,7 +31,8 @@ bool ImageStorage::Init(std::shared_ptr<SQLiteConnectionPool> pool)
 {
     std::lock_guard<std::mutex> lock(_mutex);
     _pool = pool;
-    if (!_pool) return false;
+    if (!_pool)
+        return false;
     return CreateTables();
 }
 
@@ -43,7 +44,8 @@ bool ImageStorage::Init(std::shared_ptr<SQLiteConnectionPool> pool)
 bool ImageStorage::CreateTables()
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     const char *sql = R"SQL(
         CREATE TABLE IF NOT EXISTS image_storage (
@@ -64,9 +66,11 @@ bool ImageStorage::CreateTables()
     )SQL";
     char *err = nullptr;
     int rc = sqlite3_exec(db, sql, nullptr, nullptr, &err);
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK)
+    {
         spdlog::error("ImageStorage::CreateTables: {}", err ? err : "");
-        if (err) sqlite3_free(err);
+        if (err)
+            sqlite3_free(err);
         return false;
     }
     return true;
@@ -81,7 +85,8 @@ bool ImageStorage::CreateTables()
 bool ImageStorage::Insert(const ImageRecord &rec)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     const char *sql = R"SQL(
         INSERT OR REPLACE INTO image_storage
@@ -90,7 +95,8 @@ bool ImageStorage::Insert(const ImageRecord &rec)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, X'');
     )SQL";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, rec.image_id.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 2, rec.from_uid);
     sqlite3_bind_int(stmt, 3, rec.to_uid);
@@ -116,16 +122,16 @@ bool ImageStorage::Insert(const ImageRecord &rec)
  * @details 使用 sqlite3_blob_open + sqlite3_blob_write 在指定偏移处直接写入，
  *          避免将整个 blob 加载到内存。若 blob 当前大小不足，先用 zeroblob 扩展。
  */
-bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
-                               const uint8_t *data, size_t len)
+bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset, const uint8_t *data, size_t len)
 {
-    if (!data || len == 0) return false;
+    if (!data || len == 0)
+        return false;
 
     // 业务上限 + sqlite3_bind_blob int 参数溢出检查
     if (offset + len > MAX_IMAGE_SIZE)
     {
-        spdlog::error("[ImageStorage] AppendChunk: image too large offset+len={} > {} bytes, image_id={}",
-                      offset + len, MAX_IMAGE_SIZE, image_id);
+        spdlog::error("[ImageStorage] AppendChunk: image too large offset+len={} > {} bytes, image_id={}", offset + len,
+                      MAX_IMAGE_SIZE, image_id);
         return false;
     }
     if (offset + len > static_cast<size_t>(INT_MAX))
@@ -135,7 +141,8 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
     }
 
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
 
     // 1. 查询 rowid 和当前 blob 大小
@@ -203,8 +210,8 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
         return false;
     }
 
-    spdlog::info("[ImageStorage] AppendChunk: ok image_id={} offset={} len={} blob_total={}",
-                 image_id, offset, len, std::max(current_blob_size, needed));
+    spdlog::info("[ImageStorage] AppendChunk: ok image_id={} offset={} len={} blob_total={}", image_id, offset, len,
+                 std::max(current_blob_size, needed));
     return true;
 }
 
@@ -217,11 +224,13 @@ bool ImageStorage::AppendChunk(const std::string &image_id, int64_t offset,
 bool ImageStorage::MarkCompleted(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     const char *sql = "UPDATE image_storage SET expires_at = ? WHERE image_id = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
     sqlite3_bind_int64(stmt, 1, std::time(nullptr) + 7 * 24 * 3600);
     sqlite3_bind_text(stmt, 2, image_id.c_str(), -1, SQLITE_TRANSIENT);
     int rc = sqlite3_step(stmt);
@@ -237,28 +246,30 @@ bool ImageStorage::MarkCompleted(const std::string &image_id)
 std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return std::nullopt;
+    if (!guard)
+        return std::nullopt;
     sqlite3 *db = guard.Get();
-    const char *sql =
-        "SELECT image_id, from_uid, to_uid, ext, size, md5, width, height, "
-        "created_at, expires_at, recalled FROM image_storage WHERE image_id = ?;";
+    const char *sql = "SELECT image_id, from_uid, to_uid, ext, size, md5, width, height, "
+                      "created_at, expires_at, recalled FROM image_storage WHERE image_id = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return std::nullopt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return std::nullopt;
     sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
     std::optional<ImageRecord> result;
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
         ImageRecord rec;
-        rec.image_id    = SafeColumnText(stmt, 0);
-        rec.from_uid   = sqlite3_column_int(stmt, 1);
-        rec.to_uid     = sqlite3_column_int(stmt, 2);
-        rec.ext        = SafeColumnText(stmt, 3);
-        rec.size       = sqlite3_column_int64(stmt, 4);
-        rec.md5        = SafeColumnText(stmt, 5);
-        rec.width      = sqlite3_column_int(stmt, 6);
-        rec.height     = sqlite3_column_int(stmt, 7);
+        rec.image_id = SafeColumnText(stmt, 0);
+        rec.from_uid = sqlite3_column_int(stmt, 1);
+        rec.to_uid = sqlite3_column_int(stmt, 2);
+        rec.ext = SafeColumnText(stmt, 3);
+        rec.size = sqlite3_column_int64(stmt, 4);
+        rec.md5 = SafeColumnText(stmt, 5);
+        rec.width = sqlite3_column_int(stmt, 6);
+        rec.height = sqlite3_column_int(stmt, 7);
         rec.created_at = sqlite3_column_int64(stmt, 8);
         rec.expires_at = sqlite3_column_int64(stmt, 9);
-        rec.recalled   = sqlite3_column_int(stmt, 10) != 0;
+        rec.recalled = sqlite3_column_int(stmt, 10) != 0;
         result = rec;
     }
     sqlite3_finalize(stmt);
@@ -274,15 +285,16 @@ std::optional<ImageRecord> ImageStorage::Get(const std::string &image_id)
  * @return 读取成功返回 true
  * @details 边界检查：offset + size 不能超过 blob 实际大小
  */
-bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_t size,
-                              std::vector<uint8_t> &out)
+bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_t size, std::vector<uint8_t> &out)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     const char *sql = "SELECT blob FROM image_storage WHERE image_id = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
 
     bool ok = false;
@@ -290,8 +302,8 @@ bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_
     {
         const void *blob = sqlite3_column_blob(stmt, 0);
         int blob_size = sqlite3_column_bytes(stmt, 0);
-        spdlog::info("[ImageStorage] ReadRange: image_id={}, offset={}, size={}, blob_size={}",
-                     image_id, offset, size, blob_size);
+        spdlog::info("[ImageStorage] ReadRange: image_id={}, offset={}, size={}, blob_size={}", image_id, offset, size,
+                     blob_size);
         if (blob && blob_size > 0 && offset >= 0 && offset + size <= blob_size)
         {
             const auto *base = static_cast<const uint8_t *>(blob);
@@ -300,8 +312,8 @@ bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_
         }
         else
         {
-            spdlog::error("[ImageStorage] ReadRange: invalid range blob_size={} offset={} size={}",
-                          blob_size, offset, size);
+            spdlog::error("[ImageStorage] ReadRange: invalid range blob_size={} offset={} size={}", blob_size, offset,
+                          size);
         }
     }
     else
@@ -320,11 +332,13 @@ bool ImageStorage::ReadRange(const std::string &image_id, int64_t offset, int64_
 bool ImageStorage::MarkRecalled(const std::string &image_id)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return false;
+    if (!guard)
+        return false;
     sqlite3 *db = guard.Get();
     const char *sql = "UPDATE image_storage SET recalled = 1 WHERE image_id = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, image_id.c_str(), -1, SQLITE_TRANSIENT);
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -339,11 +353,13 @@ bool ImageStorage::MarkRecalled(const std::string &image_id)
 int ImageStorage::DeleteExpired(int64_t now)
 {
     SQLiteConnectionGuard guard(_pool);
-    if (!guard) return 0;
+    if (!guard)
+        return 0;
     sqlite3 *db = guard.Get();
     const char *sql = "DELETE FROM image_storage WHERE expires_at < ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return 0;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return 0;
     sqlite3_bind_int64(stmt, 1, now);
     sqlite3_step(stmt);
     int changes = sqlite3_changes(db);

@@ -17,8 +17,7 @@ QThreadStorage<QSqlDatabase> g_thread_db_cache;
 /**
  * @brief 构造函数
  */
-DbService::DbService()
-    : _initialized(false)
+DbService::DbService() : _initialized(false)
 {
 }
 
@@ -58,7 +57,8 @@ bool DbService::Init(const QString &db_path)
 
     _db_path = db_path;
 
-    _main_thread_connection_name = QString("chat_db_main_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    _main_thread_connection_name =
+        QString("chat_db_main_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
     _main_thread_db = QSqlDatabase::addDatabase("QSQLITE", _main_thread_connection_name);
     _main_thread_db.setDatabaseName(db_path);
 
@@ -356,14 +356,17 @@ bool DbService::SaveMessage(const ChatMessage &msg)
         query.prepare(
             "UPDATE messages "
             "SET client_msg_id = ?, server_msg_id = ?, from_uid = ?, to_uid = ?, content = ?, timestamp = ?, status = "
-            "?, type = ?, image_id = ?, image_path = ?, image_width = ?, image_height = ?, image_ext = ?, edited = ?, edited_at = ?, recalled = MAX(recalled, ?), recalled_at = CASE WHEN recalled = 1 THEN recalled_at ELSE ? END "
+            "?, type = ?, image_id = ?, image_path = ?, image_width = ?, image_height = ?, image_ext = ?, edited = ?, "
+            "edited_at = ?, recalled = MAX(recalled, ?), recalled_at = CASE WHEN recalled = 1 THEN recalled_at ELSE ? "
+            "END "
             "WHERE id = ?");
         query.bindValue(17, existingId);
     }
     else
     {
         query.prepare(
-            "INSERT INTO messages (client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status, type, image_id, image_path, image_width, image_height, image_ext, edited, edited_at, recalled, recalled_at) "
+            "INSERT INTO messages (client_msg_id, server_msg_id, from_uid, to_uid, content, timestamp, status, type, "
+            "image_id, image_path, image_width, image_height, image_ext, edited, edited_at, recalled, recalled_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
@@ -422,6 +425,29 @@ bool DbService::UpdateMessageStatus(const QString &client_msg_id, int status)
     if (!query.exec())
     {
         qDebug() << "Failed to update message status:" << query.lastError().text();
+        return false;
+    }
+
+    return query.numRowsAffected() > 0;
+}
+
+bool DbService::UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id)
+{
+    if (new_client_msg_id.isEmpty())
+        return false;
+
+    QSqlDatabase &db = GetOrCreateThreadConnection();
+    if (!db.isOpen())
+        return false;
+
+    QSqlQuery query(db);
+    query.prepare("UPDATE messages SET client_msg_id = ? WHERE timestamp = ?");
+    query.bindValue(0, new_client_msg_id);
+    query.bindValue(1, timestamp);
+
+    if (!query.exec())
+    {
+        qDebug() << "Failed to update message client_id:" << query.lastError().text();
         return false;
     }
 

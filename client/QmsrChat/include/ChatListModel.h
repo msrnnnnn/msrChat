@@ -73,6 +73,7 @@ public:
      * @brief 根据客户端消息 ID 更新消息发送状态
      */
     void UpdateMessageStatus(const QString &client_msg_id, int status);
+    void UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id);
     /**
      * @brief 清空所有消息
      */
@@ -129,7 +130,10 @@ public:
      * @brief 按时间戳获取消息内容文本（供 QML 调用）
      */
     Q_INVOKABLE QString GetContentByTimestamp(qint64 ts) const;
-    Q_INVOKABLE bool isPrepending() const { return _prepending; }
+    Q_INVOKABLE bool isPrepending() const
+    {
+        return _prepending;
+    }
     /**
      * @brief 根据图片 image_id 更新本地缓存路径
      */

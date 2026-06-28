@@ -16,15 +16,18 @@ class UserMgr : public Singleton<UserMgr>
     friend class Singleton<UserMgr>;
 
 public:
-    static UserMgr* Instance() {
+    static UserMgr *Instance()
+    {
         return Singleton<UserMgr>::Instance();
     }
 
-    static void Init() {
+    static void Init()
+    {
         Singleton<UserMgr>::Init();
     }
 
-    static void Destroy() {
+    static void Destroy()
+    {
         Singleton<UserMgr>::Destroy();
     }
 

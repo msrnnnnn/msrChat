@@ -8,8 +8,7 @@
 #include <QClipboard>
 #include <QGuiApplication>
 
-MessageActions::MessageActions(QObject *parent)
-    : QObject(parent)
+MessageActions::MessageActions(QObject *parent) : QObject(parent)
 {
 }
 
@@ -29,7 +28,8 @@ void MessageActions::setCurrentUid(int uid)
  */
 void MessageActions::actionReply(qint64 timestamp)
 {
-    if (_chat_model == nullptr) return;
+    if (_chat_model == nullptr)
+        return;
     for (const auto &m : _chat_model->GetAllMessages())
     {
         if (m.timestamp == timestamp)
@@ -46,7 +46,8 @@ void MessageActions::actionReply(qint64 timestamp)
  */
 void MessageActions::actionCopyText(qint64 timestamp)
 {
-    if (_chat_model == nullptr) return;
+    if (_chat_model == nullptr)
+        return;
     for (const auto &m : _chat_model->GetAllMessages())
     {
         if (m.timestamp == timestamp)
@@ -62,7 +63,8 @@ void MessageActions::actionCopyText(qint64 timestamp)
  */
 void MessageActions::actionRecall(qint64 timestamp)
 {
-    if (_chat_model == nullptr) return;
+    if (_chat_model == nullptr)
+        return;
     for (const auto &m : _chat_model->GetAllMessages())
     {
         if (m.timestamp == timestamp && m.from_uid == _current_uid)
@@ -82,8 +84,10 @@ void MessageActions::actionRecall(qint64 timestamp)
  */
 void MessageActions::actionEdit(qint64 timestamp, const QString &newContent)
 {
-    if (newContent.isEmpty() || newContent.size() > 4096) return;
-    if (_chat_model == nullptr) return;
+    if (newContent.isEmpty() || newContent.size() > 4096)
+        return;
+    if (_chat_model == nullptr)
+        return;
     for (const auto &m : _chat_model->GetAllMessages())
     {
         if (m.timestamp == timestamp && m.from_uid == _current_uid)
@@ -103,7 +107,8 @@ void MessageActions::actionEdit(qint64 timestamp, const QString &newContent)
  */
 void MessageActions::actionDelete(qint64 timestamp)
 {
-    if (_chat_model == nullptr) return;
+    if (_chat_model == nullptr)
+        return;
     _chat_model->RemoveMessageByTimestamp(timestamp);
     DbThreadManager::Instance().DeleteMessageByTimestamp(timestamp);
 }

@@ -32,16 +32,16 @@ struct ChatMessage
     qint64 timestamp = 0;
     int status = 0;
     // === image + recall + edit (Phase 3 新增) ===
-    int     type        = 0;     // 0=text, 1=image
-    QString image_id;           // UUID
-    QString image_path;         // 本地缓存绝对路径
-    int     image_width = 0;
-    int     image_height = 0;
+    int type = 0;       // 0=text, 1=image
+    QString image_id;   // UUID
+    QString image_path; // 本地缓存绝对路径
+    int image_width = 0;
+    int image_height = 0;
     QString image_ext;
-    bool    edited      = false;
-    qint64  edited_at   = 0;
-    bool    recalled    = false;
-    qint64  recalled_at = 0;
+    bool edited = false;
+    qint64 edited_at = 0;
+    bool recalled = false;
+    qint64 recalled_at = 0;
 };
 
 Q_DECLARE_METATYPE(ChatMessage)
@@ -66,6 +66,7 @@ public:
 
     bool SaveMessage(const ChatMessage &msg);
     bool UpdateMessageStatus(const QString &client_msg_id, int status);
+    bool UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id);
     bool UpdateImagePath(const QString &image_id, const QString &local_path);
     /**
      * @brief 按会话双方 uid 获取历史消息

@@ -90,16 +90,16 @@ private:
      */
     struct Pending
     {
-        int retry_count = 0;  ///< 当前重试次数
-        QString ext;          ///< 文件扩展名
+        int retry_count = 0; ///< 当前重试次数
+        QString ext;         ///< 文件扩展名
     };
 
-    QHash<QString, Pending> _pending;     ///< 等待表：image_id → 下载信息
-    QHash<QString, QString> _cache_index; ///< 缓存索引：image_id → 本地绝对路径
-    QSet<QString> _failed_index;          ///< 失败索引：已过期/失败的 image_id 集合
-    mutable QMutex _mutex;                ///< 线程互斥锁
-    static constexpr int kMaxRetries = 3;        ///< 最大重试次数
-    static constexpr int kRetryIntervalMs = 5000;///< 重试间隔（毫秒）
+    QHash<QString, Pending> _pending;             ///< 等待表：image_id → 下载信息
+    QHash<QString, QString> _cache_index;         ///< 缓存索引：image_id → 本地绝对路径
+    QSet<QString> _failed_index;                  ///< 失败索引：已过期/失败的 image_id 集合
+    mutable QMutex _mutex;                        ///< 线程互斥锁
+    static constexpr int kMaxRetries = 3;         ///< 最大重试次数
+    static constexpr int kRetryIntervalMs = 5000; ///< 重试间隔（毫秒）
 };
 
 #endif

@@ -29,21 +29,23 @@ namespace
 
 static int64_t NowMs()
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
 }
 
 /// 发送 EditAck 响应（recall / edit 共用）
-void SendEditAck(CSession &session, int msg_type, int error, int64_t msg_timestamp,
-                 int64_t edit_ts = 0, const std::string &content = "",
-                 const std::string &message = "")
+void SendEditAck(CSession &session, int msg_type, int error, int64_t msg_timestamp, int64_t edit_ts = 0,
+                 const std::string &content = "", const std::string &message = "")
 {
     qmsrchat::EditAck ack;
     ack.set_error(error);
     ack.set_msg_timestamp(msg_timestamp);
-    if (edit_ts > 0) ack.set_edit_ts(edit_ts);
-    if (!content.empty()) ack.set_new_content(content);
-    if (!message.empty()) ack.set_message(message);
+    if (edit_ts > 0)
+        ack.set_edit_ts(edit_ts);
+    if (!content.empty())
+        ack.set_new_content(content);
+    if (!message.empty())
+        ack.set_message(message);
     std::string s;
     if (!ack.SerializeToString(&s))
     {
@@ -95,8 +97,7 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
 
     if (body_data.size() > MAX_CHUNK_SIZE)
     {
-        spdlog::warn("[ImageService] HandleChatImage: body too large {} > {}",
-                     body_data.size(), MAX_CHUNK_SIZE);
+        spdlog::warn("[ImageService] HandleChatImage: body too large {} > {}", body_data.size(), MAX_CHUNK_SIZE);
         return true;
     }
 
@@ -112,16 +113,16 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
         int from = session.GetUserUid();
 
         // Phase 6: schema_version 校验
-        if (msg.schema_version() != 0 && msg.schema_version() != SCHEMA_VERSION) {
-            spdlog::warn("[ImageService] HandleChatImage: unsupported schema_version={}",
-                         msg.schema_version());
+        if (msg.schema_version() != 0 && msg.schema_version() != SCHEMA_VERSION)
+        {
+            spdlog::warn("[ImageService] HandleChatImage: unsupported schema_version={}", msg.schema_version());
             return true;
         }
 
         if (from != msg.from_uid())
         {
-            spdlog::warn("[ImageService] HandleChatImage: from_uid mismatch (session={}, msg={})",
-                         from, msg.from_uid());
+            spdlog::warn("[ImageService] HandleChatImage: from_uid mismatch (session={}, msg={})", from,
+                         msg.from_uid());
             qmsrchat::ChatAck ack;
             ack.set_error(1);
             ack.set_message("uid mismatch");
@@ -161,13 +162,11 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
                 ChatMessage offline_msg;
                 offline_msg.from_uid = from;
                 offline_msg.to_uid = msg.to_uid();
-                offline_msg.type = 1;  // image
+                offline_msg.type = 1; // image
                 offline_msg.image_id = msg.image_id();
-                offline_msg.content = body_data;  // raw protobuf binary
-                offline_msg.timestamp = msg.timestamp() > 0
-                    ? msg.timestamp()
-                    : NowMs();
-                offline_msg.status = 2;  // offline stored
+                offline_msg.content = body_data; // raw protobuf binary
+                offline_msg.timestamp = msg.timestamp() > 0 ? msg.timestamp() : NowMs();
+                offline_msg.status = 2; // offline stored
                 offline_msg.client_msg_id = msg.image_id();
                 stored = server->StoreOfflineMessage(offline_msg);
                 spdlog::info("[ImageService] HandleChatImage: offline, stored in SQLite for uid={} (ok={})",
@@ -182,9 +181,7 @@ bool ImageService::HandleChatImage(CSession &session, const std::string &body_da
         db_msg.type = 1;
         db_msg.image_id = msg.image_id();
         db_msg.content = msg.caption();
-        db_msg.timestamp = msg.timestamp() > 0
-            ? msg.timestamp()
-            : NowMs();
+        db_msg.timestamp = msg.timestamp() > 0 ? msg.timestamp() : NowMs();
         db_msg.status = delivered ? 1 : (stored ? 2 : 0);
         db_msg.client_msg_id = msg.image_id();
         SQLiteMgr::Instance().Messages().SaveMessage(db_msg);
@@ -236,8 +233,7 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     {
         rsp.set_error(ERR_IMAGE_EXPIRED);
         rsp.set_offset(0);
-        spdlog::info("[ImageService] HandleImageDownloadReq: {} not found / expired",
-                     req.image_id());
+        spdlog::info("[ImageService] HandleImageDownloadReq: {} not found / expired", req.image_id());
 
         std::string data;
         if (!rsp.SerializeToString(&data))
@@ -252,8 +248,7 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     {
         rsp.set_error(ERR_IMAGE_EXPIRED);
         rsp.set_offset(0);
-        spdlog::info("[ImageService] HandleImageDownloadReq: {} recalled",
-                     req.image_id());
+        spdlog::info("[ImageService] HandleImageDownloadReq: {} recalled", req.image_id());
 
         std::string data;
         if (!rsp.SerializeToString(&data))
@@ -276,15 +271,15 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         return true;
     }
     session.Send(rsp_data, MSG_IMAGE_DOWNLOAD_RSP);
-    spdlog::info("[ImageService] HandleImageDownloadReq: {} authorized, size={} ext={}",
-                 req.image_id(), rec->size, rec->ext);
+    spdlog::info("[ImageService] HandleImageDownloadReq: {} authorized, size={} ext={}", req.image_id(), rec->size,
+                 rec->ext);
 
     // === 服务端主动推送文件（FileReq + FileChunk + FileAck）===
     int64_t task_id = static_cast<int64_t>(std::hash<std::string>{}(req.image_id()) & 0x7FFFFFFFFFFFFFFFLL);
     std::string filename = req.image_id() + "." + rec->ext;
     int requester_uid = session.GetUserUid();
 
-    FileTransfer::Instance().AddTask(task_id, rec->from_uid, requester_uid, filename, rec->size);
+    FileTransfer::Instance().AddTask(task_id, rec->from_uid, requester_uid, filename, rec->size, rec->md5);
     {
         auto task = FileTransfer::Instance().GetTask(task_id);
         if (task)
@@ -301,6 +296,7 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
     fileReq.set_to_uid(requester_uid);
     fileReq.set_filename(filename);
     fileReq.set_total_size(rec->size);
+    fileReq.set_md5(rec->md5);
     {
         std::string req_ser;
         if (!fileReq.SerializeToString(&req_ser))
@@ -311,16 +307,15 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
         session.Send(req_ser, MSG_FILE_REQ);
     }
 
-    // 流式读取：使用 ReadRange 按需读取每个 chunk
-    constexpr int64_t kChunkSize = 4 * 1024;
-
-    // 2. 存储下载状态，发送第一个 chunk（后续由 ContinueImageDownload 发送）
+    // 存储下载状态，等待客户端 FileRsp 后再开始发送 chunks
     {
         auto state = std::make_shared<ImageDownloadState>();
         state->image_id = req.image_id();
         state->total_size = rec->size;
         state->offset = 0;
         state->task_id = task_id;
+        // 持有 session 的 weak_ptr，session 断开时 ContinueImageDownload 会检测到并清理条目。
+        // 但 _pending_downloads 中的 shared_ptr 不会自动释放，需要在 session 断开回调中清理。
         state->session = session.shared_from_this();
 
         {
@@ -328,34 +323,8 @@ bool ImageService::HandleImageDownloadReq(CSession &session, const std::string &
             _pending_downloads[task_id] = state;
         }
 
-        int64_t this_chunk = std::min(kChunkSize, rec->size);
-        std::vector<uint8_t> chunk_buf(this_chunk);
-        if (!ImageStorage::Instance().ReadRange(req.image_id(), 0, this_chunk, chunk_buf))
-        {
-            rsp.set_error(ERR_IMAGE_EXPIRED);
-            std::string data;
-            if (rsp.SerializeToString(&data))
-                session.Send(data, MSG_IMAGE_DOWNLOAD_RSP);
-            std::lock_guard<std::mutex> lock(_download_mutex);
-            _pending_downloads.erase(task_id);
-            return true;
-        }
-
-        qmsrchat::FileChunk chunk;
-        chunk.set_task_id(task_id);
-        chunk.set_offset(0);
-        chunk.set_size(this_chunk);
-        chunk.set_data(chunk_buf.data(), this_chunk);
-
-        std::string chunk_ser;
-        if (chunk.SerializeToString(&chunk_ser))
-        {
-            session.Send(chunk_ser, MSG_FILE_CHUNK);
-        }
-        state->offset = this_chunk;
-
-        spdlog::info("[ImageService] HandleImageDownloadReq: {} streaming {} bytes, first chunk sent",
-                     req.image_id(), rec->size);
+        spdlog::info("[ImageService] HandleImageDownloadReq: {} queued, size={}, waiting for FileRsp", req.image_id(),
+                     rec->size);
     }
 
     return true;
@@ -367,7 +336,8 @@ void ImageService::ContinueImageDownload(int64_t task_id)
     {
         std::lock_guard<std::mutex> lock(_download_mutex);
         auto it = _pending_downloads.find(task_id);
-        if (it == _pending_downloads.end()) return;
+        if (it == _pending_downloads.end())
+            return;
         state = it->second;
     }
 
@@ -441,22 +411,26 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         const int64_t now_ms = NowMs();
 
         // Phase 5E: 防重放 Nonce 校验
-        if (req.has_nonce_header()) {
+        if (req.has_nonce_header())
+        {
             const auto &nh = req.nonce_header();
-            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp()))
+            {
                 spdlog::warn("HandleChatRecall: nonce time window exceeded");
                 return true;
             }
-            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+            if (!NonceCache::Instance().TryInsert(nh.nonce()))
+            {
                 spdlog::warn("HandleChatRecall: duplicate nonce");
                 return true;
             }
             // 7E: HMAC 签名校验
-            if (!nh.signature().empty()) {
-                std::string expected = ComputeHmacSha256(
-                    std::string(HMAC_KEY),
-                    nh.nonce() + std::to_string(nh.timestamp()));
-                if (nh.signature() != expected) {
+            if (!nh.signature().empty())
+            {
+                std::string expected =
+                    ComputeHmacSha256(std::string(HMAC_KEY), nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected)
+                {
                     spdlog::warn("HandleChatRecall: HMAC signature mismatch");
                     return true;
                 }
@@ -467,8 +441,7 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         auto orig = SQLiteMgr::Instance().Messages().GetMessageByTimestamp(req.msg_timestamp(), from);
         if (!orig.has_value())
         {
-            spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}",
-                         req.msg_timestamp(), from);
+            spdlog::warn("HandleChatRecall: msg not found or not owner, ts={} from={}", req.msg_timestamp(), from);
             SendEditAck(session, MSG_CHAT_RECALL, ERR_RECALL_NOT_OWNER, req.msg_timestamp());
             return true;
         }
@@ -505,7 +478,8 @@ bool ImageService::HandleChatRecall(CSession &session, const std::string &body_d
         }
 
         // 6. 入 RecallNotifyQueue 兜底
-        SQLiteMgr::Instance().Messages().EnqueueRecallNotify(orig->to_uid, req.msg_timestamp(), from, now_ms, orig->to_uid);
+        SQLiteMgr::Instance().Messages().EnqueueRecallNotify(orig->to_uid, req.msg_timestamp(), from, now_ms,
+                                                             orig->to_uid);
         spdlog::info("HandleChatRecall: Notify queued for uid={} ts={}", orig->to_uid, req.msg_timestamp());
 
         // 7. 尝试在线推送
@@ -543,22 +517,26 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         const int64_t now_ms = NowMs();
 
         // Phase 5E: 防重放 Nonce 校验
-        if (req.has_nonce_header()) {
+        if (req.has_nonce_header())
+        {
             const auto &nh = req.nonce_header();
-            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp())) {
+            if (!NonceCache::Instance().IsWithinTimeWindow(nh.timestamp()))
+            {
                 spdlog::warn("HandleChatEdit: nonce time window exceeded");
                 return true;
             }
-            if (!NonceCache::Instance().TryInsert(nh.nonce())) {
+            if (!NonceCache::Instance().TryInsert(nh.nonce()))
+            {
                 spdlog::warn("HandleChatEdit: duplicate nonce");
                 return true;
             }
             // 7E: HMAC 签名校验
-            if (!nh.signature().empty()) {
-                std::string expected = ComputeHmacSha256(
-                    std::string(HMAC_KEY),
-                    nh.nonce() + std::to_string(nh.timestamp()));
-                if (nh.signature() != expected) {
+            if (!nh.signature().empty())
+            {
+                std::string expected =
+                    ComputeHmacSha256(std::string(HMAC_KEY), nh.nonce() + std::to_string(nh.timestamp()));
+                if (nh.signature() != expected)
+                {
                     spdlog::warn("HandleChatEdit: HMAC signature mismatch");
                     return true;
                 }
@@ -589,8 +567,8 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         }
 
         // 4. DB 更新 content + edited + edited_at
-        if (!SQLiteMgr::Instance().Messages().UpdateMessageContent(req.msg_timestamp(), from,
-                                                         req.new_content(), now_ms))
+        if (!SQLiteMgr::Instance().Messages().UpdateMessageContent(req.msg_timestamp(), from, req.new_content(),
+                                                                   now_ms))
         {
             spdlog::error("HandleChatEdit: DB update failed, ts={}", req.msg_timestamp());
             SendEditAck(session, MSG_CHAT_EDIT, 1, req.msg_timestamp());
@@ -620,8 +598,8 @@ bool ImageService::HandleChatEdit(CSession &session, const std::string &body_dat
         else
         {
             // 离线：入队编辑通知，上线时投递
-            SQLiteMgr::Instance().Messages().EnqueueEditNotify(
-                orig->to_uid, req.msg_timestamp(), from, req.new_content(), now_ms);
+            SQLiteMgr::Instance().Messages().EnqueueEditNotify(orig->to_uid, req.msg_timestamp(), from,
+                                                               req.new_content(), now_ms);
             spdlog::info("HandleChatEdit: target uid={} offline, Notify queued", orig->to_uid);
         }
 

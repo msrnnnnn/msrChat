@@ -21,8 +21,7 @@
  * @details 初始化 acceptor 和内部线程池
  */
 CServer::CServer(boost::asio::io_context &io_context, uint16_t port)
-    : _io_context(io_context),
-      _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
+    : _io_context(io_context), _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
       _thread_pool(std::thread::hardware_concurrency())
 {
     spdlog::info("[CServer] Server initialized on port {}", port);
@@ -50,44 +49,45 @@ void CServer::Start()
  */
 void CServer::DoAccept()
 {
-    if (_stopped) {
+    if (_stopped)
+    {
         return;
     }
 
     auto &ioc = AsioIOServicePool::getInstance().GetIOService();
     auto new_session = std::make_shared<CSession>(ioc, shared_from_this());
-    _acceptor.async_accept(
-        new_session->GetSocket(),
-        [this, new_session](const boost::system::error_code &ec)
-        {
-            if (_stopped) {
-                return;
-            }
+    _acceptor.async_accept(new_session->GetSocket(),
+                           [this, new_session](const boost::system::error_code &ec)
+                           {
+                               if (_stopped)
+                               {
+                                   return;
+                               }
 
-            if (!ec)
-            {
-                // 检查连接数上限
-                if (_max_connections > 0 && 
-                    SessionManager::Instance().GetConnectionCount() >= _max_connections)
-                {
-                    spdlog::warn("[CServer] Connection limit reached ({}), rejecting {}",
-                                 _max_connections, new_session->GetUuid());
-                    new_session->Close();
-                    DoAccept();
-                    return;
-                }
+                               if (!ec)
+                               {
+                                   // 检查连接数上限
+                                   if (_max_connections > 0 &&
+                                       SessionManager::Instance().GetConnectionCount() >= _max_connections)
+                                   {
+                                       spdlog::warn("[CServer] Connection limit reached ({}), rejecting {}",
+                                                    _max_connections, new_session->GetUuid());
+                                       new_session->Close();
+                                       DoAccept();
+                                       return;
+                                   }
 
-                spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
-                SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
-                SessionManager::Instance().AddSession(-1, new_session);
-                new_session->Start();
-            }
-            else
-            {
-                spdlog::error("[CServer] Accept error: {}", ec.message());
-            }
-            DoAccept();
-        });
+                                   spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
+                                   SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
+                                   SessionManager::Instance().AddSession(-1, new_session);
+                                   new_session->Start();
+                               }
+                               else
+                               {
+                                   spdlog::error("[CServer] Accept error: {}", ec.message());
+                               }
+                               DoAccept();
+                           });
 }
 
 /**
@@ -130,9 +130,9 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
             return false;
         }
         msg.content = json_data.value("content", "");
-        msg.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::system_clock::now().time_since_epoch())
-                            .count();
+        msg.timestamp =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count();
         msg.status = 0;
         msg.client_msg_id = json_data.value("client_msg_id", "");
         return SQLiteMgr::Instance().Messages().SaveOfflineMessage(msg);
@@ -165,29 +165,28 @@ void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &sess
     auto self = shared_from_this();
 
     // 所有 session 访问都通过 strand，确保线程安全
-    boost::asio::post(
-        session->GetStrand(),
-        [self, session, uid]()
-        {
-            int64_t total_count = SQLiteMgr::Instance().Messages().GetOfflineMessageCount(uid);
+    boost::asio::post(session->GetStrand(),
+                      [self, session, uid]()
+                      {
+                          int64_t total_count = SQLiteMgr::Instance().Messages().GetOfflineMessageCount(uid);
 
-            if (total_count > 0)
-            {
-                {
-                    std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
-                    session->_offline_send_state.uid = uid;
-                    session->_offline_send_state.total_count = total_count;
-                    session->_offline_send_state.sent_count = 0;
-                    session->_offline_send_state.sending = true;
-                    session->_offline_send_state.last_sent_id = 0;
-                }
+                          if (total_count > 0)
+                          {
+                              {
+                                  std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
+                                  session->_offline_send_state.uid = uid;
+                                  session->_offline_send_state.total_count = total_count;
+                                  session->_offline_send_state.sent_count = 0;
+                                  session->_offline_send_state.sending = true;
+                                  session->_offline_send_state.last_sent_id = 0;
+                              }
 
-                session->SendNextOfflinePage();
-            }
+                              session->SendNextOfflinePage();
+                          }
 
-            self->FlushRecallNotifies(uid, session);
-            self->FlushEditNotifies(uid, session);
-        });
+                          self->FlushRecallNotifies(uid, session);
+                          self->FlushEditNotifies(uid, session);
+                      });
 }
 
 /**
@@ -216,9 +215,8 @@ void CServer::Stop()
     }
 
     // 先关闭所有会话再清理映射，防止中途被 DoAccept 加入新会话
-    SessionManager::Instance().ForEachSession([](int /*uid*/, const std::shared_ptr<CSession> &session) {
-        session->Close();
-    });
+    SessionManager::Instance().ForEachSession([](int /*uid*/, const std::shared_ptr<CSession> &session)
+                                              { session->Close(); });
     SessionManager::Instance().ClearAll();
     spdlog::info("[CServer] All sessions closed");
 

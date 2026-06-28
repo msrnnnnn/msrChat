@@ -37,23 +37,13 @@ public:
     };
 
     FileTransferTask()
-        : _task_id(0),
-          _from_uid(0),
-          _to_uid(0),
-          _total_size(0),
-          _transferred_size(0),
-          _status(Status::PENDING)
+        : _task_id(0), _from_uid(0), _to_uid(0), _total_size(0), _transferred_size(0), _status(Status::PENDING)
     {
     }
 
     FileTransferTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
-        : _task_id(task_id),
-          _from_uid(from_uid),
-          _to_uid(to_uid),
-          _filename(filename),
-          _total_size(total_size),
-          _transferred_size(0),
-          _status(Status::PENDING)
+        : _task_id(task_id), _from_uid(from_uid), _to_uid(to_uid), _filename(filename), _total_size(total_size),
+          _transferred_size(0), _status(Status::PENDING)
     {
     }
 
@@ -79,9 +69,11 @@ public:
         _is_image = false;
         _image_id.clear();
         _target_offline = false;
+        _md5.clear();
     }
 
-    void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size) noexcept
+    void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size,
+              const std::string &md5 = "") noexcept
     {
         _task_id = task_id;
         _from_uid = from_uid;
@@ -93,6 +85,7 @@ public:
         _is_image = false;
         _image_id.clear();
         _target_offline = false;
+        _md5 = md5;
     }
 
     int64_t GetTaskId() const
@@ -115,26 +108,41 @@ public:
     {
         return _total_size;
     }
-    int64_t GetTransferredSize() const
+
+    void SetIsImage(bool is_image)
     {
-        return _transferred_size.load();
+        _is_image = is_image;
     }
-    Status GetStatus() const
+    bool IsImage() const
     {
-        return _status.load();
+        return _is_image;
+    }
+    const std::string &GetImageId() const
+    {
+        return _image_id;
+    }
+    void SetImageId(const std::string &id)
+    {
+        _image_id = id;
     }
 
-    void UpdateProgress(int64_t size);
-    bool IsCompleted() const;
-    void SetStatus(Status status);
+    void SetTargetOffline(bool offline)
+    {
+        _target_offline = offline;
+    }
+    bool IsTargetOffline() const
+    {
+        return _target_offline;
+    }
 
-    void SetIsImage(bool is_image) { _is_image = is_image; }
-    bool IsImage() const { return _is_image; }
-    const std::string &GetImageId() const { return _image_id; }
-    void SetImageId(const std::string &id) { _image_id = id; }
-
-    void SetTargetOffline(bool offline) { _target_offline = offline; }
-    bool IsTargetOffline() const { return _target_offline; }
+    void SetMd5(const std::string &md5)
+    {
+        _md5 = md5;
+    }
+    const std::string &GetMd5() const
+    {
+        return _md5;
+    }
 
 private:
     int64_t _task_id = 0;
@@ -148,6 +156,7 @@ private:
     std::atomic<bool> _is_image{false};
     std::string _image_id;
     std::atomic<bool> _target_offline{false};
+    std::string _md5;
 };
 
 /**
@@ -178,8 +187,10 @@ public:
      * @param to_uid 接收方 UID
      * @param filename 文件名
      * @param total_size 文件总大小
+     * @param md5 文件MD5校验值（可选）
      */
-    void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
+    void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size,
+                 const std::string &md5 = "");
 
     /**
      * @brief 按 task_id 查询传输任务
@@ -198,7 +209,6 @@ public:
      * @param uid 用户 UID
      */
     void RemoveTaskBySession(int uid);
-
 
     FileTransfer(const FileTransfer &) = delete;
     FileTransfer &operator=(const FileTransfer &) = delete;

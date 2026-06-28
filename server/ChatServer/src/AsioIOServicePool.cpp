@@ -9,8 +9,7 @@
  * @brief 构造函数
  * @param size 线程池大小
  */
-AsioIOServicePool::AsioIOServicePool(std::size_t size)
-    : _nextIOService(0)
+AsioIOServicePool::AsioIOServicePool(std::size_t size) : _nextIOService(0)
 {
     if (size == 0)
     {

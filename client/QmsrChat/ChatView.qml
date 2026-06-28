@@ -72,6 +72,9 @@ Rectangle {
                 onImageClicked: function(imageId) {
                     chatController.openImageViewer(imageId)
                 }
+                onRetryRequested: function(ts) {
+                    chatController.resendMessage(ts)
+                }
             }
 
             ScrollBar.vertical: ScrollBar {

@@ -23,8 +23,7 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
 
     if (body_data.size() > MAX_FILE_META_SIZE)
     {
-        spdlog::warn("[FileService] HandleFileReq: body too large {} > {}",
-                     body_data.size(), MAX_FILE_META_SIZE);
+        spdlog::warn("[FileService] HandleFileReq: body too large {} > {}", body_data.size(), MAX_FILE_META_SIZE);
         return true;
     }
 
@@ -32,7 +31,7 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
     {
         qmsrchat::FileAck response;
         response.set_error(1);
-        response.set_message("not login");
+        response.set_message("未登录");
 
         std::string serialized;
         if (response.SerializeToString(&serialized))
@@ -58,11 +57,11 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
 
         if (fileReq.from_uid() != session.GetUserUid())
         {
-            spdlog::warn("[FileService] HandleFileReq: from_uid mismatch {} vs session {}",
-                         fileReq.from_uid(), session.GetUserUid());
+            spdlog::warn("[FileService] HandleFileReq: from_uid mismatch {} vs session {}", fileReq.from_uid(),
+                         session.GetUserUid());
             qmsrchat::FileAck response;
             response.set_error(1);
-            response.set_message("uid mismatch");
+            response.set_message("uid 不匹配");
             std::string serialized;
             if (response.SerializeToString(&serialized))
                 session.Send(serialized, MSG_FILE_ACK);
@@ -73,7 +72,7 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
         {
             qmsrchat::FileAck response;
             response.set_error(1);
-            response.set_message("invalid file request");
+            response.set_message("无效的文件请求");
 
             std::string serialized;
             if (response.SerializeToString(&serialized))
@@ -84,8 +83,8 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
         }
 
         // 记录 P2P 路由映射，用于后续 chunk/ack 转发
-        FileTransfer::Instance().AddTask(
-            task_id, session.GetUserUid(), to_uid, filename, total_size);
+        FileTransfer::Instance().AddTask(task_id, session.GetUserUid(), to_uid, filename, total_size,
+                                         fileReq.md5());
 
         // ===== 图片模式检测 =====
         // 客户端以 "{uuid}.{ext}" 格式传 filename，image_id 即 UUID 部分
@@ -96,8 +95,8 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
             std::string image_id = filename.substr(0, dot_pos);
             std::string ext = filename.substr(dot_pos + 1);
             // Validate UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx, 36 chars with 4 dashes)
-            if (image_id.size() == 36 && image_id[8] == '-' && image_id[13] == '-'
-                && image_id[18] == '-' && image_id[23] == '-')
+            if (image_id.size() == 36 && image_id[8] == '-' && image_id[13] == '-' && image_id[18] == '-' &&
+                image_id[23] == '-')
             {
                 auto task = FileTransfer::Instance().GetTask(task_id);
                 if (task)
@@ -140,7 +139,8 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
                     // 目标离线 + 图片模式：服务端代回 FileRsp，让发送方继续上传到 ImageStorage
                     task_ptr->SetTargetOffline(true);
                     spdlog::info("[FileService] HandleFileReq: target uid={} offline, "
-                                 "server acks for image upload, task_id={}", to_uid, task_id);
+                                 "server acks for image upload, task_id={}",
+                                 to_uid, task_id);
 
                     qmsrchat::FileRsp rsp;
                     rsp.set_task_id(task_id);
@@ -160,7 +160,7 @@ bool FileService::HandleFileReq(CSession &session, const std::string &body_data)
                     qmsrchat::FileAck response;
                     response.set_task_id(task_id);
                     response.set_error(1);
-                    response.set_message("target user offline");
+                    response.set_message("目标用户不在线");
 
                     std::string serialized;
                     if (response.SerializeToString(&serialized))
@@ -226,6 +226,11 @@ bool FileService::HandleFileRsp(CSession &session, const std::string &body_data)
             }
             spdlog::info("[FileService] FileRsp forwarded: task_id={}, from_uid={}", task_id, from_uid);
         }
+        else if (task->IsImage() && fileRsp.error() == 0)
+        {
+            ImageService::ContinueImageDownload(task_id);
+            spdlog::info("[FileService] FileRsp: started image streaming for task_id={}", task_id);
+        }
     }
     catch (const std::exception &e)
     {
@@ -255,7 +260,7 @@ bool FileService::HandleFileChunk(CSession &session, std::string_view body_view)
     {
         qmsrchat::FileAck response;
         response.set_error(1);
-        response.set_message("not login");
+        response.set_message("未登录");
         std::string serialized;
         if (response.SerializeToString(&serialized))
             session.Send(serialized, MSG_FILE_ACK);
@@ -292,11 +297,8 @@ bool FileService::HandleFileChunk(CSession &session, std::string_view body_view)
             const std::string &data = chunk.data();
             if (!data.empty())
             {
-                ImageStorage::Instance().AppendChunk(
-                    task->GetImageId(),
-                    chunk.offset(),
-                    reinterpret_cast<const uint8_t *>(data.data()),
-                    data.size());
+                ImageStorage::Instance().AppendChunk(task->GetImageId(), chunk.offset(),
+                                                     reinterpret_cast<const uint8_t *>(data.data()), data.size());
             }
 
             // 目标离线时，服务端代回 FileAck 给发送方
@@ -336,7 +338,7 @@ bool FileService::HandleFileChunk(CSession &session, std::string_view body_view)
         spdlog::error("[FileService] HandleFileChunk error: {}", e.what());
         qmsrchat::FileAck response;
         response.set_error(1);
-        response.set_message("chunk processing error");
+        response.set_message("分片处理错误");
         std::string serialized;
         if (response.SerializeToString(&serialized))
             session.Send(serialized, MSG_FILE_ACK);

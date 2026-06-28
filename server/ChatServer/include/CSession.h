@@ -59,7 +59,7 @@ public:
      * @param msg_id 消息类型 ID
      * @details 消息加入发送队列，由 strand 保证串行写入顺序
      */
-    void Send(const std::string &msg, short msg_id);
+    void Send(const std::string &msg, uint16_t msg_id);
 
     /**
      * @brief 发送离线消息的下一页

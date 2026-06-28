@@ -6,42 +6,6 @@
 #include "FileTransfer.h"
 
 /**
- * @brief 更新传输进度
- * @param size 本次传输大小
- * @details 原子操作递增已传输字节数，达到总量时自动标记为完成
- */
-void FileTransferTask::UpdateProgress(int64_t size)
-{
-    int64_t old_size = _transferred_size.load();
-    while (!_transferred_size.compare_exchange_weak(old_size, old_size + size))
-    {
-    }
-
-    if (_transferred_size >= _total_size)
-    {
-        _status.store(Status::COMPLETED);
-    }
-}
-
-/**
- * @brief 判断传输是否完成
- * @return 完成返回 true
- */
-bool FileTransferTask::IsCompleted() const
-{
-    return _transferred_size.load() >= _total_size;
-}
-
-/**
- * @brief 设置传输状态
- * @param status 新状态
- */
-void FileTransferTask::SetStatus(Status status)
-{
-    _status.store(status);
-}
-
-/**
  * @brief 获取单例实例
  * @return FileTransfer& 全局唯一实例
  */
@@ -58,12 +22,13 @@ FileTransfer &FileTransfer::Instance()
  * @param to_uid 接收方用户 ID
  * @param filename 文件名
  * @param total_size 文件总大小
+ * @param md5 文件MD5校验值（可选）
  */
-void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid,
-                           const std::string &filename, int64_t total_size)
+void FileTransfer::AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size,
+                           const std::string &md5)
 {
     std::lock_guard<std::mutex> lock(_task_mutex);
-    auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size);
+    auto task = TaskPool().Acquire(task_id, from_uid, to_uid, filename, total_size, md5);
     _tasks[task_id] = task;
 }
 

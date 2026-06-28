@@ -122,11 +122,11 @@ constexpr uint16_t MSG_FILE_RSP = 2002;
 constexpr uint16_t MSG_FILE_CHUNK = 2003;
 constexpr uint16_t MSG_FILE_ACK = 2004;
 constexpr int HEAD_TOTAL_LEN = 6;
-constexpr size_t CHUNK_SIZE = 4 * 1024;  // 4KB（来自 const.h）
+constexpr size_t CHUNK_SIZE = 4 * 1024; // 4KB（来自 const.h）
 constexpr int SERVER_PORT = 8080;
 
 // ─── 测试参数 ──────────────────────────────────────────────────────────────
-constexpr size_t IMAGE_SIZE = 5 * 1024 * 1024;  // 5MB
+constexpr size_t IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 constexpr int CONCURRENT_UPLOADS = 100;
 constexpr int CLIENT_A_UID = 1001;
 constexpr int CLIENT_B_UID = 1002;
@@ -179,14 +179,12 @@ bool RecvPacket(SOCKET_TYPE sock, uint16_t &out_msg_id, std::string &out_body)
     if (!RecvN(sock, header, HEAD_TOTAL_LEN))
         return false;
 
-    uint16_t msg_id = static_cast<uint16_t>((static_cast<unsigned char>(header[0]) << 8) |
-                                            static_cast<unsigned char>(header[1]));
-    uint32_t body_len = (static_cast<unsigned char>(header[2]) << 24) |
-                        (static_cast<unsigned char>(header[3]) << 16) |
-                        (static_cast<unsigned char>(header[4]) << 8) |
-                        static_cast<unsigned char>(header[5]);
+    uint16_t msg_id =
+        static_cast<uint16_t>((static_cast<unsigned char>(header[0]) << 8) | static_cast<unsigned char>(header[1]));
+    uint32_t body_len = (static_cast<unsigned char>(header[2]) << 24) | (static_cast<unsigned char>(header[3]) << 16) |
+                        (static_cast<unsigned char>(header[4]) << 8) | static_cast<unsigned char>(header[5]);
 
-    if (body_len > 16 * 1024 * 1024)  // 防护：单包不超过 16MB
+    if (body_len > 16 * 1024 * 1024) // 防护：单包不超过 16MB
         return false;
 
     out_body.resize(body_len);
@@ -214,14 +212,14 @@ std::string ComputeMD5(const char *data, size_t len);
  *   5: total_size (int64, wire_type=0, varint)
  *   6: md5 (string, wire_type=2, length-delimited)
  */
-std::string EncodeFileReq(int64_t task_id, int32_t from_uid, int32_t to_uid,
-                          const std::string &filename, int64_t total_size,
-                          const std::string &md5_hex)
+std::string EncodeFileReq(int64_t task_id, int32_t from_uid, int32_t to_uid, const std::string &filename,
+                          int64_t total_size, const std::string &md5_hex)
 {
     std::string out;
 
     // varint helper
-    auto write_varint = [&](uint64_t value, std::string &buf) {
+    auto write_varint = [&](uint64_t value, std::string &buf)
+    {
         while (value > 0x7F)
         {
             buf.push_back(static_cast<char>((value & 0x7F) | 0x80));
@@ -236,25 +234,25 @@ std::string EncodeFileReq(int64_t task_id, int32_t from_uid, int32_t to_uid,
     write_varint(static_cast<uint64_t>(task_id), out);
 
     // field 2: from_uid (int32)
-    write_varint(16, out);  // (2<<3)|0=16
+    write_varint(16, out); // (2<<3)|0=16
     write_varint(static_cast<uint64_t>(from_uid), out);
 
     // field 3: to_uid (int32)
-    write_varint(24, out);  // (3<<3)|0=24
+    write_varint(24, out); // (3<<3)|0=24
     write_varint(static_cast<uint64_t>(to_uid), out);
 
     // field 4: filename (string)
-    write_varint(34, out);  // (4<<3)|2=34
+    write_varint(34, out); // (4<<3)|2=34
     // filename length + content
     write_varint(static_cast<uint64_t>(filename.size()), out);
     out += filename;
 
     // field 5: total_size (int64)
-    write_varint(40, out);  // (5<<3)|0=40
+    write_varint(40, out); // (5<<3)|0=40
     write_varint(static_cast<uint64_t>(total_size), out);
 
     // field 6: md5 (string)
-    write_varint(50, out);  // (6<<3)|2=50
+    write_varint(50, out); // (6<<3)|2=50
     write_varint(static_cast<uint64_t>(md5_hex.size()), out);
     out += md5_hex;
 
@@ -273,7 +271,8 @@ std::string EncodeFileChunk(int64_t task_id, int64_t offset, const char *data, s
 {
     std::string out;
 
-    auto write_varint = [&](uint64_t value, std::string &buf) {
+    auto write_varint = [&](uint64_t value, std::string &buf)
+    {
         while (value > 0x7F)
         {
             buf.push_back(static_cast<char>((value & 0x7F) | 0x80));
@@ -287,15 +286,15 @@ std::string EncodeFileChunk(int64_t task_id, int64_t offset, const char *data, s
     write_varint(static_cast<uint64_t>(task_id), out);
 
     // field 2: offset
-    write_varint(16, out);  // (2<<3)|0=16
+    write_varint(16, out); // (2<<3)|0=16
     write_varint(static_cast<uint64_t>(offset), out);
 
     // field 3: size
-    write_varint(24, out);  // (3<<3)|0=24
+    write_varint(24, out); // (3<<3)|0=24
     write_varint(static_cast<uint64_t>(size), out);
 
     // field 4: data (bytes)
-    write_varint(34, out);  // (4<<3)|2=34
+    write_varint(34, out); // (4<<3)|2=34
     write_varint(static_cast<uint64_t>(size), out);
     out.append(data, size);
 
@@ -306,15 +305,15 @@ std::string EncodeFileChunk(int64_t task_id, int64_t offset, const char *data, s
  * @brief 解析 FileAck protobuf（手动 varint 解码）
  * @details 字段：1:task_id(int64), 2:error(int32), 3:message(string), 4:received(int64)
  */
-bool ParseFileAck(const std::string &body, int64_t &out_task_id, int32_t &out_error,
-                 int64_t &out_received)
+bool ParseFileAck(const std::string &body, int64_t &out_task_id, int32_t &out_error, int64_t &out_received)
 {
     size_t pos = 0;
     out_task_id = 0;
     out_error = 0;
     out_received = 0;
 
-    auto read_varint = [&](const std::string &buf, size_t &idx, uint64_t &out_val) -> bool {
+    auto read_varint = [&](const std::string &buf, size_t &idx, uint64_t &out_val) -> bool
+    {
         out_val = 0;
         int shift = 0;
         while (idx < buf.size())
@@ -338,7 +337,7 @@ bool ParseFileAck(const std::string &body, int64_t &out_task_id, int32_t &out_er
         uint8_t wire_type = field_and_wire & 0x07;
         uint32_t field_number = static_cast<uint32_t>(field_and_wire >> 3);
 
-        if (wire_type == 0)  // varint
+        if (wire_type == 0) // varint
         {
             uint64_t val = 0;
             if (!read_varint(body, pos, val))
@@ -350,7 +349,7 @@ bool ParseFileAck(const std::string &body, int64_t &out_task_id, int32_t &out_er
             else if (field_number == 4)
                 out_received = static_cast<int64_t>(val);
         }
-        else if (wire_type == 2)  // length-delimited (string/bytes)
+        else if (wire_type == 2) // length-delimited (string/bytes)
         {
             uint64_t len = 0;
             if (!read_varint(body, pos, len))
@@ -368,8 +367,7 @@ bool ParseFileAck(const std::string &body, int64_t &out_task_id, int32_t &out_er
 class TestClient
 {
 public:
-    TestClient(int uid, const std::string &token)
-        : _uid(uid), _token(token), _sock(-1), _logged_in(false)
+    TestClient(int uid, const std::string &token) : _uid(uid), _token(token), _sock(-1), _logged_in(false)
     {
 #ifdef _WIN32
         WSADATA wsaData;
@@ -408,8 +406,7 @@ public:
 
     bool Login()
     {
-        std::string login_body = "{\"uid\":" + std::to_string(_uid) +
-                                 ",\"token\":\"" + _token + "\"}";
+        std::string login_body = "{\"uid\":" + std::to_string(_uid) + ",\"token\":\"" + _token + "\"}";
         std::string packet = BuildPacket(MSG_CHAT_LOGIN, login_body);
 
         if (send(_sock, packet.data(), static_cast<int>(packet.size()), 0) < 0)
@@ -424,8 +421,7 @@ public:
             return false;
 
         // 检查 error==0（简单字符串查找）
-        if (rsp_body.find("\"error\":0") == std::string::npos &&
-            rsp_body.find("\"error\": 0") == std::string::npos)
+        if (rsp_body.find("\"error\":0") == std::string::npos && rsp_body.find("\"error\": 0") == std::string::npos)
             return false;
 
         _logged_in = true;
@@ -440,9 +436,7 @@ public:
      * @param task_id 任务 ID（全局自增）
      * @return 成功返回 true
      */
-    bool UploadImage(const std::vector<char> &image_data,
-                     const std::string &md5_hex,
-                     const std::string &image_id,
+    bool UploadImage(const std::vector<char> &image_data, const std::string &md5_hex, const std::string &image_id,
                      int64_t task_id)
     {
         // 构造 filename = "{uuid}.jpg"
@@ -450,8 +444,7 @@ public:
         int64_t total_size = static_cast<int64_t>(image_data.size());
 
         // Step 1: 发送 FileReq
-        std::string file_req_body = EncodeFileReq(
-            task_id, _uid, CLIENT_B_UID, filename, total_size, md5_hex);
+        std::string file_req_body = EncodeFileReq(task_id, _uid, CLIENT_B_UID, filename, total_size, md5_hex);
         std::string file_req_packet = BuildPacket(MSG_FILE_REQ, file_req_body);
         if (send(_sock, file_req_packet.data(), static_cast<int>(file_req_packet.size()), 0) < 0)
             return false;
@@ -469,8 +462,7 @@ public:
         while (offset < static_cast<int64_t>(image_data.size()))
         {
             size_t this_chunk = std::min(CHUNK_SIZE, image_data.size() - static_cast<size_t>(offset));
-            std::string chunk_body = EncodeFileChunk(
-                task_id, offset, image_data.data() + offset, this_chunk);
+            std::string chunk_body = EncodeFileChunk(task_id, offset, image_data.data() + offset, this_chunk);
             std::string chunk_packet = BuildPacket(MSG_FILE_CHUNK, chunk_body);
             if (send(_sock, chunk_packet.data(), static_cast<int>(chunk_packet.size()), 0) < 0)
                 return false;
@@ -509,8 +501,14 @@ public:
         _logged_in = false;
     }
 
-    bool isLoggedIn() const { return _logged_in; }
-    int getUid() const { return _uid; }
+    bool isLoggedIn() const
+    {
+        return _logged_in;
+    }
+    int getUid() const
+    {
+        return _uid;
+    }
 
 private:
     int _uid;
@@ -524,9 +522,7 @@ private:
 /**
  * @brief 查询 image_storage 表，返回行数和 MD5 列表
  */
-bool QueryImageStorage(const std::string &db_path,
-                       int &out_row_count,
-                       std::vector<std::string> &out_md5_list)
+bool QueryImageStorage(const std::string &db_path, int &out_row_count, std::vector<std::string> &out_md5_list)
 {
 #ifdef _WIN32
     sqlite3 *db = nullptr;
@@ -565,9 +561,7 @@ bool QueryImageStorage(const std::string &db_path,
 /**
  * @brief 启动 ChatServer 子进程，写日志到 log_file
  */
-bool StartServer(const std::string &server_path,
-                 const std::string &log_file,
-                 int &out_pid)
+bool StartServer(const std::string &server_path, const std::string &log_file, int &out_pid)
 {
     // 确保日志文件目录存在
     FILE *log = fopen(log_file.c_str(), "w");
@@ -579,13 +573,11 @@ bool StartServer(const std::string &server_path,
     STARTUPINFOA si = {sizeof(si)};
     PROCESS_INFORMATION pi;
     si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = CreateFileA(log_file.c_str(), GENERIC_WRITE,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                nullptr, OPEN_ALWAYS,
-                                FILE_ATTRIBUTE_NORMAL, nullptr);
+    si.hStdOutput = CreateFileA(log_file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                                OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     si.hStdError = si.hStdOutput;
-    if (!CreateProcessA(server_path.c_str(), nullptr, nullptr, nullptr, TRUE,
-                        CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+    if (!CreateProcessA(server_path.c_str(), nullptr, nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si,
+                        &pi))
         return false;
     out_pid = pi.dwProcessId;
     CloseHandle(pi.hThread);
@@ -739,8 +731,7 @@ std::string GenerateUUID()
     std::uniform_int_distribution<uint32_t> dis(0, 0xFFFFFFFF);
 
     char buf[37];
-    snprintf(buf, sizeof(buf), "%08x-%04x-%04x-%04x-%04x%08x",
-             dis(gen), dis(gen) & 0xFFFF, dis(gen) & 0xFFFF,
+    snprintf(buf, sizeof(buf), "%08x-%04x-%04x-%04x-%04x%08x", dis(gen), dis(gen) & 0xFFFF, dis(gen) & 0xFFFF,
              dis(gen) & 0xFFFF, dis(gen) & 0xFFFF, dis(gen));
     return std::string(buf);
 }
@@ -872,21 +863,23 @@ TEST_F(StressImageUploadTest, Concurrent100Images)
 
     for (int i = 0; i < CONCURRENT_UPLOADS; ++i)
     {
-        threads.emplace_back([&, i]() {
-            // 每线程独立 socket（100线程共享 1 个 socket 会导致 send/recv 字节交错）
-            TestClient threadClient(CLIENT_A_UID, CLIENT_TOKEN);
-            if (!threadClient.Connect() || !threadClient.Login())
+        threads.emplace_back(
+            [&, i]()
             {
-                fail_count.fetch_add(1);
-                return;
-            }
-            int64_t task_id = next_task_id.fetch_add(1);
-            bool ok = threadClient.UploadImage(images[i], md5_list[i], image_ids[i], task_id);
-            if (ok)
-                success_count.fetch_add(1);
-            else
-                fail_count.fetch_add(1);
-        });
+                // 每线程独立 socket（100线程共享 1 个 socket 会导致 send/recv 字节交错）
+                TestClient threadClient(CLIENT_A_UID, CLIENT_TOKEN);
+                if (!threadClient.Connect() || !threadClient.Login())
+                {
+                    fail_count.fetch_add(1);
+                    return;
+                }
+                int64_t task_id = next_task_id.fetch_add(1);
+                bool ok = threadClient.UploadImage(images[i], md5_list[i], image_ids[i], task_id);
+                if (ok)
+                    success_count.fetch_add(1);
+                else
+                    fail_count.fetch_add(1);
+            });
     }
 
     for (auto &t : threads)
@@ -895,8 +888,8 @@ TEST_F(StressImageUploadTest, Concurrent100Images)
     auto end_time = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
-    std::cout << "✅ " << success_count.load() << "/" << CONCURRENT_UPLOADS
-              << " 成功 (" << elapsed << "ms)" << std::endl;
+    std::cout << "✅ " << success_count.load() << "/" << CONCURRENT_UPLOADS << " 成功 (" << elapsed << "ms)"
+              << std::endl;
 
     if (fail_count.load() > 0)
     {

@@ -147,9 +147,16 @@ Item {
                     case 0: return "发送中"
                     case 1: return "已送达"
                     case 2: return "离线"
-                    case -1: return "失败"
+                    case -1: return "点击重发"
                     default: return ""
                 }
+            }
+
+            MouseArea {
+                visible: status === -1
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: messageBubble.retryRequested(messageBubble.timestamp)
             }
         }
     }
@@ -228,4 +235,5 @@ Item {
     }
 
     signal rightClicked(real x, real y, var timestamp)
+    signal retryRequested(var timestamp)
 }

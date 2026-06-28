@@ -23,8 +23,8 @@
 #include <QTimer>
 
 // 全局窗口指针 — 同一时间只有一个窗口存活
-static QObject *g_authWindow  = nullptr;
-static QObject *g_chatWindow  = nullptr;
+static QObject *g_authWindow = nullptr;
+static QObject *g_chatWindow = nullptr;
 
 // 前向声明辅助函数
 static void createAuthWindow(QQmlApplicationEngine &engine);
@@ -32,16 +32,20 @@ static void createChatWindow(QQmlApplicationEngine &engine);
 
 static void createAuthWindow(QQmlApplicationEngine &engine)
 {
-    if (g_authWindow) return;
+    if (g_authWindow)
+        return;
 
     QQmlComponent comp(&engine, QUrl(QStringLiteral("qrc:/AuthWindow.qml")));
-    if (comp.isError()) {
+    if (comp.isError())
+    {
         qWarning() << "[main] AuthWindow compile errors:";
-        for (const auto &e : comp.errors()) qWarning() << "  " << e.toString();
+        for (const auto &e : comp.errors())
+            qWarning() << "  " << e.toString();
         return;
     }
     g_authWindow = comp.create();
-    if (!g_authWindow) {
+    if (!g_authWindow)
+    {
         qWarning() << "[main] Failed to create AuthWindow";
         return;
     }
@@ -51,16 +55,20 @@ static void createAuthWindow(QQmlApplicationEngine &engine)
 
 static void createChatWindow(QQmlApplicationEngine &engine)
 {
-    if (g_chatWindow) return;
+    if (g_chatWindow)
+        return;
 
     QQmlComponent comp(&engine, QUrl(QStringLiteral("qrc:/ChatWindow.qml")));
-    if (comp.isError()) {
+    if (comp.isError())
+    {
         qWarning() << "[main] ChatWindow compile errors:";
-        for (const auto &e : comp.errors()) qWarning() << "  " << e.toString();
+        for (const auto &e : comp.errors())
+            qWarning() << "  " << e.toString();
         return;
     }
     g_chatWindow = comp.create();
-    if (!g_chatWindow) {
+    if (!g_chatWindow)
+    {
         qWarning() << "[main] Failed to create ChatWindow";
         return;
     }
@@ -83,9 +91,11 @@ int main(int argc, char *argv[])
 
     // ===== 读取配置 =====
     QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + "config.ini");
-    if (!QFile::exists(config_path)) {
+    if (!QFile::exists(config_path))
+    {
         QString current_config = QDir::toNativeSeparators(QDir::currentPath() + QDir::separator() + "config.ini");
-        if (QFile::exists(current_config)) config_path = current_config;
+        if (QFile::exists(current_config))
+            config_path = current_config;
     }
     QSettings settings(config_path, QSettings::IniFormat);
     ServerInfo si;
@@ -103,7 +113,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("authController", authCtrl);
 
     ChatController *chatCtrl = new ChatController(&app);
-    ChatListModel  *chatModel = new ChatListModel(&app);
+    ChatListModel *chatModel = new ChatListModel(&app);
     chatModel->SetCurrentUid(UserMgr::Instance()->GetUid());
     chatCtrl->setChatModel(chatModel);
     // 注意：不在这里调用 chatCtrl->initialize()，由 ChatWindow.Component.onCompleted 调用
@@ -113,26 +123,32 @@ int main(int argc, char *argv[])
     // ===== 窗口生命周期管理 =====
 
     // 登录成功 → 关闭 AuthWindow，打开 ChatWindow
-    QObject::connect(authCtrl, &AuthController::chatLoginSuccess, [&engine]() {
-        qDebug() << "[main] chatLoginSuccess — switching to ChatWindow";
-        if (g_authWindow) {
-            g_authWindow->setProperty("visible", false);
-            g_authWindow->deleteLater();
-            g_authWindow = nullptr;
-        }
-        createChatWindow(engine);
-    });
+    QObject::connect(authCtrl, &AuthController::chatLoginSuccess,
+                     [&engine]()
+                     {
+                         qDebug() << "[main] chatLoginSuccess — switching to ChatWindow";
+                         if (g_authWindow)
+                         {
+                             g_authWindow->setProperty("visible", false);
+                             g_authWindow->deleteLater();
+                             g_authWindow = nullptr;
+                         }
+                         createChatWindow(engine);
+                     });
 
     // Token 失效 → 关闭 ChatWindow，重新打开 AuthWindow
-    QObject::connect(authCtrl, &AuthController::tokenInvalid, [&engine](const QString &msg) {
-        qDebug() << "[main] tokenInvalid:" << msg << "— switching to AuthWindow";
-        if (g_chatWindow) {
-            g_chatWindow->setProperty("visible", false);
-            g_chatWindow->deleteLater();
-            g_chatWindow = nullptr;
-        }
-        createAuthWindow(engine);
-    });
+    QObject::connect(authCtrl, &AuthController::tokenInvalid,
+                     [&engine](const QString &msg)
+                     {
+                         qDebug() << "[main] tokenInvalid:" << msg << "— switching to AuthWindow";
+                         if (g_chatWindow)
+                         {
+                             g_chatWindow->setProperty("visible", false);
+                             g_chatWindow->deleteLater();
+                             g_chatWindow = nullptr;
+                         }
+                         createAuthWindow(engine);
+                     });
 
     // ===== 启动：显示 AuthWindow =====
     createAuthWindow(engine);

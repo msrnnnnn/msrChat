@@ -24,13 +24,15 @@ public:
 
     Q_INVOKABLE void login(const QString &username, const QString &password);
     Q_INVOKABLE void sendRegisterVerifyCode(const QString &email);
-    Q_INVOKABLE void registerUser(const QString &username, const QString &email,
-                                   const QString &password, const QString &confirmPassword,
+    Q_INVOKABLE void registerUser(const QString &username, const QString &email, const QString &password,
+                                  const QString &confirmPassword, const QString &verifyCode);
+    Q_INVOKABLE void resetPassword(const QString &username, const QString &email, const QString &newPassword,
                                    const QString &verifyCode);
-    Q_INVOKABLE void resetPassword(const QString &username, const QString &email,
-                                    const QString &newPassword, const QString &verifyCode);
 
-    bool isLoggingIn() const { return _is_logging_in; }
+    bool isLoggingIn() const
+    {
+        return _is_logging_in;
+    }
 
     Q_INVOKABLE QVector<ChatTextMsgStruct> TakeBufferedMessages();
 

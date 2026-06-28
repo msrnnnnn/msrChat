@@ -72,6 +72,6 @@ void TokenManager::LoadTokensFromDB()
         }
         _uid_tokens.Insert(uid, TokenEntry{token, created_at});
     }
-    spdlog::info("[TokenManager] Loaded {} tokens from database ({} expired skipped)",
-                 tokens.size() - expired, expired);
+    spdlog::info("[TokenManager] Loaded {} tokens from database ({} expired skipped)", tokens.size() - expired,
+                 expired);
 }

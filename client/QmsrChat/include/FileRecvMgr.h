@@ -18,15 +18,15 @@
  */
 struct FileRecvTask
 {
-    int64_t task_id = 0;     ///< 任务ID
-    int from_uid = 0;         ///< 发送方用户ID
-    QString filename;         ///< 原始文件名
-    QString temp_filepath;    ///< 临时文件路径（接收中）
-    QString final_filepath;   ///< 最终文件路径（接收完成）
-    QString md5;              ///< 文件MD5校验值
-    int64_t total_size = 0;   ///< 文件总大小（字节）
-    int64_t received_size = 0;///< 已接收大小（字节）
-    QFile file;               ///< 文件句柄
+    int64_t task_id = 0;       ///< 任务ID
+    int from_uid = 0;          ///< 发送方用户ID
+    QString filename;          ///< 原始文件名
+    QString temp_filepath;     ///< 临时文件路径（接收中）
+    QString final_filepath;    ///< 最终文件路径（接收完成）
+    QString md5;               ///< 文件MD5校验值
+    int64_t total_size = 0;    ///< 文件总大小（字节）
+    int64_t received_size = 0; ///< 已接收大小（字节）
+    QFile file;                ///< 文件句柄
 };
 
 /**
@@ -50,9 +50,8 @@ public:
      * @param error 错误信息输出参数
      * @return true 任务创建成功
      */
-    bool StartRecv(
-        int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5 = "",
-        QString *error = nullptr);
+    bool StartRecv(int64_t task_id, int from_uid, const std::string &filename, int64_t total_size,
+                   const std::string &md5 = "", QString *error = nullptr);
     /**
      * @brief 写入文件分片数据
      * @param task_id 任务ID
@@ -62,14 +61,8 @@ public:
      * @param error 错误信息输出参数
      * @return true 写入成功
      */
-    bool WriteChunk(
-        int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed = nullptr,
-        QString *error = nullptr);
-    /**
-     * @brief 取消接收任务
-     * @param task_id 任务ID
-     */
-    void CancelRecv(int64_t task_id);
+    bool WriteChunk(int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed = nullptr,
+                    QString *error = nullptr);
     /**
      * @brief 获取已接收字节数
      * @param task_id 任务ID
@@ -125,9 +118,9 @@ private:
     QString BuildTempPath(int64_t task_id, const QString &fileName) const;
     QString BuildFinalPath(const QString &fileName) const;
 
-    QHash<int64_t, FileRecvTask *> _tasks;  ///< 活跃任务表：task_id → 任务上下文
-    QHash<int64_t, QString> _pendingMd5;     ///< 待MD5校验任务：task_id → 文件路径
-    mutable QMutex _mutex;                   ///< 线程互斥锁
+    QHash<int64_t, FileRecvTask *> _tasks; ///< 活跃任务表：task_id → 任务上下文
+    QHash<int64_t, QString> _pendingMd5;   ///< 待MD5校验任务：task_id → 文件路径
+    mutable QMutex _mutex;                 ///< 线程互斥锁
 };
 
 #endif // FILERECVMGR_H

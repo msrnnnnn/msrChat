@@ -13,16 +13,18 @@
 /**
  * @brief 获取单例实例（Meyers' Singleton）
  */
-ImageDownloadMgr &ImageDownloadMgr::Instance() {
-    static ImageDownloadMgr inst; return inst;
+ImageDownloadMgr &ImageDownloadMgr::Instance()
+{
+    static ImageDownloadMgr inst;
+    return inst;
 }
 
 /**
  * @brief 构造函数，确保缓存目录存在
  */
-ImageDownloadMgr::ImageDownloadMgr() {
-    QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-                        + "/client_image_cache";
+ImageDownloadMgr::ImageDownloadMgr()
+{
+    QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/client_image_cache";
     QDir().mkpath(cache_dir);
 }
 
@@ -39,8 +41,8 @@ ImageDownloadMgr::~ImageDownloadMgr() = default;
  */
 QString ImageDownloadMgr::GetCachePath(const QString &image_id, const QString &ext) const
 {
-    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-           + "/client_image_cache/" + image_id + "." + ext;
+    return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/client_image_cache/" + image_id + "." +
+           ext;
 }
 
 /**
@@ -67,7 +69,8 @@ void ImageDownloadMgr::Request(const QString &image_id, int retry_count, const Q
 {
     QMutexLocker lock(&_mutex);
     // 防重入：已请求中 / 已缓存 / 已标记失败 则跳过
-    if (_pending.contains(image_id) || _cache_index.contains(image_id) || _failed_index.contains(image_id)) return;
+    if (_pending.contains(image_id) || _cache_index.contains(image_id) || _failed_index.contains(image_id))
+        return;
     _pending[image_id] = {retry_count, ext};
     qDebug() << "ImageDownloadMgr::Request" << image_id << "ext:" << ext;
     // 在释放锁后再发射信号，避免接收方同步回调中再次获取锁造成死锁
@@ -87,7 +90,7 @@ void ImageDownloadMgr::Request(const QString &image_id, int retry_count, const Q
 void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t /*offset*/)
 {
     QMutexLocker lock(&_mutex);
-    if (error == 4040)  // ERR_IMAGE_EXPIRED
+    if (error == 4040) // ERR_IMAGE_EXPIRED
     {
         qWarning() << "image expired:" << image_id;
         _failed_index.insert(image_id);
@@ -102,9 +105,8 @@ void ImageDownloadMgr::OnDownloadRsp(int error, const QString &image_id, int64_t
         if (it != _pending.end() && it->retry_count < kMaxRetries)
         {
             it->retry_count++;
-            QTimer::singleShot(kRetryIntervalMs, this, [this, image_id, rc = it->retry_count]() {
-                Request(image_id, rc);
-            });
+            QTimer::singleShot(kRetryIntervalMs, this,
+                               [this, image_id, rc = it->retry_count]() { Request(image_id, rc); });
         }
         else
         {

@@ -21,8 +21,7 @@ struct MessageTask
     uint16_t msg_id;
     std::string body_data;
 
-    MessageTask()
-        : msg_id(0)
+    MessageTask() : msg_id(0)
     {
     }
 
@@ -35,9 +34,7 @@ struct MessageTask
     MessageTask &operator=(const MessageTask &) = delete;
 
     MessageTask(MessageTask &&other) noexcept
-        : session(std::move(other.session)),
-          msg_id(other.msg_id),
-          body_data(std::move(other.body_data))
+        : session(std::move(other.session)), msg_id(other.msg_id), body_data(std::move(other.body_data))
     {
     }
 

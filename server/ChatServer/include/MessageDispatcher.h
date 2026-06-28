@@ -23,8 +23,8 @@ using MessageHandler = std::function<bool(CSession &session, const std::string &
  */
 struct HandlerInfo
 {
-    MessageHandler handler;      ///< 处理函数
-    bool requires_auth;          ///< 是否需要用户已登录
+    MessageHandler handler; ///< 处理函数
+    bool requires_auth;     ///< 是否需要用户已登录
 };
 
 /**

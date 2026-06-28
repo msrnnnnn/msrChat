@@ -13,6 +13,7 @@ Loader {
     // ── 信号：向上层传递用户交互事件 ──
     signal actionMenuRequested(real x, real y, var ts, bool isImage, bool isSelf, string content)
     signal imageClicked(string imageId)
+    signal retryRequested(var ts)
 
     // ── recalled/edited 变更同步 ──
     property bool _recalled: model.recalled
@@ -42,6 +43,9 @@ Loader {
             onRightClicked: function(localX, localY, ts) {
                 delegateRoot.actionMenuRequested(localX, localY, ts,
                     /*isImage*/ false, model.isSelf, model.content)
+            }
+            onRetryRequested: function(ts) {
+                delegateRoot.retryRequested(ts)
             }
         }
     }

@@ -30,11 +30,10 @@ class ThreadPool
 {
 public:
     using Task = std::function<void()>;
-    
-    explicit ThreadPool(size_t thread_num = std::thread::hardware_concurrency(),
-                        size_t max_queue_size = 10000);
+
+    explicit ThreadPool(size_t thread_num = std::thread::hardware_concurrency(), size_t max_queue_size = 10000);
     ~ThreadPool();
-    
+
     /**
      * @brief 向任务队列提交一个任务
      * @param task 可调用对象（std::function<void()>）
@@ -51,13 +50,13 @@ public:
      * @brief 获取当前队列中的任务数量
      */
     size_t GetTaskCount() const;
-    
-    ThreadPool(const ThreadPool&) = delete;
-    ThreadPool& operator=(const ThreadPool&) = delete;
+
+    ThreadPool(const ThreadPool &) = delete;
+    ThreadPool &operator=(const ThreadPool &) = delete;
 
 private:
     void WorkerThread();
-    
+
     std::vector<std::thread> _threads;
     std::queue<Task> _tasks;
     std::mutex _mutex;

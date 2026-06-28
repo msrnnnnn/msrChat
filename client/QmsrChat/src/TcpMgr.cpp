@@ -15,7 +15,10 @@
 #include <QUuid>
 #include <mutex>
 
-namespace {
+namespace
+{
+constexpr auto HMAC_KEY = "MsrChat_v1_Salt_2024";
+
 /**
  * @brief 将 JSON 对象转换为紧凑格式的 QByteArray
  * @param obj JSON 对象
@@ -24,6 +27,21 @@ namespace {
 QByteArray MakeJsonPayload(const QJsonObject &obj)
 {
     return QJsonDocument(obj).toJson(QJsonDocument::Compact);
+}
+
+/**
+ * @brief 填充防重放 Nonce 头（Nonce + Timestamp + HMAC Signature）
+ * @param nh Protobuf NonceHeader 指针
+ */
+void FillNonceHeader(qmsrchat::NonceHeader *nh)
+{
+    std::string nonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+    int64_t ts = QDateTime::currentMSecsSinceEpoch();
+    nh->set_nonce(nonce);
+    nh->set_timestamp(ts);
+    nh->set_signature(
+        Utils::hmacSha256(QString::fromLatin1(HMAC_KEY), QString::fromStdString(nonce + std::to_string(ts)))
+            .toStdString());
 }
 } // namespace
 
@@ -37,7 +55,7 @@ TcpMgr *TcpMgr::_instance = nullptr;
 TcpMgr *TcpMgr::Instance()
 {
     static std::once_flag flag;
-    std::call_once(flag, []{ _instance = new TcpMgr(); });
+    std::call_once(flag, [] { _instance = new TcpMgr(); });
     return _instance;
 }
 
@@ -63,10 +81,7 @@ void TcpMgr::Destroy()
  * @param parent 父对象
  * @note 注册元类型是为了跨线程信号槽传递自定义类型
  */
-TcpMgr::TcpMgr(QObject *parent)
-    : QObject(parent),
-      _netThread(new QThread(this)),
-      _worker(new TcpWorker())
+TcpMgr::TcpMgr(QObject *parent) : QObject(parent), _netThread(new QThread(this)), _worker(new TcpWorker())
 {
     qRegisterMetaType<RequestType>("RequestType");
     qRegisterMetaType<ServerInfo>("ServerInfo");
@@ -138,12 +153,14 @@ void TcpMgr::init_thread()
     connect(_netThread, &QThread::started, _worker, &TcpWorker::slot_init);
     // 删除 finished->deleteLater：会导致 deleteLater 投递到已退出 worker 线程的事件队列
 
-    connect(_worker, &TcpWorker::sigConSuccess, this,
-            [this](bool connected) {
-                _is_connected = connected;
-                emit sigConSuccess(connected);
-            },
-            Qt::QueuedConnection);
+    connect(
+        _worker, &TcpWorker::sigConSuccess, this,
+        [this](bool connected)
+        {
+            _is_connected = connected;
+            emit sigConSuccess(connected);
+        },
+        Qt::QueuedConnection);
     connect(_worker, &TcpWorker::sigReconnected, this, &TcpMgr::sigReconnected, Qt::QueuedConnection);
 
     connect(_worker, &TcpWorker::sigPacketReceived, this, &TcpMgr::slotDispatchPacket, Qt::QueuedConnection);
@@ -215,12 +232,7 @@ void TcpMgr::slot_send_chat_text_req(const ChatTextReqStruct &req)
     chatMsg.set_timestamp(req.timestamp);
 
     // Phase 5E: 填充防重放 Nonce
-    auto *nh = chatMsg.mutable_nonce_header();
-    std::string nonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
-    int64_t ts = QDateTime::currentMSecsSinceEpoch();
-    nh->set_nonce(nonce);
-    nh->set_timestamp(ts);
-    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(nonce + std::to_string(ts))).toStdString());
+    FillNonceHeader(chatMsg.mutable_nonce_header());
 
     std::string serialized;
     if (chatMsg.SerializeToString(&serialized))
@@ -245,9 +257,12 @@ void TcpMgr::slot_send_verify_code_req(const VerifyCodeReqStruct &req)
 void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 {
     slotSendData(RequestType::ID_REGISTER_USER,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode},
-                                   {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
-                                   {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
+                 MakeJsonPayload({{"user", req.user},
+                                  {"email", req.email},
+                                  {"passwd", req.passwd},
+                                  {"verifycode", req.verifycode},
+                                  {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                  {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
 }
 
 /**
@@ -257,9 +272,12 @@ void TcpMgr::slot_send_register_req(const RegisterReqStruct &req)
 void TcpMgr::slot_send_reset_pwd_req(const ResetPwdReqStruct &req)
 {
     slotSendData(RequestType::ID_RESET_PWD,
-                   MakeJsonPayload({{"user", req.user}, {"email", req.email}, {"passwd", req.passwd}, {"verifycode", req.verifycode},
-                                   {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
-                                   {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
+                 MakeJsonPayload({{"user", req.user},
+                                  {"email", req.email},
+                                  {"passwd", req.passwd},
+                                  {"verifycode", req.verifycode},
+                                  {"nonce", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                  {"timestamp", QDateTime::currentMSecsSinceEpoch()}}));
 }
 
 /**
@@ -277,7 +295,8 @@ void TcpMgr::slot_send_offline_ack_req(const OfflineAckReqStruct &req)
  */
 void TcpMgr::slot_send_file_req(const FileReqStruct &req)
 {
-    qDebug() << "[TcpMgr] slot_send_file_req called, task_id:" << req.task_id << "from:" << req.from_uid << "to:" << req.to_uid << "filename:" << req.filename;
+    qDebug() << "[TcpMgr] slot_send_file_req called, task_id:" << req.task_id << "from:" << req.from_uid
+             << "to:" << req.to_uid << "filename:" << req.filename;
     qmsrchat::FileReq fileReq;
     fileReq.set_task_id(req.task_id);
     fileReq.set_from_uid(req.from_uid);
@@ -308,12 +327,7 @@ void TcpMgr::slot_send_chat_recall(const ChatRecallMsgStruct &req)
     msg.set_client_msg_id(req.client_msg_id.toStdString());
 
     // Phase 5E: 填充防重放 Nonce
-    auto *nh = msg.mutable_nonce_header();
-    std::string recallNonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
-    int64_t recallTs = QDateTime::currentMSecsSinceEpoch();
-    nh->set_nonce(recallNonce);
-    nh->set_timestamp(recallTs);
-    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(recallNonce + std::to_string(recallTs))).toStdString());
+    FillNonceHeader(msg.mutable_nonce_header());
 
     std::string serialized;
     if (msg.SerializeToString(&serialized))
@@ -334,12 +348,7 @@ void TcpMgr::slot_send_chat_edit(const ChatEditMsgStruct &req)
     msg.set_new_content(req.new_content.toStdString());
 
     // Phase 5E: 填充防重放 Nonce
-    auto *nh = msg.mutable_nonce_header();
-    std::string editNonce = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
-    int64_t editTs = QDateTime::currentMSecsSinceEpoch();
-    nh->set_nonce(editNonce);
-    nh->set_timestamp(editTs);
-    nh->set_signature(Utils::hmacSha256(QStringLiteral("MsrChat_v1_Salt_2024"), QString::fromStdString(editNonce + std::to_string(editTs))).toStdString());
+    FillNonceHeader(msg.mutable_nonce_header());
 
     std::string serialized;
     if (msg.SerializeToString(&serialized))
@@ -369,8 +378,7 @@ void TcpMgr::slot_send_chat_image(const ChatImageStruct &msg)
     std::string serialized;
     if (imgMsg.SerializeToString(&serialized))
     {
-        slotSendData(RequestType::MSG_CHAT_IMAGE,
-                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+        slotSendData(RequestType::MSG_CHAT_IMAGE, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
 
@@ -387,7 +395,7 @@ void TcpMgr::slot_send_image_download_req(const QString &image_id)
     if (req.SerializeToString(&serialized))
     {
         slotSendData(RequestType::MSG_IMAGE_DOWNLOAD_REQ,
-                       QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+                     QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     }
 }
 
@@ -484,8 +492,8 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         }
 
         QString error;
-        const bool ok = FileRecvMgr::Instance().StartRecv(
-            fileReq.task_id(), fileReq.from_uid(), fileReq.filename(), fileReq.total_size(), fileReq.md5(), &error);
+        const bool ok = FileRecvMgr::Instance().StartRecv(fileReq.task_id(), fileReq.from_uid(), fileReq.filename(),
+                                                          fileReq.total_size(), fileReq.md5(), &error);
 
         qmsrchat::FileRsp rsp;
         rsp.set_task_id(fileReq.task_id());
@@ -498,7 +506,7 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         {
             rsp.set_offset(0);
         }
-        rsp.set_message((ok ? QStringLiteral("ready to receive") : error).toStdString());
+        rsp.set_message((ok ? QStringLiteral("准备接收") : error).toStdString());
 
         std::string serialized;
         if (rsp.SerializeToString(&serialized))
@@ -522,9 +530,8 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
         }
         else
         {
-            FileSendMgr::Instance().CancelSend(fileRsp.task_id());
-            qWarning() << "File send rejected by receiver, task_id:" << fileRsp.task_id()
-                       << "error:" << QString::fromStdString(fileRsp.message());
+            FileSendMgr::Instance().CancelSend(fileRsp.task_id(),
+                                               QString::fromStdString(fileRsp.message()));
         }
         return;
     }
@@ -539,12 +546,18 @@ void TcpMgr::handle_file_packet(RequestType req_type, const QByteArray &data)
 
         if (fileAck.message() == "transfer complete")
         {
-            FileSendMgr::Instance().CancelSend(fileAck.task_id());
+            FileSendMgr::Instance().OnChunkAck(fileAck.task_id(), fileAck.received());
+            return;
+        }
+        if (fileAck.error() != 0)
+        {
+            FileSendMgr::Instance().CancelSend(fileAck.task_id(),
+                                               QString::fromStdString(fileAck.message()));
             return;
         }
         if (fileAck.received() > 0)
         {
-            FileSendMgr::Instance().OnRecvReady(fileAck.task_id(), fileAck.received());
+            FileSendMgr::Instance().OnChunkAck(fileAck.task_id(), fileAck.received());
         }
     }
 }

@@ -11,8 +11,7 @@
 #include <spdlog/spdlog.h>
 
 SQLiteConnectionPool::SQLiteConnectionPool(const std::string &db_path, int pool_size)
-    : _db_path(db_path),
-      _pool_size(pool_size)
+    : _db_path(db_path), _pool_size(pool_size)
 {
 }
 
@@ -57,7 +56,7 @@ bool SQLiteConnectionPool::InitializeConnection(sqlite3 **db)
         return false;
     }
 
-    sqlite3_busy_timeout(*db, 5000);  // 5 second busy timeout for concurrent access
+    sqlite3_busy_timeout(*db, 5000); // 5 second busy timeout for concurrent access
 
     return true;
 }

@@ -141,14 +141,16 @@ TEST(ShardedMapTest, ConcurrentInsertFind)
     ShardedMap<int, std::string> map(32);
     std::atomic<int> errors{0};
 
-    auto writer = [&](int start, int count) {
+    auto writer = [&](int start, int count)
+    {
         for (int i = start; i < start + count; ++i)
         {
             map.Insert(i, "val_" + std::to_string(i));
         }
     };
 
-    auto reader = [&](int start, int count) {
+    auto reader = [&](int start, int count)
+    {
         for (int i = start; i < start + count; ++i)
         {
             auto v = map.Find(i);

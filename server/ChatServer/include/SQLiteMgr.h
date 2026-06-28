@@ -37,11 +37,11 @@ inline std::string SafeColumnText(sqlite3_stmt *stmt, int col)
 struct RecallNotifyEntry
 {
     int64_t id = 0;
-    int     uid          = 0;
+    int uid = 0;
     int64_t msg_timestamp = 0;
-    int     recall_uid   = 0;
-    int64_t recall_ts    = 0;
-    int     recalled_to  = 0;
+    int recall_uid = 0;
+    int64_t recall_ts = 0;
+    int recalled_to = 0;
 };
 
 /**
@@ -50,11 +50,11 @@ struct RecallNotifyEntry
 struct EditNotifyEntry
 {
     int64_t id = 0;
-    int     uid          = 0;
+    int uid = 0;
     int64_t msg_timestamp = 0;
-    int     from_uid     = 0;
+    int from_uid = 0;
     std::string new_content;
-    int64_t edit_ts      = 0;
+    int64_t edit_ts = 0;
 };
 
 /**
@@ -70,12 +70,12 @@ struct ChatMessage
     int status = 0;
     std::string client_msg_id;
     // === Phase 7 新增 ===
-    int     type        = 0;     ///< 0=text, 1=image
-    std::string image_id;        ///< UUID（type=1 时）
-    bool    recalled    = false;
+    int type = 0;         ///< 0=text, 1=image
+    std::string image_id; ///< UUID（type=1 时）
+    bool recalled = false;
     int64_t recalled_at = 0;
-    bool    edited      = false;
-    int64_t edited_at   = 0;
+    bool edited = false;
+    int64_t edited_at = 0;
 };
 
 /**
@@ -118,10 +118,21 @@ struct AuthResult
 class SQLiteConnection
 {
 public:
-    explicit SQLiteConnection(sqlite3 *db) : _db(db), _in_use(false) {}
-    sqlite3 *Get() const { return _db; }
-    bool IsInUse() const { return _in_use; }
-    void SetInUse(bool in_use) { _in_use = in_use; }
+    explicit SQLiteConnection(sqlite3 *db) : _db(db), _in_use(false)
+    {
+    }
+    sqlite3 *Get() const
+    {
+        return _db;
+    }
+    bool IsInUse() const
+    {
+        return _in_use;
+    }
+    void SetInUse(bool in_use)
+    {
+        _in_use = in_use;
+    }
     void Reset()
     {
     }
@@ -149,7 +160,10 @@ public:
     void Release(std::shared_ptr<SQLiteConnection> conn);
     void Shutdown();
 
-    bool IsInitialized() const { return _initialized.load(); }
+    bool IsInitialized() const
+    {
+        return _initialized.load();
+    }
 
 private:
     bool InitializeConnection(sqlite3 **db);
@@ -173,8 +187,7 @@ private:
 class SQLiteConnectionGuard
 {
 public:
-    explicit SQLiteConnectionGuard(std::shared_ptr<SQLiteConnectionPool> pool)
-        : _pool(pool), _conn(nullptr)
+    explicit SQLiteConnectionGuard(std::shared_ptr<SQLiteConnectionPool> pool) : _pool(pool), _conn(nullptr)
     {
         if (_pool)
         {
@@ -238,7 +251,9 @@ private:
 class ScopedStmt
 {
 public:
-    ScopedStmt() : _stmt(nullptr), _db(nullptr) {}
+    ScopedStmt() : _stmt(nullptr), _db(nullptr)
+    {
+    }
 
     ScopedStmt(sqlite3 *db, const char *sql) : _stmt(nullptr), _db(db)
     {
@@ -286,11 +301,26 @@ public:
         return *this;
     }
 
-    bool isValid() const { return _stmt != nullptr; }
-    sqlite3_stmt *get() const { return _stmt; }
-    sqlite3_stmt *operator->() const { return _stmt; }
-    operator sqlite3_stmt *() const { return _stmt; }
-    explicit operator bool() const { return isValid(); }
+    bool isValid() const
+    {
+        return _stmt != nullptr;
+    }
+    sqlite3_stmt *get() const
+    {
+        return _stmt;
+    }
+    sqlite3_stmt *operator->() const
+    {
+        return _stmt;
+    }
+    operator sqlite3_stmt *() const
+    {
+        return _stmt;
+    }
+    explicit operator bool() const
+    {
+        return isValid();
+    }
 
 private:
     sqlite3_stmt *_stmt;
@@ -314,7 +344,10 @@ public:
     static SQLiteMgr &Instance();
 
     bool Init(const std::string &db_path, int pool_size = 8);
-    std::shared_ptr<SQLiteConnectionPool> GetPool() const { return _pool; }
+    std::shared_ptr<SQLiteConnectionPool> GetPool() const
+    {
+        return _pool;
+    }
     void Shutdown();
 
     /// Phase 5D — Repository 访问器

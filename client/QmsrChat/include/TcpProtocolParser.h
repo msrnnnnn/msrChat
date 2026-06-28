@@ -20,7 +20,9 @@ class TcpMgr;
 class TcpProtocolParser
 {
 public:
-    explicit TcpProtocolParser(TcpMgr &tcpMgr) : _tcpMgr(tcpMgr) {}
+    explicit TcpProtocolParser(TcpMgr &tcpMgr) : _tcpMgr(tcpMgr)
+    {
+    }
 
     /**
      * @brief 解析登录类协议包（登录、注册、验证码、重置密码等）

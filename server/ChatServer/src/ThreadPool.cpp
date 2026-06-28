@@ -16,7 +16,8 @@ ThreadPool::ThreadPool(size_t thread_num, size_t max_queue_size)
     : _stop(false), _task_count(0), _max_queue_size(max_queue_size)
 {
     _threads.reserve(thread_num);
-    for (size_t i = 0; i < thread_num; ++i) {
+    for (size_t i = 0; i < thread_num; ++i)
+    {
         _threads.emplace_back(&ThreadPool::WorkerThread, this);
     }
 }
@@ -70,9 +71,11 @@ void ThreadPool::Shutdown()
         _stop = true;
     }
     _cv.notify_all();
-    
-    for (auto& thread : _threads) {
-        if (thread.joinable()) {
+
+    for (auto &thread : _threads)
+    {
+        if (thread.joinable())
+        {
             thread.join();
         }
     }
@@ -84,31 +87,37 @@ void ThreadPool::Shutdown()
  */
 void ThreadPool::WorkerThread()
 {
-    while (true) {
+    while (true)
+    {
         Task task;
         {
             std::unique_lock<std::mutex> lock(_mutex);
-             _cv.wait(lock, [this] {
-                return _stop || !_tasks.empty();
-            });
-            
+            _cv.wait(lock, [this] { return _stop || !_tasks.empty(); });
+
             // 停止且队列为空时退出工作线程
-            if (_stop && _tasks.empty()) {
+            if (_stop && _tasks.empty())
+            {
                 return;
             }
-            
+
             // 取出队首任务并递减计数器（锁内操作，线程安全）
             task = std::move(_tasks.front());
             _tasks.pop();
             --_task_count;
         }
-        
-        if (task) {
-            try {
+
+        if (task)
+        {
+            try
+            {
                 task();
-            } catch (const std::exception &e) {
+            }
+            catch (const std::exception &e)
+            {
                 spdlog::error("[ThreadPool] Worker thread caught exception: {}", e.what());
-            } catch (...) {
+            }
+            catch (...)
+            {
                 spdlog::error("[ThreadPool] Worker thread caught unknown exception");
             }
         }

@@ -17,17 +17,17 @@
  */
 struct TokenBucket
 {
-    double tokens;                          ///< 当前令牌数
-    double max_tokens;                      ///< 桶容量（突发上限）
-    double refill_rate;                     ///< 每秒补充令牌数
-    std::chrono::steady_clock::time_point last_refill;  ///< 上次补充时间
+    double tokens;                                     ///< 当前令牌数
+    double max_tokens;                                 ///< 桶容量（突发上限）
+    double refill_rate;                                ///< 每秒补充令牌数
+    std::chrono::steady_clock::time_point last_refill; ///< 上次补充时间
 
-    TokenBucket() : tokens(0), max_tokens(0), refill_rate(0),
-        last_refill(std::chrono::steady_clock::now()) {}
+    TokenBucket() : tokens(0), max_tokens(0), refill_rate(0), last_refill(std::chrono::steady_clock::now())
+    {
+    }
 
     TokenBucket(double rate, double burst)
-        : tokens(burst), max_tokens(burst), refill_rate(rate),
-          last_refill(std::chrono::steady_clock::now())
+        : tokens(burst), max_tokens(burst), refill_rate(rate), last_refill(std::chrono::steady_clock::now())
     {
     }
 };

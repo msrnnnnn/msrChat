@@ -65,12 +65,9 @@ public:
     /**
      * @brief 遍历全部在线会话（逐个分片加锁，回调中不应阻塞或操作同一 ShardedMap）
      */
-    template <typename Func>
-    void ForEachSession(Func &&func)
+    template <typename Func> void ForEachSession(Func &&func)
     {
-        _uid_sessions.ForEach([&func](int uid, const std::shared_ptr<CSession> &session) {
-            func(uid, session);
-        });
+        _uid_sessions.ForEach([&func](int uid, const std::shared_ptr<CSession> &session) { func(uid, session); });
     }
 
 private:
@@ -85,7 +82,7 @@ private:
 
     ShardedMap<int, std::shared_ptr<CSession>> _uid_sessions{32};
     ShardedMap<std::string, std::shared_ptr<CSession>> _uuid_sessions{32};
-    std::mutex _add_mutex;  ///< 保护 AddSession 的 check-then-insert 原子性
+    std::mutex _add_mutex; ///< 保护 AddSession 的 check-then-insert 原子性
 };
 
 #endif

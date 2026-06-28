@@ -21,8 +21,7 @@
  * @details 操作时仅锁定 key 所在的分片，不同分片之间可并发访问。
  *          ForEach/Size 等全局操作会依次锁定所有分片（非同时），但不保证快照一致性。
  */
-template<typename Key, typename Value>
-class ShardedMap
+template <typename Key, typename Value> class ShardedMap
 {
     struct Shard
     {
@@ -38,8 +37,7 @@ class ShardedMap
     }
 
 public:
-    explicit ShardedMap(std::size_t shard_count)
-        : _shards(shard_count)
+    explicit ShardedMap(std::size_t shard_count) : _shards(shard_count)
     {
     }
 
@@ -87,8 +85,7 @@ public:
      * @param pred 谓词函数，接收 Value 引用，返回 true 表示删除
      * @return true 找到并删除成功；false key 不存在或谓词返回 false
      */
-    template <typename Pred>
-    bool RemoveIfMatch(const Key &key, Pred &&pred)
+    template <typename Pred> bool RemoveIfMatch(const Key &key, Pred &&pred)
     {
         auto &shard = _shards[GetShardIndex(key)];
         std::lock_guard<std::mutex> lock(shard.mutex);
@@ -122,8 +119,7 @@ public:
     /**
      * @brief 遍历所有分片中的所有键值对（逐个分片加锁，不保证跨分片快照一致性）
      */
-    template <typename Func>
-    void ForEach(Func &&func)
+    template <typename Func> void ForEach(Func &&func)
     {
         for (std::size_t i = 0; i < _shards.size(); ++i)
         {
@@ -138,8 +134,7 @@ public:
     /**
      * @brief 遍历所有分片中的所有键值对（const 版本，逐个分片加锁）
      */
-    template <typename Func>
-    void ForEach(Func &&func) const
+    template <typename Func> void ForEach(Func &&func) const
     {
         for (std::size_t i = 0; i < _shards.size(); ++i)
         {

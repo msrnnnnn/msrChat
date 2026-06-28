@@ -25,8 +25,8 @@ struct LoginReqStruct
  */
 struct ChatLoginReqStruct
 {
-    int uid;        ///< 用户ID
-    QString token;  ///< 登录令牌
+    int uid = 0;       ///< 用户ID
+    QString token;     ///< 登录令牌
 };
 
 /**
@@ -34,11 +34,11 @@ struct ChatLoginReqStruct
  */
 struct ChatTextReqStruct
 {
-    int from_uid;           ///< 发送方UID
-    int to_uid;             ///< 接收方UID
-    QString content;        ///< 消息内容
-    QString client_msg_id;  ///< 客户端消息ID（去重）
-    qint64 timestamp;       ///< 客户端毫秒时间戳
+    int from_uid = 0;          ///< 发送方UID
+    int to_uid = 0;            ///< 接收方UID
+    QString content;           ///< 消息内容
+    QString client_msg_id;     ///< 客户端消息ID（去重）
+    qint64 timestamp = 0;     ///< 客户端毫秒时间戳
 };
 
 /**
@@ -46,11 +46,11 @@ struct ChatTextReqStruct
  */
 struct LoginRspStruct
 {
-    int error;        ///< 错误码（0成功）
-    int uid;          ///< 用户ID
-    QString token;    ///< 登录令牌
-    QString user;     ///< 用户名
-    QString message;  ///< 错误信息
+    int error = 0;     ///< 错误码（0成功）
+    int uid = 0;       ///< 用户ID
+    QString token;     ///< 登录令牌
+    QString user;      ///< 用户名
+    QString message;   ///< 错误信息
 };
 
 /**
@@ -58,7 +58,7 @@ struct LoginRspStruct
  */
 struct ChatLoginRspStruct
 {
-    int error;         ///< 错误码（0成功）
+    int error = 0;     ///< 错误码（0成功）
     QString message;   ///< 响应消息
 };
 
@@ -67,12 +67,12 @@ struct ChatLoginRspStruct
  */
 struct ChatTextMsgStruct
 {
-    int from_uid;           ///< 发送方UID
-    int to_uid;             ///< 接收方UID
-    QString content;        ///< 消息内容
-    QString client_msg_id;  ///< 客户端消息ID
-    qint64 server_msg_id;   ///< 服务端消息ID（全局唯一）
-    qint64 timestamp;       ///< 消息时间戳
+    int from_uid = 0;          ///< 发送方UID
+    int to_uid = 0;            ///< 接收方UID
+    QString content;           ///< 消息内容
+    QString client_msg_id;     ///< 客户端消息ID
+    qint64 server_msg_id = 0; ///< 服务端消息ID（全局唯一）
+    qint64 timestamp = 0;     ///< 消息时间戳
 };
 
 /**
@@ -80,9 +80,9 @@ struct ChatTextMsgStruct
  */
 struct ChatAckStruct
 {
-    int error;               ///< 错误码
-    QString message;         ///< 确认消息
-    QString client_msg_id;   ///< 对应的客户端消息ID
+    int error = 0;             ///< 错误码
+    QString message;           ///< 确认消息
+    QString client_msg_id;     ///< 对应的客户端消息ID
 };
 
 /**
@@ -90,8 +90,8 @@ struct ChatAckStruct
  */
 struct OfflineAckStruct
 {
-    qint64 received;  ///< 已接收数
-    qint64 total;     ///< 总数
+    qint64 received = 0; ///< 已接收数
+    qint64 total = 0;    ///< 总数
 };
 
 /**
@@ -99,7 +99,7 @@ struct OfflineAckStruct
  */
 struct OfflineAckReqStruct
 {
-    qint64 received;  ///< 已接收数
+    qint64 received = 0; ///< 已接收数
 };
 
 /**
@@ -107,7 +107,7 @@ struct OfflineAckReqStruct
  */
 struct VerifyCodeReqStruct
 {
-    QString email;  ///< 邮箱地址
+    QString email; ///< 邮箱地址
 };
 
 /**
@@ -115,10 +115,10 @@ struct VerifyCodeReqStruct
  */
 struct VerifyCodeRspStruct
 {
-    int error;        ///< 错误码
-    QString email;    ///< 邮箱地址
-    int code = 0;     ///< 验证码
-    QString message;  ///< 错误信息
+    int error = 0;       ///< 错误码
+    QString email;       ///< 邮箱地址
+    int code = 0;        ///< 验证码
+    QString message;     ///< 错误信息
 };
 
 /**
@@ -126,10 +126,10 @@ struct VerifyCodeRspStruct
  */
 struct RegisterReqStruct
 {
-    QString user;        ///< 用户名
-    QString email;       ///< 邮箱
-    QString passwd;      ///< 密码
-    QString verifycode;  ///< 验证码
+    QString user;       ///< 用户名
+    QString email;      ///< 邮箱
+    QString passwd;     ///< 密码
+    QString verifycode; ///< 验证码
 };
 
 /**
@@ -137,9 +137,9 @@ struct RegisterReqStruct
  */
 struct RegisterRspStruct
 {
-    int error;       ///< 错误码
-    QString email;   ///< 注册邮箱
-    QString message; ///< 错误信息（服务端返回的详细描述）
+    int error = 0;     ///< 错误码
+    QString email;     ///< 注册邮箱
+    QString message;   ///< 错误信息（服务端返回的详细描述）
 };
 
 /**
@@ -147,10 +147,10 @@ struct RegisterRspStruct
  */
 struct ResetPwdReqStruct
 {
-    QString user;        ///< 用户名
-    QString email;       ///< 邮箱
-    QString passwd;      ///< 新密码
-    QString verifycode;  ///< 验证码
+    QString user;       ///< 用户名
+    QString email;      ///< 邮箱
+    QString passwd;     ///< 新密码
+    QString verifycode; ///< 验证码
 };
 
 /**
@@ -158,28 +158,22 @@ struct ResetPwdReqStruct
  */
 struct ResetPwdRspStruct
 {
-    int error;        ///< 错误码
-    QString message;  ///< 错误信息
+    int error = 0;     ///< 错误码
+    QString message;   ///< 错误信息
 };
-
-Q_DECLARE_METATYPE(ChatTextMsgStruct)
-Q_DECLARE_METATYPE(ChatAckStruct)
-Q_DECLARE_METATYPE(OfflineAckStruct)
-Q_DECLARE_METATYPE(LoginRspStruct)
-Q_DECLARE_METATYPE(ChatLoginRspStruct)
 
 /**
  * @brief 文件传输请求（含断点续传偏移量）
  */
 struct FileReqStruct
 {
-    int64_t task_id;     ///< 任务ID
-    int from_uid;        ///< 发送方UID
-    int to_uid;          ///< 接收方UID
-    QString filename;    ///< 文件名
-    int64_t total_size;  ///< 文件总大小（字节）
-    QString md5;         ///< 文件MD5值
-    int64_t offset = 0;  ///< 续传偏移量（0表示新传输）
+    qint64 task_id = 0;    ///< 任务ID
+    int from_uid = 0;      ///< 发送方UID
+    int to_uid = 0;        ///< 接收方UID
+    QString filename;      ///< 文件名
+    qint64 total_size = 0; ///< 文件总大小（字节）
+    QString md5;           ///< 文件MD5值
+    qint64 offset = 0;    ///< 续传偏移量（0表示新传输）
 };
 
 /**
@@ -187,16 +181,16 @@ struct FileReqStruct
  */
 struct ChatImageStruct
 {
-    int from_uid = 0;        ///< 发送方UID
-    int to_uid = 0;          ///< 接收方UID
-    QString image_id;        ///< 图片唯一标识
-    QString caption;         ///< 图片说明文字
-    qint64 timestamp = 0;    ///< 时间戳
-    int width = 0;           ///< 图片宽度
-    int height = 0;          ///< 图片高度
-    QString ext;             ///< 文件扩展名
-    qint64 size = 0;         ///< 文件大小（字节）
-    QString md5;             ///< 文件MD5值
+    int from_uid = 0;     ///< 发送方UID
+    int to_uid = 0;       ///< 接收方UID
+    QString image_id;     ///< 图片唯一标识
+    QString caption;      ///< 图片说明文字
+    qint64 timestamp = 0; ///< 时间戳
+    int width = 0;        ///< 图片宽度
+    int height = 0;       ///< 图片高度
+    QString ext;          ///< 文件扩展名
+    qint64 size = 0;      ///< 文件大小（字节）
+    QString md5;          ///< 文件MD5值
 };
 
 /**
@@ -204,9 +198,9 @@ struct ChatImageStruct
  */
 struct ImageDownloadRspStruct
 {
-    int error = 0;           ///< 错误码（0成功）
-    QString image_id;        ///< 图片ID
-    qint64 offset = 0;       ///< 已接收的字节偏移量
+    int error = 0;     ///< 错误码（0成功）
+    QString image_id;  ///< 图片ID
+    qint64 offset = 0; ///< 已接收的字节偏移量
 };
 
 /**
@@ -214,9 +208,9 @@ struct ImageDownloadRspStruct
  */
 struct ChatRecallMsgStruct
 {
-    int from_uid = 0;             ///< 发起撤回的UID
-    qint64 msg_timestamp = 0;     ///< 被撤回消息的时间戳
-    QString client_msg_id;        ///< 被撤回消息的客户端ID
+    int from_uid = 0;         ///< 发起撤回的UID
+    qint64 msg_timestamp = 0; ///< 被撤回消息的时间戳
+    QString client_msg_id;    ///< 被撤回消息的客户端ID
 };
 
 /**
@@ -224,10 +218,10 @@ struct ChatRecallMsgStruct
  */
 struct ChatRecallNotifyStruct
 {
-    qint64 msg_timestamp = 0;  ///< 被撤回消息的时间戳
-    int recall_uid = 0;        ///< 发起撤回的UID
-    int recalled_to = 0;       ///< 撤回目标UID
-    qint64 recall_ts = 0;      ///< 撤回操作的时间戳
+    qint64 msg_timestamp = 0; ///< 被撤回消息的时间戳
+    int recall_uid = 0;       ///< 发起撤回的UID
+    int recalled_to = 0;      ///< 撤回目标UID
+    qint64 recall_ts = 0;     ///< 撤回操作的时间戳
 };
 
 /**
@@ -235,9 +229,9 @@ struct ChatRecallNotifyStruct
  */
 struct ChatEditMsgStruct
 {
-    int from_uid = 0;              ///< 发送方UID
-    qint64 msg_timestamp = 0;      ///< 被编辑消息的时间戳
-    QString new_content;           ///< 编辑后的新内容
+    int from_uid = 0;         ///< 发送方UID
+    qint64 msg_timestamp = 0; ///< 被编辑消息的时间戳
+    QString new_content;      ///< 编辑后的新内容
 };
 
 /**
@@ -245,11 +239,11 @@ struct ChatEditMsgStruct
  */
 struct ChatEditAckStruct
 {
-    int error = 0;                 ///< 错误码
-    QString message;               ///< 响应消息
-    qint64 msg_timestamp = 0;      ///< 被编辑消息的时间戳
-    qint64 edit_ts = 0;            ///< 编辑操作的时间戳
-    QString new_content;           ///< 编辑成功后服务端回传的新内容
+    int error = 0;            ///< 错误码
+    QString message;          ///< 响应消息
+    qint64 msg_timestamp = 0; ///< 被编辑消息的时间戳
+    qint64 edit_ts = 0;       ///< 编辑操作的时间戳
+    QString new_content;      ///< 编辑成功后服务端回传的新内容
 };
 
 /**
@@ -257,12 +251,17 @@ struct ChatEditAckStruct
  */
 struct ChatEditNotifyStruct
 {
-    qint64 msg_timestamp = 0;  ///< 被编辑消息的时间戳
-    int from_uid = 0;          ///< 编辑者UID
-    QString new_content;       ///< 编辑后的新内容
-    qint64 edit_ts = 0;        ///< 编辑操作的时间戳
+    qint64 msg_timestamp = 0; ///< 被编辑消息的时间戳
+    int from_uid = 0;         ///< 编辑者UID
+    QString new_content;      ///< 编辑后的新内容
+    qint64 edit_ts = 0;       ///< 编辑操作的时间戳
 };
 
+Q_DECLARE_METATYPE(LoginRspStruct)
+Q_DECLARE_METATYPE(ChatLoginRspStruct)
+Q_DECLARE_METATYPE(ChatTextMsgStruct)
+Q_DECLARE_METATYPE(ChatAckStruct)
+Q_DECLARE_METATYPE(OfflineAckStruct)
 Q_DECLARE_METATYPE(ChatImageStruct)
 Q_DECLARE_METATYPE(ImageDownloadRspStruct)
 Q_DECLARE_METATYPE(ChatRecallMsgStruct)

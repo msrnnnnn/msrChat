@@ -25,8 +25,10 @@ struct FileSendTask
     int64_t total_size = 0;
     int64_t sent_size = 0;
     bool active = false;
+    bool md5_ready = false;
     int in_flight = 0;
     int window_size = 8;
+    QString md5;
     std::unique_ptr<QFile> file;
 };
 
@@ -48,16 +50,22 @@ public:
      */
     void StartSend(int64_t task_id, int to_uid, const QString &filepath);
     /**
-     * @brief 接收端就绪，从指定偏移量继续发送（支持断点续传）
+     * @brief 接收端就绪，从指定偏移量继续发送（断点续传 / 首次发送）
      * @param task_id 任务ID
      * @param offset 接收端已收到的字节偏移量
      */
     void OnRecvReady(int64_t task_id, int64_t offset);
     /**
+     * @brief 收到分片确认，滑动窗口继续发送
+     * @param task_id 任务ID
+     * @param received 接收端已确认的累计偏移量
+     */
+    void OnChunkAck(int64_t task_id, int64_t received);
+    /**
      * @brief 取消发送任务
      * @param task_id 任务ID
      */
-    void CancelSend(int64_t task_id);
+    void CancelSend(int64_t task_id, const QString &reason = QString());
 
 signals:
     /**
@@ -75,6 +83,12 @@ signals:
      * @param error 错误信息（失败时有效）
      */
     void sigSendComplete(int64_t task_id, bool success, const QString &error);
+    /**
+     * @brief MD5 计算完成信号
+     * @param task_id 任务ID
+     * @param md5 计算得到的MD5值
+     */
+    void sigMd5Ready(int64_t task_id, const QString &md5);
 
 private:
     FileSendMgr();
@@ -88,7 +102,16 @@ private:
      */
     void SendNextChunk(FileSendTask &task);
 
-    std::map<int64_t, FileSendTask> _tasks; ///< 活跃任务表：task_id → 任务上下文
+private slots:
+    /**
+     * @brief MD5 计算完成回调
+     * @param task_id 任务ID
+     * @param md5 计算得到的MD5值
+     */
+    void OnMd5Computed(int64_t task_id, const QString &md5);
+
+private:
+    std::map<int64_t, FileSendTask> _tasks;  ///< 活跃任务表：task_id → 任务上下文
     QMutex _mutex;                           ///< 线程互斥锁
     static constexpr int kChunkSize = 65536; ///< 分片大小（64KB）
 };

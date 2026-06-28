@@ -4,6 +4,7 @@
  */
 #include "FileRecvMgr.h"
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QMutexLocker>
@@ -42,8 +43,7 @@ QString CalcMd5Sync(const QString &filepath)
 class Md5Runnable : public QRunnable
 {
 public:
-    Md5Runnable(int64_t task_id, const QString &filepath)
-        : _task_id(task_id), _filepath(filepath)
+    Md5Runnable(int64_t task_id, const QString &filepath) : _task_id(task_id), _filepath(filepath)
     {
     }
 
@@ -51,23 +51,34 @@ public:
     {
         QString md5 = CalcMd5Sync(_filepath);
         bool ok = !md5.isEmpty();
-        QMetaObject::invokeMethod(
-            &FileRecvMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
-            Q_ARG(int64_t, _task_id), Q_ARG(QString, _filepath), Q_ARG(bool, ok), Q_ARG(QString, md5));
+        QMetaObject::invokeMethod(&FileRecvMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
+                                  Q_ARG(int64_t, _task_id), Q_ARG(QString, _filepath), Q_ARG(bool, ok),
+                                  Q_ARG(QString, md5));
     }
 
 private:
     int64_t _task_id;
     QString _filepath;
 };
-}  // namespace
+} // namespace
 
 /**
  * @brief 构造函数
+ * @details 清理超过 1 天的残留 .part 临时文件
  */
-FileRecvMgr::FileRecvMgr()
-    : QObject(nullptr)
+FileRecvMgr::FileRecvMgr() : QObject(nullptr)
 {
+    QDir dir(GetTempDir());
+    const auto entries = dir.entryInfoList({"*.part"}, QDir::Files, QDir::Time);
+    const qint64 threshold = QDateTime::currentMSecsSinceEpoch() - 24 * 3600 * 1000LL;
+    for (const auto &fi : entries)
+    {
+        if (fi.lastModified().toMSecsSinceEpoch() < threshold)
+        {
+            QFile::remove(fi.absoluteFilePath());
+            qDebug() << "[FileRecvMgr] cleaned stale temp file:" << fi.fileName();
+        }
+    }
 }
 
 /**
@@ -110,9 +121,8 @@ FileRecvMgr &FileRecvMgr::Instance()
  * @return 启动是否成功
  * @details 在临时目录创建 .part 文件，等待数据写入
  */
-bool FileRecvMgr::StartRecv(
-    int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5,
-    QString *error)
+bool FileRecvMgr::StartRecv(int64_t task_id, int from_uid, const std::string &filename, int64_t total_size,
+                            const std::string &md5, QString *error)
 {
     QMutexLocker lock(&_mutex);
 
@@ -169,8 +179,8 @@ bool FileRecvMgr::StartRecv(
  * @return 写入是否成功
  * @details 必须按序写入，写入完成后验证 MD5（如果提供）
  */
-bool FileRecvMgr::WriteChunk(
-    int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed, QString *error)
+bool FileRecvMgr::WriteChunk(int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed,
+                             QString *error)
 {
     QMutexLocker lock(&_mutex);
 
@@ -220,38 +230,14 @@ bool FileRecvMgr::WriteChunk(
         *committed = task->received_size;
     }
 
-    emit sigRecvProgress(
-        task_id, CalcProgress(task->received_size, task->total_size), task->received_size, task->total_size);
+    emit sigRecvProgress(task_id, CalcProgress(task->received_size, task->total_size), task->received_size,
+                         task->total_size);
 
     if (task->received_size == task->total_size)
     {
         return CompleteTask(it, error);
     }
     return true;
-}
-
-/**
- * @brief 取消文件接收任务
- * @param task_id 任务 ID
- * @details 关闭文件、删除临时文件、释放内存
- */
-void FileRecvMgr::CancelRecv(int64_t task_id)
-{
-    QMutexLocker lock(&_mutex);
-    auto it = _tasks.find(task_id);
-    if (it == _tasks.end())
-    {
-        return;
-    }
-
-    FileRecvTask *task = it.value();
-    if (task)
-    {
-        task->file.close();
-        QFile::remove(task->temp_filepath);
-        delete task;
-    }
-    _tasks.erase(it);
 }
 
 /**
@@ -386,14 +372,12 @@ QString FileRecvMgr::GetFinalPath(const QString &filename) const
         QUuid uuid(stem);
         if (!uuid.isNull())
         {
-            QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-                                + "/client_image_cache";
+            QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/client_image_cache";
             QDir().mkpath(cache_dir);
             QString result = cache_dir + "/" + safeName;
             QFileInfo canonical(result);
             QString canonicalBase = QDir::cleanPath(cache_dir);
-            if (!canonical.absoluteFilePath().startsWith(canonicalBase + "/",
-                                                         Qt::CaseInsensitive))
+            if (!canonical.absoluteFilePath().startsWith(canonicalBase + "/", Qt::CaseInsensitive))
             {
                 qWarning() << "[FileRecvMgr] Path traversal blocked:" << filename;
                 return {};

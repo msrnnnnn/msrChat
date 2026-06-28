@@ -29,11 +29,13 @@ TEST(ThreadPoolTest, TaskCount)
     std::atomic<bool> started{false};
     std::atomic<bool> done{false};
 
-    pool.Enqueue([&] {
-        started.store(true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        done.store(true);
-    });
+    pool.Enqueue(
+        [&]
+        {
+            started.store(true);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            done.store(true);
+        });
 
     while (!started.load())
     {

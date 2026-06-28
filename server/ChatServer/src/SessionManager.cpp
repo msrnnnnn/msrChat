@@ -42,6 +42,8 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
         spdlog::info("[SessionManager] User {} has existing session, closing old connection.", uid);
         // 发送踢出通知
         nlohmann::json kick{{"error", ERR_KICKED}, {"message", "已在其他设备登录"}};
+        // msg_id=0 不是有效消息类型，客户端 slotDispatchPacket 的 default 分支会静默忽略。
+        // TODO: 定义 MSG_KICK 消息类型，让客户端能识别踢出通知并显示提示。
         old_session->Send(kick.dump(), 0);
         old_session->Close();
     }
@@ -59,10 +61,12 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
 void SessionManager::RemoveSession(int uid)
 {
     std::string uuid_to_erase;
-    _uid_sessions.RemoveIfMatch(uid, [&](const std::shared_ptr<CSession> &session) {
-        uuid_to_erase = session->GetUuid();
-        return true;
-    });
+    _uid_sessions.RemoveIfMatch(uid,
+                                [&](const std::shared_ptr<CSession> &session)
+                                {
+                                    uuid_to_erase = session->GetUuid();
+                                    return true;
+                                });
     if (!uuid_to_erase.empty())
     {
         _uuid_sessions.Erase(uuid_to_erase);
@@ -77,10 +81,12 @@ void SessionManager::RemoveSession(int uid)
 void SessionManager::RemoveSessionByUuid(const std::string &uuid)
 {
     int uid_to_erase = -1;
-    _uuid_sessions.RemoveIfMatch(uuid, [&](const std::shared_ptr<CSession> &session) {
-        uid_to_erase = session->GetUserUid();
-        return true;
-    });
+    _uuid_sessions.RemoveIfMatch(uuid,
+                                 [&](const std::shared_ptr<CSession> &session)
+                                 {
+                                     uid_to_erase = session->GetUserUid();
+                                     return true;
+                                 });
     if (uid_to_erase != -1)
     {
         _uid_sessions.Erase(uid_to_erase);

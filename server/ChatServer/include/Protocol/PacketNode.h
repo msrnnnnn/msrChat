@@ -29,11 +29,7 @@ public:
     char *_data;
     std::vector<char> _buffer;
 
-    RecvNode()
-        : _msg_id(0),
-          _total_len(0),
-          _data(nullptr),
-          _buffer(HEAD_TOTAL_LEN + 1)
+    RecvNode() : _msg_id(0), _total_len(0), _data(nullptr), _buffer(HEAD_TOTAL_LEN + 1)
     {
         _data = _buffer.data();
     }
@@ -95,11 +91,7 @@ public:
     char *_data;
     std::vector<char> _buffer;
 
-    SendNode()
-        : _msg_id(0),
-          _total_len(0),
-          _data(nullptr),
-          _buffer(HEAD_TOTAL_LEN)
+    SendNode() : _msg_id(0), _total_len(0), _data(nullptr), _buffer(HEAD_TOTAL_LEN)
     {
         _data = _buffer.data();
     }
