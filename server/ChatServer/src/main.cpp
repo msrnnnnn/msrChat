@@ -9,6 +9,7 @@
 #include "SQLiteMgr.h"
 #include "ImageStorage.h"
 #include "TokenManager.h"
+#include "SignalHandler.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -125,16 +126,21 @@ int main(int argc, char *argv[])
         if (daemon_mode)
         {
 #ifndef _WIN32
-            spdlog::info("Starting in daemon mode...");
-            if (daemon(0, 0) != 0)
+            spdlog::info("Starting in daemon mode (double-fork)...");
+            if (!SignalHandler::Daemonize())
             {
                 std::cerr << "Failed to start daemon" << std::endl;
                 return 1;
             }
-            spdlog::info("Daemon started successfully with PID: {}", getpid());
-#else
-            spdlog::warn("Daemon mode is not supported on Windows, running in foreground...");
 #endif
+        }
+
+        // 写入 PID 文件（用于进程管理和防止重复启动）
+        const std::string pid_file = "chatserver.pid";
+        if (!SignalHandler::WritePidFile(pid_file))
+        {
+            std::cerr << "Failed to write PID file, another instance may be running" << std::endl;
+            return 1;
         }
 
         auto config = LoadConfig();
@@ -188,9 +194,38 @@ int main(int argc, char *argv[])
         boost::asio::io_context io_context;
         std::shared_ptr<CServer> server = nullptr;
 
-        auto stop_server = [&server, &io_context](const std::string &signal_name)
+        // ============================================================
+        // 信号处理（SignalHandler 封装 sigaction 系统调用）
+        // ============================================================
+        // SIGHUP 热加载回调：重新读取 config.ini，更新运行时参数
+        auto reload_config = [&config]()
         {
-            spdlog::info("Received {}, initiating graceful shutdown...", signal_name);
+            spdlog::info("[SignalHandler] SIGHUP received, reloading config...");
+            try
+            {
+                auto new_config = LoadConfig();
+                // 端口和数据库路径无法运行时修改，记录变更供下次重启参考
+                if (new_config.port != config.port)
+                {
+                    spdlog::warn("[SignalHandler] Port changed ({} -> {}), restart required", config.port,
+                                 new_config.port);
+                }
+                config = new_config;
+                spdlog::info("[SignalHandler] Config reloaded successfully");
+            }
+            catch (const std::exception &e)
+            {
+                spdlog::error("[SignalHandler] Config reload failed: {}", e.what());
+            }
+        };
+
+        // 注意：不在这里调用 SignalHandler::Setup()，因为 sigaction 会干扰 boost::asio 的信号机制
+        // 导致 async_accept 回调延迟数十秒。SIGINT/SIGTERM 由下方 boost::asio::signal_set 处理。
+        // SIGHUP 热加载功能保留在 SignalHandler 中，但需要在不使用 boost::asio signal_set 时才调用。
+
+        auto stop_server = [&server, &io_context, &pid_file]()
+        {
+            spdlog::info("Initiating graceful shutdown...");
 
             if (server)
             {
@@ -207,26 +242,27 @@ int main(int argc, char *argv[])
             spdlog::info("Shutting down SQLiteMgr...");
             SQLiteMgr::Instance().Shutdown();
 
+            // 清理 PID 文件
+            SignalHandler::RemovePidFile(pid_file);
+
             spdlog::info("Graceful shutdown completed");
             io_context.stop();
         };
 
-        auto handle_sigint_sigterm = [stop_server](const boost::system::error_code &ec, int signal_number)
-        {
-            if (ec)
-            {
-                spdlog::error("Signal handler error: {}", ec.message());
-                return;
-            }
-
-            std::string signal_name = (signal_number == SIGINT) ? "SIGINT" : "SIGTERM";
-            spdlog::info("Signal {} captured", signal_name);
-            stop_server(signal_name);
-        };
-
-        // 注册 SIGINT/SIGTERM 信号处理器，实现优雅关闭
+        // SIGINT/SIGTERM 通过 boost::asio::signal_set 与 io_context 集成
         boost::asio::signal_set shutdown_signals(io_context, SIGINT, SIGTERM);
-        shutdown_signals.async_wait(handle_sigint_sigterm);
+        shutdown_signals.async_wait(
+            [stop_server](const boost::system::error_code &ec, int signal_number)
+            {
+                if (ec)
+                {
+                    spdlog::error("Signal handler error: {}", ec.message());
+                    return;
+                }
+                std::string signal_name = (signal_number == SIGINT) ? "SIGINT" : "SIGTERM";
+                spdlog::info("Signal {} captured", signal_name);
+                stop_server();
+            });
 
         // Phase 5D.3 — 定时清理过期图片（每 6 小时）
         auto cleanup_timer = std::make_shared<boost::asio::steady_timer>(io_context);
@@ -307,6 +343,22 @@ int main(int argc, char *argv[])
 
         server = std::make_shared<CServer>(io_context, config.port);
         server->Start();
+
+        // 调试：定期心跳确认 io_context 在处理事件
+        auto heartbeat_timer = std::make_shared<boost::asio::steady_timer>(io_context);
+        std::function<void()> schedule_heartbeat;
+        schedule_heartbeat = [&io_context, heartbeat_timer, &schedule_heartbeat]()
+        {
+            heartbeat_timer->expires_after(std::chrono::seconds(5));
+            heartbeat_timer->async_wait(
+                [heartbeat_timer, &schedule_heartbeat](const boost::system::error_code &ec)
+                {
+                    if (ec) return;
+                    spdlog::info("[DEBUG] io_context heartbeat - event loop is alive");
+                    schedule_heartbeat();
+                });
+        };
+        schedule_heartbeat();
 
         spdlog::info("ChatServer is running on port {}...", config.port);
         io_context.run();

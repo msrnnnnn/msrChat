@@ -51,6 +51,7 @@ set(SERVER_SOURCES
     src/services/ChatService.cpp
     src/services/FileService.cpp
     src/services/ImageService.cpp
+    src/SignalHandler.cpp
 )
 
 # =============================================================

@@ -54,8 +54,10 @@ void CSession::Close()
     bool expected = false;
     if (!_closed.compare_exchange_strong(expected, true))
     {
+        spdlog::warn("[CSession] Close() called but already closed: uuid={}", _uuid);
         return;
     }
+    spdlog::warn("[CSession] Close() called: uuid={}", _uuid);
     if (_user_uid > 0)
     {
         FileTransfer::Instance().RemoveTaskBySession(_user_uid);
@@ -201,6 +203,12 @@ void CSession::AsyncReadHead()
                 msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
                 memcpy(&msg_len, head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
                 msg_len = boost::asio::detail::socket_ops::network_to_host_long(msg_len);
+
+                spdlog::info("[CSession] Parsed header: msg_id={}, msg_len={}, raw_bytes=[{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}]",
+                    msg_id, msg_len,
+                    (unsigned char)head_node->_data[0], (unsigned char)head_node->_data[1],
+                    (unsigned char)head_node->_data[2], (unsigned char)head_node->_data[3],
+                    (unsigned char)head_node->_data[4], (unsigned char)head_node->_data[5]);
 
                 if (msg_len == 0)
                 {
@@ -471,6 +479,7 @@ void CSession::ContinueOfflineSend()
  */
 void CSession::CleanupSession(const boost::system::error_code &ec)
 {
+    spdlog::warn("[CSession] CleanupSession called: uuid={}, ec={}, message='{}'", _uuid, ec.value(), ec.message());
     if (ec)
     {
         if (ec == boost::asio::error::eof)
@@ -497,6 +506,7 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
  */
 void CSession::TerminateSession(const std::string &error_msg)
 {
+    spdlog::warn("[CSession] TerminateSession called: uuid={}, reason='{}'", _uuid, error_msg);
     if (!error_msg.empty())
     {
         spdlog::error("[CSession] {}: {}", _uuid, error_msg);

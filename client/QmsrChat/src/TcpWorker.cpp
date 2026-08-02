@@ -132,6 +132,8 @@ void TcpWorker::slotTcpConnect(ServerInfo si)
         port = _port;
     }
 
+    qDebug() << "[TcpWorker] Connecting to" << host << ":" << port;
+
     _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = 0;
     stop_timers();
@@ -188,6 +190,7 @@ void TcpWorker::slotSendData(RequestType reqId, const QByteArray &data)
  */
 void TcpWorker::slot_connected()
 {
+    qDebug() << "[TcpWorker] slot_connected fired! state before:" << static_cast<int>(_state.load());
     const auto current_state = _state.load();
     const bool was_reconnecting = current_state == ConnectionState::Reconnecting;
 
@@ -313,7 +316,7 @@ void TcpWorker::slot_ready_read()
  */
 void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 {
-    Q_UNUSED(error)
+    qWarning() << "[TcpWorker] slot_error:" << error << _socket->errorString() << "state:" << static_cast<int>(_state.load());
 
     if (_state.load() == ConnectionState::Stopping)
     {
@@ -331,6 +334,7 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
  */
 void TcpWorker::slot_disconnected()
 {
+    qWarning() << "[TcpWorker] slot_disconnected, state:" << static_cast<int>(_state.load());
     if (_state.load() == ConnectionState::Stopping)
     {
         return;

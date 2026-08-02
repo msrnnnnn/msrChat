@@ -24,7 +24,9 @@ CServer::CServer(boost::asio::io_context &io_context, uint16_t port)
     : _io_context(io_context), _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
       _thread_pool(std::thread::hardware_concurrency())
 {
-    spdlog::info("[CServer] Server initialized on port {}", port);
+    boost::asio::socket_base::reuse_address option(true);
+    _acceptor.set_option(option);
+    spdlog::info("[CServer] Server initialized on port {} (SO_REUSEADDR set)", port);
 }
 
 /**
@@ -51,14 +53,19 @@ void CServer::DoAccept()
 {
     if (_stopped)
     {
+        spdlog::warn("[CServer] DoAccept: stopped, returning");
         return;
     }
 
+    spdlog::info("[CServer] DoAccept: waiting for new connection...");
     auto &ioc = AsioIOServicePool::getInstance().GetIOService();
     auto new_session = std::make_shared<CSession>(ioc, shared_from_this());
+    spdlog::info("[CServer] DoAccept: calling async_accept, acceptor fd={}, socket fd={}",
+                 _acceptor.native_handle(), new_session->GetSocket().native_handle());
     _acceptor.async_accept(new_session->GetSocket(),
                            [this, new_session](const boost::system::error_code &ec)
                            {
+                               spdlog::info("[CServer] async_accept callback fired! ec={}", ec.value());
                                if (_stopped)
                                {
                                    return;
