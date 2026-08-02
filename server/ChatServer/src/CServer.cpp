@@ -5,21 +5,33 @@
 #include "CServer.h"
 #include "AsioIOServicePool.h"
 #include "CSession.h"
+#include "Message.pb.h"
 #include "MessageRouter.h"
 #include "SQLiteMgr.h"
+#include "MessageRepository.h"
 #include "const.h"
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
 
-CServer::CServer(boost::asio::io_context &io_context, short port)
-    : _io_context(io_context),
-      _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
+/**
+ * @brief 构造函数
+ * @param io_context Boost.Asio I/O 上下文
+ * @param port 监听端口号
+ * @details 初始化 acceptor 和内部线程池
+ */
+CServer::CServer(boost::asio::io_context &io_context, uint16_t port)
+    : _io_context(io_context), _acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
       _thread_pool(std::thread::hardware_concurrency())
 {
-    spdlog::info("[CServer] Server initialized on port {}", port);
+    boost::asio::socket_base::reuse_address option(true);
+    _acceptor.set_option(option);
+    spdlog::info("[CServer] Server initialized on port {} (SO_REUSEADDR set)", port);
 }
 
+/**
+ * @brief 析构函数，关闭线程池
+ */
 CServer::~CServer()
 {
     _thread_pool.Shutdown();
@@ -35,37 +47,54 @@ void CServer::Start()
 
 /**
  * @brief 接受新连接
- * @details 递归调用以持续接受连接，关闭重复 UUID 的旧会话
+ * @details 递归调用以持续接受连接，检查连接数上限，关闭重复 UUID 的旧会话
  */
 void CServer::DoAccept()
 {
-    if (_stopped) {
+    if (_stopped)
+    {
+        spdlog::warn("[CServer] DoAccept: stopped, returning");
         return;
     }
 
+    spdlog::info("[CServer] DoAccept: waiting for new connection...");
     auto &ioc = AsioIOServicePool::getInstance().GetIOService();
     auto new_session = std::make_shared<CSession>(ioc, shared_from_this());
-    _acceptor.async_accept(
-        new_session->GetSocket(),
-        [this, new_session](const boost::system::error_code &ec)
-        {
-            if (_stopped) {
-                return;
-            }
+    spdlog::info("[CServer] DoAccept: calling async_accept, acceptor fd={}, socket fd={}",
+                 _acceptor.native_handle(), new_session->GetSocket().native_handle());
+    _acceptor.async_accept(new_session->GetSocket(),
+                           [this, new_session](const boost::system::error_code &ec)
+                           {
+                               spdlog::info("[CServer] async_accept callback fired! ec={}", ec.value());
+                               if (_stopped)
+                               {
+                                   return;
+                               }
 
-            if (!ec)
-            {
-                spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
-                SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
-                SessionManager::Instance().AddSession(0, new_session);
-                new_session->Start();
-            }
-            else
-            {
-                spdlog::error("[CServer] Accept error: {}", ec.message());
-            }
-            DoAccept();
-        });
+                               if (!ec)
+                               {
+                                   // 检查连接数上限
+                                   if (_max_connections > 0 &&
+                                       SessionManager::Instance().GetConnectionCount() >= _max_connections)
+                                   {
+                                       spdlog::warn("[CServer] Connection limit reached ({}), rejecting {}",
+                                                    _max_connections, new_session->GetUuid());
+                                       new_session->Close();
+                                       DoAccept();
+                                       return;
+                                   }
+
+                                   spdlog::info("[CServer] New connection accepted: {}", new_session->GetUuid());
+                                   SessionManager::Instance().RemoveSessionByUuid(new_session->GetUuid());
+                                   SessionManager::Instance().AddSession(-1, new_session);
+                                   new_session->Start();
+                               }
+                               else
+                               {
+                                   spdlog::error("[CServer] Accept error: {}", ec.message());
+                               }
+                               DoAccept();
+                           });
 }
 
 /**
@@ -102,13 +131,18 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
         ChatMessage msg;
         msg.from_uid = json_data.value("from_uid", 0);
         msg.to_uid = target_uid;
+        if (msg.from_uid <= 0 || msg.to_uid <= 0)
+        {
+            spdlog::warn("[CServer] StoreOfflineMessage rejected: invalid uid from={} to={}", msg.from_uid, msg.to_uid);
+            return false;
+        }
         msg.content = json_data.value("content", "");
-        msg.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::system_clock::now().time_since_epoch())
-                            .count();
+        msg.timestamp =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count();
         msg.status = 0;
         msg.client_msg_id = json_data.value("client_msg_id", "");
-        return SQLiteMgr::Instance().SaveOfflineMessage(msg);
+        return SQLiteMgr::Instance().Messages().SaveOfflineMessage(msg);
     }
     catch (const std::exception &e)
     {
@@ -118,40 +152,54 @@ bool CServer::StoreOfflineMessage(int target_uid, const std::string &msg_data)
 }
 
 /**
+ * @brief 存储离线消息（ChatMessage 重载）
+ * @param msg 构造好的 ChatMessage（支持图片等任意类型）
+ * @return 是否存储成功
+ */
+bool CServer::StoreOfflineMessage(const ChatMessage &msg)
+{
+    return SQLiteMgr::Instance().Messages().SaveOfflineMessage(msg);
+}
+
+/**
  * @brief 发送离线消息给用户
  * @param uid 用户 ID
  * @param session 目标会话
  * @details 分页拉取离线消息并发送，发送完成后清空离线记录
  */
-void CServer::SendOfflineMessages(int uid, std::shared_ptr<CSession> session)
+void CServer::SendOfflineMessages(int uid, const std::shared_ptr<CSession> &session)
 {
     auto self = shared_from_this();
 
     // 所有 session 访问都通过 strand，确保线程安全
-    boost::asio::post(
-        session->GetStrand(),
-        [self, session, uid]()
-        {
-            int64_t total_count = SQLiteMgr::Instance().GetOfflineMessageCount(uid);
+    boost::asio::post(session->GetStrand(),
+                      [self, session, uid]()
+                      {
+                          int64_t total_count = SQLiteMgr::Instance().Messages().GetOfflineMessageCount(uid);
 
-            if (total_count == 0)
-            {
-                return;
-            }
+                          if (total_count > 0)
+                          {
+                              {
+                                  std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
+                                  session->_offline_send_state.uid = uid;
+                                  session->_offline_send_state.total_count = total_count;
+                                  session->_offline_send_state.sent_count = 0;
+                                  session->_offline_send_state.sending = true;
+                                  session->_offline_send_state.last_sent_id = 0;
+                              }
 
-            {
-                std::lock_guard<std::recursive_mutex> lock(session->_offline_mutex);
-                session->_offline_send_state.uid = uid;
-                session->_offline_send_state.total_count = total_count;
-                session->_offline_send_state.sent_count = 0;
-                session->_offline_send_state.sending = true;
-                session->_offline_send_state.last_sent_id = 0;
-            }
+                              session->SendNextOfflinePage();
+                          }
 
-            session->SendNextOfflinePage();
-        });
+                          self->FlushRecallNotifies(uid, session);
+                          self->FlushEditNotifies(uid, session);
+                      });
 }
 
+/**
+ * @brief 优雅停止服务器
+ * @details 原子标记防止重复调用，按顺序关闭 acceptor → 会话 → 线程池
+ */
 void CServer::Stop()
 {
     if (_stopped.exchange(true))
@@ -173,12 +221,83 @@ void CServer::Stop()
         spdlog::info("[CServer] Acceptor closed successfully");
     }
 
-    SessionManager::Instance().ForEachSession([](int /*uid*/, std::shared_ptr<CSession> session) {
-        session->Close();
-    });
+    // 先关闭所有会话再清理映射，防止中途被 DoAccept 加入新会话
+    SessionManager::Instance().ForEachSession([](int /*uid*/, const std::shared_ptr<CSession> &session)
+                                              { session->Close(); });
     SessionManager::Instance().ClearAll();
     spdlog::info("[CServer] All sessions closed");
 
     _thread_pool.Shutdown();
     spdlog::info("[CServer] Server stopped");
+}
+
+/**
+ * @brief 刷新撤回通知
+ * @param uid 用户 ID
+ * @param session 目标会话
+ * @details 在 strand 上逐条发送待投递的撤回通知，发送成功后精确删除
+ */
+void CServer::FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session)
+{
+    auto self = shared_from_this();
+    boost::asio::post(
+        session->GetStrand(),
+        [self, session, uid]()
+        {
+            auto entries = SQLiteMgr::Instance().Messages().PopRecallNotifies(uid);
+            for (const auto &e : entries)
+            {
+                qmsrchat::RecallNotify n;
+                n.set_msg_timestamp(e.msg_timestamp);
+                n.set_recall_uid(e.recall_uid);
+                n.set_recalled_to(e.recalled_to);
+                n.set_recall_ts(e.recall_ts);
+                std::string s;
+                if (!n.SerializeToString(&s))
+                {
+                    spdlog::error("[CServer] FlushRecallNotifies: serialize failed for ts={}", e.msg_timestamp);
+                    continue;
+                }
+                session->Send(s, MSG_CHAT_RECALL_NOTIFY);
+                spdlog::info("[CServer] FlushRecallNotifies: sent 1014 to uid={} for ts={}", uid, e.msg_timestamp);
+                SQLiteMgr::Instance().Messages().ClearRecallNotifyByTimestamp(uid, e.msg_timestamp);
+            }
+        });
+}
+
+/**
+ * @brief 刷新编辑通知
+ * @param uid 用户 ID
+ * @param session 目标会话
+ * @details 在 strand 上逐条发送待投递的编辑通知，发送成功后清空
+ */
+void CServer::FlushEditNotifies(int uid, const std::shared_ptr<CSession> &session)
+{
+    auto self = shared_from_this();
+    boost::asio::post(
+        session->GetStrand(),
+        [self, session, uid]()
+        {
+            auto entries = SQLiteMgr::Instance().Messages().PopEditNotifies(uid);
+            for (const auto &e : entries)
+            {
+                qmsrchat::EditNotify n;
+                n.set_msg_timestamp(e.msg_timestamp);
+                n.set_from_uid(e.from_uid);
+                n.set_new_content(e.new_content);
+                n.set_edit_ts(e.edit_ts);
+                std::string s;
+                if (!n.SerializeToString(&s))
+                {
+                    spdlog::error("[CServer] FlushEditNotifies: serialize failed for ts={}", e.msg_timestamp);
+                    continue;
+                }
+                session->Send(s, MSG_CHAT_EDIT_NOTIFY);
+                spdlog::info("[CServer] FlushEditNotifies: sent 1015 to uid={} for ts={}", uid, e.msg_timestamp);
+            }
+            if (!entries.empty())
+            {
+                SQLiteMgr::Instance().Messages().ClearEditNotifies(uid);
+            }
+        });
 }

@@ -310,6 +310,16 @@ def main():
                         help="ChatServer 可执行文件路径")
     parser.add_argument("--build-only", action="store_true",
                         help="只编译不运行")
+    parser.add_argument("--stress-all", action="store_true",
+                        help="运行全部压测（并发连接/消息吞吐/长连接稳定性）")
+    parser.add_argument("--stress-connections", action="store_true",
+                        help="运行并发连接压测")
+    parser.add_argument("--stress-throughput", action="store_true",
+                        help="运行消息吞吐压测")
+    parser.add_argument("--stress-stability", action="store_true",
+                        help="运行长连接稳定性压测")
+    parser.add_argument("--no-server", action="store_true",
+                        help="不自动启动服务端（压测模式用）")
     args = parser.parse_args()
 
     SCRIPT_DIR = os.path.abspath(
@@ -317,6 +327,58 @@ def main():
     BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
     BINARY = args.server or os.path.join(BUILD_DIR, "ChatServer")
 
+    print("=" * 50)
+    print("  msrChat ASAN 自动化检测")
+    print("=" * 50)
+    print()
+
+    harness = ServerHarness(BINARY, BUILD_DIR, SCRIPT_DIR)
+    if not harness.build():
+        sys.exit(1)
+    if args.build_only:
+        print("  编译完成，跳过运行")
+        return
+
+    if not harness.start():
+        sys.exit(1)
+
+    # ─── 压测模式 ──────────────────────────────────────
+    if args.stress_all or args.stress_connections or args.stress_throughput or args.stress_stability:
+        import subprocess as sp
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        server_arg = ["--server", BINARY] if args.server else ["--no-server"]
+        host_arg = ["--host", "127.0.0.1"]
+
+        # 先启动服务端
+        harness = ServerHarness(BINARY, BUILD_DIR, os.path.dirname(BINARY))
+        if not args.no_server:
+            if not harness.build():
+                sys.exit(1)
+            if not harness.start():
+                sys.exit(1)
+
+        try:
+            scripts = []
+            if args.stress_all or args.stress_connections:
+                scripts.append(("stress_connections.py", ["--count", "500", "--ramp"]))
+            if args.stress_all or args.stress_throughput:
+                scripts.append(("stress_throughput.py", ["--clients", "10", "--messages", "50"]))
+            if args.stress_all or args.stress_stability:
+                scripts.append(("stress_stability.py", ["--duration", "30", "--clients", "10"]))
+
+            for script_name, extra_args in scripts:
+                script_path = os.path.join(script_dir, script_name)
+                cmd = [sys.executable, script_path, "--no-server"] + extra_args
+                print(f"\n{'='*60}")
+                print(f"  运行 {script_name}")
+                print(f"{'='*60}")
+                sp.run(cmd)
+        finally:
+            harness.graceful_stop()
+
+        return
+
+    # ─── ASAN 检测模式 ─────────────────────────────────
     print("=" * 50)
     print("  msrChat ASAN 自动化检测")
     print("=" * 50)

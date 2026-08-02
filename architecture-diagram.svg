@@ -1,0 +1,304 @@
+<svg viewBox="0 0 1400 1020" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F8F9FE"/>
+      <stop offset="100%" stop-color="#EEF0FB"/>
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+    <linearGradient id="clientGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EEF2FF"/>
+      <stop offset="100%" stop-color="#E0E7FF"/>
+    </linearGradient>
+    <linearGradient id="serverGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FEF3C7"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </linearGradient>
+    <linearGradient id="protoGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D1FAE5"/>
+      <stop offset="100%" stop-color="#A7F3D0"/>
+    </linearGradient>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00000020"/>
+    </filter>
+    <filter id="shadowSm" x="-2%" y="-2%" width="104%" height="108%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#00000015"/>
+    </filter>
+    <marker id="arrowRight" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4F46E5"/>
+    </marker>
+    <marker id="arrowLeft" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <polygon points="10 0, 0 3.5, 10 7" fill="#4F46E5"/>
+    </marker>
+    <marker id="arrowDown" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
+      <polygon points="0 0, 7 0, 3.5 10" fill="#6B7280"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="1020" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1400" height="56" fill="url(#headerGrad)" rx="12"/>
+  <rect x="0" y="28" width="1400" height="28" fill="url(#headerGrad)"/>
+  <text x="700" y="36" text-anchor="middle" fill="white" font-family="system-ui, sans-serif" font-size="20" font-weight="700">msrChat 系统架构图</text>
+
+  <!-- Subtitle -->
+  <text x="700" y="78" text-anchor="middle" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="12">Qt6 + QML | Boost.Asio | Protobuf | SQLite | C++17 · 版本 v2.0 · 2026-06-12</text>
+
+  <!-- ==================== CLIENT SECTION ==================== -->
+  <rect x="30" y="96" width="660" height="476" rx="10" fill="url(#clientGrad)" stroke="#C7D2FE" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <!-- Client Title -->
+  <rect x="30" y="96" width="660" height="36" rx="10" fill="#4F46E5"/>
+  <rect x="30" y="116" width="660" height="16" fill="#4F46E5"/>
+  <text x="55" y="120" fill="white" font-family="system-ui, sans-serif" font-size="14" font-weight="700">🖥️ 客户端 — Qt6 + QML (C++17)</text>
+
+  <!-- Client Layer 1: QML UI -->
+  <rect x="48" y="144" width="624" height="120" rx="6" fill="white" stroke="#E0E7FF" stroke-width="1" filter="url(#shadowSm)"/>
+  <text x="60" y="162" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">QML UI 层 (18 个 .qml 文件)</text>
+
+  <!-- AuthWindow box -->
+  <rect x="60" y="172" width="180" height="80" rx="5" fill="#EEF2FF" stroke="#A5B4FC" stroke-width="1"/>
+  <text x="72" y="190" fill="#3730A3" font-family="system-ui, sans-serif" font-size="10" font-weight="700">AuthWindow (认证)</text>
+  <text x="72" y="206" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">LoginView</text>
+  <text x="72" y="220" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">RegisterView</text>
+  <text x="72" y="234" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">ResetView</text>
+  <text x="72" y="248" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">AuthBanner · CardTopAccent</text>
+
+  <!-- ChatWindow box -->
+  <rect x="256" y="172" width="404" height="80" rx="5" fill="#EEF2FF" stroke="#A5B4FC" stroke-width="1"/>
+  <text x="268" y="190" fill="#3730A3" font-family="system-ui, sans-serif" font-size="10" font-weight="700">ChatWindow → ChatView (聊天)</text>
+  <text x="268" y="206" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">ChatHeader · MessageBubble · ImageBubble · MessageDelegate</text>
+  <text x="268" y="220" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">MessageInputArea · ImagePreviewBar · FileProgressPanel</text>
+  <text x="268" y="234" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">ImageViewer · EditMessageDialog · MessageActionMenu · EmptyState</text>
+  <text x="268" y="248" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">PasswordField · CardTopAccent · AuthCardHeader · AuthBanner</text>
+
+  <!-- Client Layer 2: C++ Business -->
+  <rect x="48" y="276" width="624" height="130" rx="6" fill="white" stroke="#E0E7FF" stroke-width="1" filter="url(#shadowSm)"/>
+  <text x="60" y="294" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">C++ 业务层 (19 个 .h + 16 个 .cpp)</text>
+
+  <!-- Controllers -->
+  <rect x="60" y="304" width="148" height="90" rx="4" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="0.5"/>
+  <text x="68" y="318" fill="#6D28D9" font-family="system-ui, sans-serif" font-size="9" font-weight="700">Controllers</text>
+  <text x="68" y="334" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">AuthController</text>
+  <text x="68" y="348" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">ChatController</text>
+  <text x="68" y="362" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">FileCoordinator</text>
+  <text x="68" y="376" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">MessageActions</text>
+
+  <!-- Network -->
+  <rect x="216" y="304" width="148" height="90" rx="4" fill="#F0FDF4" stroke="#86EFAC" stroke-width="0.5"/>
+  <text x="224" y="318" fill="#15803D" font-family="system-ui, sans-serif" font-size="9" font-weight="700">Network</text>
+  <text x="224" y="334" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">TcpMgr (单例)</text>
+  <text x="224" y="348" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">TcpWorker (QThread)</text>
+  <text x="224" y="362" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">TcpProtocolParser</text>
+  <text x="224" y="376" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">RingBuffer (粘包)</text>
+
+  <!-- Data -->
+  <rect x="372" y="304" width="148" height="90" rx="4" fill="#FFF7ED" stroke="#FDBA74" stroke-width="0.5"/>
+  <text x="380" y="318" fill="#C2410C" font-family="system-ui, sans-serif" font-size="9" font-weight="700">Data &amp; Model</text>
+  <text x="380" y="334" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">ChatListModel</text>
+  <text x="380" y="348" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">DbService · DbWorker</text>
+  <text x="380" y="362" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">UserMgr (Singleton)</text>
+  <text x="380" y="376" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">ProtocolStructs</text>
+
+  <!-- Transfer -->
+  <rect x="528" y="304" width="132" height="90" rx="4" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="0.5"/>
+  <text x="536" y="318" fill="#BE185D" font-family="system-ui, sans-serif" font-size="9" font-weight="700">Transfer</text>
+  <text x="536" y="334" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">FileSendMgr</text>
+  <text x="536" y="348" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">FileRecvMgr</text>
+  <text x="536" y="362" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">ImageDnldMgr</text>
+
+  <!-- Client Layer 3: Storage -->
+  <rect x="48" y="418" width="624" height="28" rx="5" fill="#E0E7FF" stroke="#C7D2FE" stroke-width="1"/>
+  <text x="60" y="437" fill="#3730A3" font-family="system-ui, sans-serif" font-size="10">📦 本地存储: DbService → DbWorker (QThread) → SQLite (chat_messages.db) · 消息持久化 + 图片缓存</text>
+
+  <!-- Client threads -->
+  <rect x="48" y="454" width="624" height="60" rx="5" fill="white" stroke="#E0E7FF" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="60" y="472" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="10" font-weight="700">🧵 线程模型</text>
+  <text x="60" y="490" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">Main Thread (Qt 事件循环)  +  TcpWorker QThread  +  DbWorker QThread  +  FileSend/Recv 异步任务</text>
+  <text x="60" y="506" fill="#9C9AAA" font-family="system-ui, sans-serif" font-size="8">跨线程通信: 全部通过 Qt 信号槽机制 (QueuedConnection)</text>
+
+  <!-- ==================== PROTOCOL SECTION ==================== -->
+  <rect x="714" y="160" width="172" height="310" rx="10" fill="url(#protoGrad)" stroke="#6EE7B7" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <text x="800" y="188" text-anchor="middle" fill="#065F46" font-family="system-ui, sans-serif" font-size="12" font-weight="700">通信协议</text>
+  
+  <!-- Protocol format -->
+  <rect x="728" y="204" width="144" height="62" rx="5" fill="white" stroke="#A7F3D0" stroke-width="1"/>
+  <text x="800" y="222" text-anchor="middle" fill="#047857" font-family="system-ui, sans-serif" font-size="9" font-weight="700">TCP 二进制帧</text>
+  <line x1="748" y1="228" x2="852" y2="228" stroke="#6EE7B7" stroke-width="1"/>
+  <text x="800" y="244" text-anchor="middle" fill="#6B6A7F" font-family="Courier New, monospace" font-size="8">msg_id (2B) · body_len (4B)</text>
+  <text x="800" y="258" text-anchor="middle" fill="#6B6A7F" font-family="Courier New, monospace" font-size="8">body (Protobuf, max 1MB)</text>
+
+  <!-- Msg types -->
+  <rect x="728" y="278" width="144" height="115" rx="5" fill="white" stroke="#A7F3D0" stroke-width="1"/>
+  <text x="800" y="296" text-anchor="middle" fill="#047857" font-family="system-ui, sans-serif" font-size="9" font-weight="700">消息类型 (20+)</text>
+  <text x="738" y="314" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">1000 MSG_HELLO 心跳</text>
+  <text x="738" y="328" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">1001-1004 认证消息</text>
+  <text x="738" y="342" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">1005-1015 聊天消息</text>
+  <text x="738" y="356" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">2001-2004 文件传输</text>
+  <text x="738" y="370" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">Protobuf 序列化</text>
+  <text x="738" y="384" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">小端序 · 单包 1MB 上限</text>
+
+  <!-- Security -->
+  <rect x="728" y="404" width="144" height="52" rx="5" fill="#FEF3C7" stroke="#FCD34D" stroke-width="1"/>
+  <text x="800" y="420" text-anchor="middle" fill="#92400E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">安全措施</text>
+  <text x="738" y="436" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">SHA-256 密码 · Token 鉴权</text>
+  <text x="738" y="450" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">Nonce 防重放 · RateLimiter</text>
+
+  <!-- ==================== SERVER SECTION ==================== -->
+  <rect x="910" y="96" width="460" height="476" rx="10" fill="url(#serverGrad)" stroke="#FCD34D" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <!-- Server Title -->
+  <rect x="910" y="96" width="460" height="36" rx="10" fill="#D97706"/>
+  <rect x="910" y="116" width="460" height="16" fill="#D97706"/>
+  <text x="935" y="120" fill="white" font-family="system-ui, sans-serif" font-size="14" font-weight="700">🖧 服务端 — Boost.Asio (C++17)</text>
+
+  <!-- Server Layer 1: Network -->
+  <rect x="928" y="144" width="424" height="110" rx="6" fill="white" stroke="#FDE68A" stroke-width="1" filter="url(#shadowSm)"/>
+  <text x="940" y="162" fill="#D97706" font-family="system-ui, sans-serif" font-size="11" font-weight="700">网络层 (Asio 异步 I/O)</text>
+
+  <rect x="940" y="172" width="196" height="72" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="948" y="188" fill="#92400E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">CServer</text>
+  <text x="948" y="204" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">TCP Acceptor · shared_from_this</text>
+  <text x="948" y="218" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">连接接入 · 消息转发</text>
+  <text x="948" y="232" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">离线消息管理</text>
+
+  <rect x="1148" y="172" width="192" height="72" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="1156" y="188" fill="#92400E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">CSession</text>
+  <text x="1156" y="204" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">每连接会话 · shared_from_this</text>
+  <text x="1156" y="218" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">AsyncRead/Write · strand 串行化</text>
+  <text x="1156" y="232" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">CAS 防并发 · 文件/离线状态</text>
+
+  <!-- Server Layer 2: Business -->
+  <rect x="928" y="264" width="424" height="110" rx="6" fill="white" stroke="#FDE68A" stroke-width="1" filter="url(#shadowSm)"/>
+  <text x="940" y="282" fill="#D97706" font-family="system-ui, sans-serif" font-size="11" font-weight="700">业务逻辑层</text>
+
+  <rect x="940" y="292" width="128" height="72" rx="4" fill="#FEF9C3" stroke="#FDE047" stroke-width="0.5"/>
+  <text x="948" y="308" fill="#854D0E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">LogicSystem</text>
+  <text x="948" y="324" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">ThreadPool 异步</text>
+  <text x="948" y="338" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">消费 MessageTask</text>
+  <text x="948" y="352" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">反序列化·分发</text>
+
+  <rect x="1076" y="292" width="132" height="72" rx="4" fill="#FEF9C3" stroke="#FDE047" stroke-width="0.5"/>
+  <text x="1084" y="308" fill="#854D0E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">MessageDispatcher</text>
+  <text x="1084" y="324" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">注册表模式</text>
+  <text x="1084" y="338" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">msg_id → Handler</text>
+  <text x="1084" y="352" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">只读查表·无锁</text>
+
+  <rect x="1216" y="292" width="124" height="72" rx="4" fill="#FEF9C3" stroke="#FDE047" stroke-width="0.5"/>
+  <text x="1224" y="308" fill="#854D0E" font-family="system-ui, sans-serif" font-size="9" font-weight="700">MessageRouter</text>
+  <text x="1224" y="324" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">在线转发</text>
+  <text x="1224" y="338" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">离线存储</text>
+  <text x="1224" y="352" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="8">全局 msg_id</text>
+
+  <!-- Server Layer 3: Infrastructure -->
+  <rect x="928" y="384" width="424" height="105" rx="6" fill="white" stroke="#FDE68A" stroke-width="1" filter="url(#shadowSm)"/>
+  <text x="940" y="402" fill="#D97706" font-family="system-ui, sans-serif" font-size="11" font-weight="700">基础设施层</text>
+
+  <rect x="940" y="412" width="100" height="68" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="948" y="428" fill="#92400E" font-family="system-ui, sans-serif" font-size="8" font-weight="700">SQLiteMgr</text>
+  <text x="948" y="442" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">连接池 (8)</text>
+  <text x="948" y="454" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">Repository</text>
+  <text x="948" y="466" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">RAII</text>
+
+  <rect x="1048" y="412" width="100" height="68" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="1056" y="428" fill="#92400E" font-family="system-ui, sans-serif" font-size="8" font-weight="700">SessionMgr</text>
+  <text x="1056" y="442" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">uid→session</text>
+  <text x="1056" y="454" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">uuid→session</text>
+  <text x="1056" y="466" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">32 分片</text>
+
+  <rect x="1156" y="412" width="90" height="68" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="1164" y="428" fill="#92400E" font-family="system-ui, sans-serif" font-size="8" font-weight="700">TokenMgr</text>
+  <text x="1164" y="442" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">uid→token</text>
+  <text x="1164" y="454" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">DB 持久化</text>
+  <text x="1164" y="466" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">16 分片</text>
+
+  <rect x="1254" y="412" width="86" height="68" rx="4" fill="#FEF3C7" stroke="#FCD34D" stroke-width="0.5"/>
+  <text x="1262" y="428" fill="#92400E" font-family="system-ui, sans-serif" font-size="8" font-weight="700">其他</text>
+  <text x="1262" y="442" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">ImageStg</text>
+  <text x="1262" y="454" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">FileTrnsf</text>
+  <text x="1262" y="466" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="7">RateLmt</text>
+
+  <!-- Server threads -->
+  <rect x="928" y="498" width="424" height="56" rx="5" fill="white" stroke="#FDE68A" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="940" y="516" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="10" font-weight="700">🧵 线程模型 (Boss-Worker)</text>
+  <text x="940" y="534" fill="#6B6A7F" font-family="system-ui, sans-serif" font-size="9">Main io_context · AsioIOServicePool (N×io_context) · LogicSystem ThreadPool (M×worker)</text>
+  <text x="940" y="548" fill="#9C9AAA" font-family="system-ui, sans-serif" font-size="8">ShardedMap 分片锁 (32) · ObjectPool 对象复用 · 读超时 30s · CAS 防并发</text>
+
+  <!-- ==================== DATA FLOW SECTION ==================== -->
+  <rect x="30" y="592" width="1340" height="410" rx="10" fill="white" stroke="#E0E7FF" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <rect x="30" y="592" width="1340" height="34" rx="10" fill="#6366F1"/>
+  <rect x="30" y="610" width="1340" height="16" fill="#6366F1"/>
+  <text x="700" y="615" text-anchor="middle" fill="white" font-family="system-ui, sans-serif" font-size="13" font-weight="700">核心数据流</text>
+
+  <!-- Flow 1: Login -->
+  <text x="48" y="648" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">1. 登录流程</text>
+  <line x1="136" y1="645" x2="136" y2="775" stroke="#C7D2FE" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="150" y="660" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① LoginView.qml → authController.login(user, pass)</text>
+  <text x="150" y="676" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② AuthController::login() → TcpMgr::slot_send_login_req() → TcpWorker → QTcpSocket::write()</text>
+  <text x="150" y="696" fill="#6366F1" font-family="system-ui, sans-serif" font-size="8">───────────────── TCP / Protobuf ─────────────────</text>
+  <text x="150" y="714" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ CSession::AsyncReadBody → MessageDispatcher → Login Handler</text>
+  <text x="150" y="730" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ SQLiteMgr::LoginUser() → TokenManager::SetToken() → CSession::Send(LoginRsp)</text>
+  <text x="150" y="750" fill="#6366F1" font-family="system-ui, sans-serif" font-size="8">───────────────── TCP / Protobuf ─────────────────</text>
+  <text x="150" y="768" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑤ TcpProtocolParser → TcpMgr::sigLoginRsp → AuthController → 发送 ChatLoginReq → Token 校验</text>
+  <text x="150" y="784" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑥ chatLoginSuccess → main.cpp → 销毁 AuthWindow → 创建 ChatWindow</text>
+
+  <!-- Flow 2: Message Send -->
+  <text x="48" y="810" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">2. 消息发送</text>
+  <line x1="136" y1="808" x2="136" y2="960" stroke="#C7D2FE" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="150" y="824" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① ChatView → chatController.sendMessage(content) → 生成 client_msg_id (QUuid)</text>
+  <text x="150" y="840" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② TcpMgr → Protobuf 序列化 → QTcpSocket::write() → ChatListModel::AddMessage("发送中")</text>
+  <text x="150" y="860" fill="#6366F1" font-family="system-ui, sans-serif" font-size="8">───────────────── TCP / Protobuf ─────────────────</text>
+  <text x="150" y="878" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ CSession → MessageDispatcher → ChatText Handler  → 生成 server_msg_id</text>
+  <text x="150" y="894" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ SQLiteMgr::SaveMessage() → MessageRouter::ForwardMessage(to_uid)</text>
+  <text x="150" y="910" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑤ SessionManager::GetSession(to_uid) → [在线] 直接转发 / [离线] 存离线表</text>
+  <text x="150" y="930" fill="#6366F1" font-family="system-ui, sans-serif" font-size="8">───────────────── TCP / Protobuf ─────────────────</text>
+  <text x="150" y="948" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑥ ChatController::slotOnChatAck → 更新消息状态为 "已送达"</text>
+  <text x="150" y="964" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑦ 接收方 ChatController::slotOnChatTextMsg → InsertMessageSorted → DbWorker 异步持久化</text>
+
+  <!-- Flow 3: File -->
+  <text x="730" y="648" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">3. 文件传输</text>
+  <line x1="820" y1="645" x2="820" y2="760" stroke="#E0E7FF" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="834" y="660" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① FileSendMgr → 64KB 分片 · 断点续传</text>
+  <text x="834" y="676" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② MSG_FILE_REQ (2001) → 服务端 FileTransfer</text>
+  <text x="834" y="692" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ MSG_FILE_RSP (2002) → 确认传输参数</text>
+  <text x="834" y="708" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ MSG_FILE_CHUNK (2003) → 分片数据流</text>
+  <text x="834" y="724" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑤ MSG_FILE_ACK (2004) → 完成确认</text>
+  <text x="834" y="740" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑥ FileRecvMgr → 分片写入 + MD5 校验</text>
+
+  <!-- Flow 4: Image -->
+  <text x="730" y="810" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">4. 图片传输</text>
+  <line x1="820" y1="808" x2="820" y2="906" stroke="#E0E7FF" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="834" y="824" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① chatController.sendImage(path) → MSG_CHAT_IMAGE (1009)</text>
+  <text x="834" y="840" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② 服务端 ImageStorage → BLOB 分片存储 → 7天过期</text>
+  <text x="834" y="856" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ 接收方 ImageDownloadMgr → 缓存查询 → MSG_IMAGE_DOWNLOAD_REQ</text>
+  <text x="834" y="872" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ MSG_IMAGE_DOWNLOAD_RSP → 写入本地缓存 → ImageBubble 显示</text>
+
+  <!-- Flow 5: Recall -->
+  <text x="1100" y="648" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">5. 撤回 / 编辑</text>
+  <line x1="1190" y1="645" x2="1190" y2="760" stroke="#E0E7FF" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="1204" y="660" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① 右键菜单 → ChatController::actionRecall/Edit</text>
+  <text x="1204" y="676" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② MSG_CHAT_RECALL (1011) / MSG_CHAT_EDIT (1012)</text>
+  <text x="1204" y="692" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ 服务端: 验证 2min 窗口 + 所有权</text>
+  <text x="1204" y="708" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ SQLiteMgr::MarkRecalled/MarkEdited</text>
+  <text x="1204" y="724" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">⑤ MSG_CHAT_RECALL_NOTIFY → 对方 UI 更新</text>
+
+  <!-- Flow 6: Offline -->
+  <text x="1100" y="810" fill="#4F46E5" font-family="system-ui, sans-serif" font-size="11" font-weight="700">6. 离线消息恢复</text>
+  <line x1="1190" y1="808" x2="1190" y2="890" stroke="#E0E7FF" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <text x="1204" y="824" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">① ChatWindow 创建 → ChatController::initialize()</text>
+  <text x="1204" y="840" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">② 服务端 ChatLoginRsp 后 → SendOfflineMessages</text>
+  <text x="1204" y="856" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">③ 分页发送 (每页 50 条) → Client ACK → 下一页</text>
+  <text x="1204" y="872" fill="#1A1A2E" font-family="system-ui, sans-serif" font-size="9">④ ChatListModel::InsertMessageSorted() 按时间排序</text>
+</svg>

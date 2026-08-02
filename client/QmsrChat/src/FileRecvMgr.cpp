@@ -1,14 +1,28 @@
+/**
+ * @file    FileRecvMgr.cpp
+ * @brief   文件接收管理器实现（分片接收、MD5 校验、临时文件管理）
+ */
 #include "FileRecvMgr.h"
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QMutexLocker>
 #include <QStandardPaths>
 #include <QThreadPool>
 #include <QDebug>
+#include <QUuid>
 
+/**
+ * @brief 匿名命名空间：内部辅助函数与 QRunnable
+ */
 namespace
 {
+/**
+ * @brief 同步计算文件 MD5 值
+ * @param filepath 文件路径
+ * @return MD5 十六进制字符串（失败返回空）
+ */
 QString CalcMd5Sync(const QString &filepath)
 {
     QFile file(filepath);
@@ -21,11 +35,15 @@ QString CalcMd5Sync(const QString &filepath)
     return QString::fromLatin1(hash.result().toHex());
 }
 
+/**
+ * @brief 异步 MD5 计算任务（QRunnable）
+ * @details 在 QThreadPool 中执行 MD5 计算，完成后通过 QMetaObject::invokeMethod
+ *          跨线程回调 FileRecvMgr::OnMd5Computed
+ */
 class Md5Runnable : public QRunnable
 {
 public:
-    Md5Runnable(int64_t task_id, const QString &filepath)
-        : _task_id(task_id), _filepath(filepath)
+    Md5Runnable(int64_t task_id, const QString &filepath) : _task_id(task_id), _filepath(filepath)
     {
     }
 
@@ -33,22 +51,40 @@ public:
     {
         QString md5 = CalcMd5Sync(_filepath);
         bool ok = !md5.isEmpty();
-        QMetaObject::invokeMethod(
-            &FileRecvMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
-            Q_ARG(int64_t, _task_id), Q_ARG(QString, _filepath), Q_ARG(bool, ok), Q_ARG(QString, md5));
+        QMetaObject::invokeMethod(&FileRecvMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
+                                  Q_ARG(int64_t, _task_id), Q_ARG(QString, _filepath), Q_ARG(bool, ok),
+                                  Q_ARG(QString, md5));
     }
 
 private:
     int64_t _task_id;
     QString _filepath;
 };
-}  // namespace
+} // namespace
 
-FileRecvMgr::FileRecvMgr()
-    : QObject(nullptr)
+/**
+ * @brief 构造函数
+ * @details 清理超过 1 天的残留 .part 临时文件
+ */
+FileRecvMgr::FileRecvMgr() : QObject(nullptr)
 {
+    QDir dir(GetTempDir());
+    const auto entries = dir.entryInfoList({"*.part"}, QDir::Files, QDir::Time);
+    const qint64 threshold = QDateTime::currentMSecsSinceEpoch() - 24 * 3600 * 1000LL;
+    for (const auto &fi : entries)
+    {
+        if (fi.lastModified().toMSecsSinceEpoch() < threshold)
+        {
+            QFile::remove(fi.absoluteFilePath());
+            qDebug() << "[FileRecvMgr] cleaned stale temp file:" << fi.fileName();
+        }
+    }
 }
 
+/**
+ * @brief 析构函数，清理所有接收任务
+ * @details 关闭文件、删除临时 .part 文件、释放内存
+ */
 FileRecvMgr::~FileRecvMgr()
 {
     QMutexLocker lock(&_mutex);
@@ -64,6 +100,10 @@ FileRecvMgr::~FileRecvMgr()
     _tasks.clear();
 }
 
+/**
+ * @brief 获取单例实例
+ * @return FileRecvMgr 引用
+ */
 FileRecvMgr &FileRecvMgr::Instance()
 {
     static FileRecvMgr instance;
@@ -81,9 +121,8 @@ FileRecvMgr &FileRecvMgr::Instance()
  * @return 启动是否成功
  * @details 在临时目录创建 .part 文件，等待数据写入
  */
-bool FileRecvMgr::StartRecv(
-    int64_t task_id, int from_uid, const std::string &filename, int64_t total_size, const std::string &md5,
-    QString *error)
+bool FileRecvMgr::StartRecv(int64_t task_id, int from_uid, const std::string &filename, int64_t total_size,
+                            const std::string &md5, QString *error)
 {
     QMutexLocker lock(&_mutex);
 
@@ -126,6 +165,7 @@ bool FileRecvMgr::StartRecv(
     }
 
     _tasks.insert(task_id, task);
+    emit sigRecvStarted(task_id, task->filename, total_size);
     return true;
 }
 
@@ -139,8 +179,8 @@ bool FileRecvMgr::StartRecv(
  * @return 写入是否成功
  * @details 必须按序写入，写入完成后验证 MD5（如果提供）
  */
-bool FileRecvMgr::WriteChunk(
-    int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed, QString *error)
+bool FileRecvMgr::WriteChunk(int64_t task_id, int64_t offset, const QByteArray &data, int64_t *committed,
+                             QString *error)
 {
     QMutexLocker lock(&_mutex);
 
@@ -190,8 +230,8 @@ bool FileRecvMgr::WriteChunk(
         *committed = task->received_size;
     }
 
-    emit SigRecvProgress(
-        task_id, CalcProgress(task->received_size, task->total_size), task->received_size, task->total_size);
+    emit sigRecvProgress(task_id, CalcProgress(task->received_size, task->total_size), task->received_size,
+                         task->total_size);
 
     if (task->received_size == task->total_size)
     {
@@ -201,29 +241,10 @@ bool FileRecvMgr::WriteChunk(
 }
 
 /**
- * @brief 取消文件接收任务
+ * @brief 获取指定 task 的已接收大小
  * @param task_id 任务 ID
- * @details 关闭文件、删除临时文件、释放内存
+ * @return 已接收字节数（任务不存在返回 0）
  */
-void FileRecvMgr::CancelRecv(int64_t task_id)
-{
-    QMutexLocker lock(&_mutex);
-    auto it = _tasks.find(task_id);
-    if (it == _tasks.end())
-    {
-        return;
-    }
-
-    FileRecvTask *task = it.value();
-    if (task)
-    {
-        task->file.close();
-        QFile::remove(task->temp_filepath);
-        delete task;
-    }
-    _tasks.erase(it);
-}
-
 int64_t FileRecvMgr::GetReceivedSize(int64_t task_id) const
 {
     QMutexLocker lock(&_mutex);
@@ -264,7 +285,7 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
         const int64_t taskId = task->task_id;
         delete task;
         _tasks.erase(it);
-        emit SigRecvComplete(taskId, finalPath, true, {});
+        emit sigRecvComplete(taskId, finalPath, true, {});
         return true;
     }
 
@@ -275,16 +296,29 @@ bool FileRecvMgr::CompleteTask(QHash<int64_t, FileRecvTask *>::iterator it, QStr
     return true;
 }
 
+/**
+ * @brief 失败处理：写错误信息并发射 sigRecvComplete(false)
+ * @param task_id 任务 ID
+ * @param error 错误信息输出参数
+ * @param message 错误消息
+ * @return false
+ */
 bool FileRecvMgr::FailAndEmit(int64_t task_id, QString *error, const char *message)
 {
     if (error)
     {
         *error = QString::fromLatin1(message);
     }
-    emit SigRecvComplete(task_id, {}, false, QString::fromLatin1(message));
+    emit sigRecvComplete(task_id, {}, false, QString::fromLatin1(message));
     return false;
 }
 
+/**
+ * @brief 失败处理（仅写错误信息，不发射信号）
+ * @param error 错误信息输出参数
+ * @param message 错误消息
+ * @return false
+ */
 bool FileRecvMgr::Fail(QString *error, const char *message) const
 {
     if (error)
@@ -294,11 +328,21 @@ bool FileRecvMgr::Fail(QString *error, const char *message) const
     return false;
 }
 
+/**
+ * @brief 计算接收进度百分比
+ * @param received 已接收字节
+ * @param total 总字节
+ * @return 0-100 百分比
+ */
 int FileRecvMgr::CalcProgress(int64_t received, int64_t total) const
 {
     return total == 0 ? 0 : static_cast<int>((received * 100) / total);
 }
 
+/**
+ * @brief 获取临时文件目录
+ * @return 临时目录路径（<Temp>/msrchat）
+ */
 QString FileRecvMgr::GetTempDir() const
 {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/msrchat";
@@ -306,33 +350,74 @@ QString FileRecvMgr::GetTempDir() const
     return base;
 }
 
+/**
+ * @brief 根据文件名确定最终保存路径
+ * @param filename 文件名
+ * @return 最终路径
+ * @details 如果文件名主干是合法 UUID → 判定为图片，落入 client_image_cache/ 目录；
+ *          否则落入 DownloadLocation/msrchat/ 目录
+ */
 QString FileRecvMgr::GetFinalPath(const QString &filename) const
 {
+    QString safeName = QFileInfo(filename).fileName();
+    if (safeName.isEmpty())
+    {
+        return {};
+    }
+
+    int dot = safeName.lastIndexOf('.');
+    if (dot > 0)
+    {
+        QString stem = safeName.left(dot);
+        QUuid uuid(stem);
+        if (!uuid.isNull())
+        {
+            QString cache_dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/client_image_cache";
+            QDir().mkpath(cache_dir);
+            QString result = cache_dir + "/" + safeName;
+            QFileInfo canonical(result);
+            QString canonicalBase = QDir::cleanPath(cache_dir);
+            if (!canonical.absoluteFilePath().startsWith(canonicalBase + "/", Qt::CaseInsensitive))
+            {
+                qWarning() << "[FileRecvMgr] Path traversal blocked:" << filename;
+                return {};
+            }
+            return result;
+        }
+    }
+
     const QString base = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/msrchat";
     QDir().mkpath(base);
-    return base + "/" + filename;
+    QString result = base + "/" + safeName;
+    QFileInfo canonical(result);
+    QString canonicalBase = QDir::cleanPath(base);
+    if (!canonical.absoluteFilePath().startsWith(canonicalBase + "/", Qt::CaseInsensitive))
+    {
+        qWarning() << "[FileRecvMgr] Path traversal blocked:" << filename;
+        return {};
+    }
+    return result;
 }
 
+/**
+ * @brief 构建临时文件路径
+ * @param task_id 任务 ID
+ * @param fileName 文件名
+ * @return 临时文件完整路径（含 .part 后缀）
+ */
 QString FileRecvMgr::BuildTempPath(int64_t task_id, const QString &fileName) const
 {
     return GetTempDir() + "/" + QString::number(task_id) + "_" + fileName + ".part";
 }
 
+/**
+ * @brief 构建最终文件路径
+ * @param fileName 文件名
+ * @return 最终文件完整路径
+ */
 QString FileRecvMgr::BuildFinalPath(const QString &fileName) const
 {
     return GetFinalPath(fileName);
-}
-
-QString FileRecvMgr::CalcMd5(const QString &filepath) const
-{
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        return {};
-    }
-    QCryptographicHash hash(QCryptographicHash::Md5);
-    hash.addData(&file);
-    return QString::fromLatin1(hash.result().toHex());
 }
 
 /**
@@ -348,7 +433,7 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (!success)
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "md5 computation failed");
+        emit sigRecvComplete(task_id, {}, false, "md5 computation failed");
         return;
     }
 
@@ -357,7 +442,7 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (it == _pendingMd5.end())
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "task not found");
+        emit sigRecvComplete(task_id, {}, false, "task not found");
         return;
     }
 
@@ -367,9 +452,9 @@ void FileRecvMgr::OnMd5Computed(int64_t task_id, const QString &filepath, bool s
     if (!expectedMd5.isEmpty() && md5 != expectedMd5)
     {
         QFile::remove(filepath);
-        emit SigRecvComplete(task_id, {}, false, "md5 mismatch");
+        emit sigRecvComplete(task_id, {}, false, "md5 mismatch");
         return;
     }
 
-    emit SigRecvComplete(task_id, filepath, true, {});
+    emit sigRecvComplete(task_id, filepath, true, {});
 }

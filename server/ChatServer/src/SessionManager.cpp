@@ -5,9 +5,17 @@
  */
 #include "SessionManager.h"
 #include "CSession.h"
+#include "const.h"
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <utility>
 
+/**
+ * @brief 添加或替换用户会话
+ * @param uid 用户 ID
+ * @param session 会话智能指针（所有权转移至此）
+ * @details 若用户已有旧连接，先关闭旧连接；同步更新 UID 和 UUID 两个索引
+ */
 void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
 {
     if (!session)
@@ -15,16 +23,31 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
         return;
     }
 
+    std::lock_guard<std::mutex> lock(_add_mutex);
+
+    std::string uuid = session->GetUuid();
+    RemoveSessionByUuid(uuid);
+
+    if (uid <= 0)
+    {
+        // 未认证会话仅注册 UUID 索引
+        _uuid_sessions.Insert(uuid, std::move(session));
+        spdlog::debug("[SessionManager] Unauthenticated session {} added.", uuid);
+        return;
+    }
+
     auto old_session = GetSession(uid);
     if (old_session != nullptr && old_session != session)
     {
         spdlog::info("[SessionManager] User {} has existing session, closing old connection.", uid);
+        // 发送踢出通知
+        nlohmann::json kick{{"error", ERR_KICKED}, {"message", "已在其他设备登录"}};
+        // msg_id=0 不是有效消息类型，客户端 slotDispatchPacket 的 default 分支会静默忽略。
+        // TODO: 定义 MSG_KICK 消息类型，让客户端能识别踢出通知并显示提示。
+        old_session->Send(kick.dump(), 0);
         old_session->Close();
     }
 
-    std::string uuid = session->GetUuid();
-    // 先清理可能存在的旧 uuid 条目（如 DoAccept 中已添加的 uid=0 条目）
-    RemoveSessionByUuid(uuid);
     _uuid_sessions.Insert(uuid, session);
     _uid_sessions.Insert(uid, std::move(session));
     spdlog::info("[SessionManager] User {} session added.", uid);
@@ -38,10 +61,12 @@ void SessionManager::AddSession(int uid, std::shared_ptr<CSession> session)
 void SessionManager::RemoveSession(int uid)
 {
     std::string uuid_to_erase;
-    _uid_sessions.RemoveIfMatch(uid, [&](const std::shared_ptr<CSession> &session) {
-        uuid_to_erase = session->GetUuid();
-        return true;
-    });
+    _uid_sessions.RemoveIfMatch(uid,
+                                [&](const std::shared_ptr<CSession> &session)
+                                {
+                                    uuid_to_erase = session->GetUuid();
+                                    return true;
+                                });
     if (!uuid_to_erase.empty())
     {
         _uuid_sessions.Erase(uuid_to_erase);
@@ -56,10 +81,12 @@ void SessionManager::RemoveSession(int uid)
 void SessionManager::RemoveSessionByUuid(const std::string &uuid)
 {
     int uid_to_erase = -1;
-    _uuid_sessions.RemoveIfMatch(uuid, [&](const std::shared_ptr<CSession> &session) {
-        uid_to_erase = session->GetUserUid();
-        return true;
-    });
+    _uuid_sessions.RemoveIfMatch(uuid,
+                                 [&](const std::shared_ptr<CSession> &session)
+                                 {
+                                     uid_to_erase = session->GetUserUid();
+                                     return true;
+                                 });
     if (uid_to_erase != -1)
     {
         _uid_sessions.Erase(uid_to_erase);
@@ -73,29 +100,8 @@ void SessionManager::RemoveSessionByUuid(const std::string &uuid)
  */
 std::shared_ptr<CSession> SessionManager::GetSession(int uid) const
 {
-    auto *session = _uid_sessions.Find(uid);
-    return session ? *session : nullptr;
-}
-
-/**
- * @brief 通过 UUID 获取会话
- * @param uuid 会话 UUID
- * @return 会话智能指针，不存在则返回 nullptr
- */
-std::shared_ptr<CSession> SessionManager::GetSessionByUuid(const std::string &uuid) const
-{
-    auto *session = _uuid_sessions.Find(uuid);
-    return session ? *session : nullptr;
-}
-
-/**
- * @brief 获取当前会话总数
- * @return 会话总数
- * @details 遍历所有分片累计计数
- */
-std::size_t SessionManager::SessionCount() const
-{
-    return _uid_sessions.Size();
+    auto session = _uid_sessions.Find(uid);
+    return session.value_or(nullptr);
 }
 
 /**
@@ -105,4 +111,13 @@ void SessionManager::ClearAll()
 {
     _uid_sessions.Clear();
     _uuid_sessions.Clear();
+}
+
+/**
+ * @brief 获取当前在线连接数
+ * @return UUID 索引中的会话数量（包含未认证连接）
+ */
+size_t SessionManager::GetConnectionCount() const
+{
+    return _uuid_sessions.Size();
 }

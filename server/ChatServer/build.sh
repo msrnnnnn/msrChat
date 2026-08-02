@@ -12,6 +12,7 @@ BUILD_TYPE="${BUILD_TYPE:-Release}"
 
 echo "=========================================="
 echo "ChatServer Linux Build Script"
+echo "用法: ./build.sh [--clean]"
 echo "=========================================="
 echo "Build Type: ${BUILD_TYPE}"
 echo "Script Directory: ${SCRIPT_DIR}"
@@ -22,7 +23,7 @@ cd "${SCRIPT_DIR}"
 
 # 创建构建目录
 BUILD_DIR="${SCRIPT_DIR}/build"
-if [ -d "${BUILD_DIR}" ]; then
+if [ "$1" = "--clean" ]; then
     echo "清理旧的构建目录..."
     rm -rf "${BUILD_DIR}"
 fi

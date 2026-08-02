@@ -19,15 +19,15 @@ TEST(ShardedMapTest, InsertAndFind)
     map.Insert(1, "one");
     EXPECT_EQ(map.Size(), 1);
 
-    auto *v = map.Find(1);
-    ASSERT_NE(v, nullptr);
-    EXPECT_EQ(*v, "one");
+    auto v = map.Find(1);
+    ASSERT_TRUE(v.has_value());
+    EXPECT_EQ(v.value(), "one");
 }
 
 TEST(ShardedMapTest, FindMissing)
 {
     ShardedMap<int, std::string> map(4);
-    EXPECT_EQ(map.Find(99), nullptr);
+    EXPECT_FALSE(map.Find(99).has_value());
 }
 
 TEST(ShardedMapTest, ConstFind)
@@ -36,9 +36,9 @@ TEST(ShardedMapTest, ConstFind)
     map.Insert(42, "answer");
 
     const auto &cmap = map;
-    const auto *v = cmap.Find(42);
-    ASSERT_NE(v, nullptr);
-    EXPECT_EQ(*v, "answer");
+    auto v = cmap.Find(42);
+    ASSERT_TRUE(v.has_value());
+    EXPECT_EQ(v.value(), "answer");
 }
 
 TEST(ShardedMapTest, Erase)
@@ -49,7 +49,7 @@ TEST(ShardedMapTest, Erase)
 
     map.Erase(1);
     EXPECT_EQ(map.Size(), 0);
-    EXPECT_EQ(map.Find(1), nullptr);
+    EXPECT_FALSE(map.Find(1).has_value());
 }
 
 TEST(ShardedMapTest, EraseMissingNoOp)
@@ -67,8 +67,8 @@ TEST(ShardedMapTest, RemoveIfMatch)
 
     bool removed = map.RemoveIfMatch(1, [](const std::string &v) { return v == "one"; });
     EXPECT_TRUE(removed);
-    EXPECT_EQ(map.Find(1), nullptr);
-    EXPECT_NE(map.Find(2), nullptr);
+    EXPECT_FALSE(map.Find(1).has_value());
+    EXPECT_TRUE(map.Find(2).has_value());
 }
 
 TEST(ShardedMapTest, RemoveIfMatchPredicateFails)
@@ -78,7 +78,7 @@ TEST(ShardedMapTest, RemoveIfMatchPredicateFails)
 
     bool removed = map.RemoveIfMatch(1, [](const std::string &v) { return v == "wrong"; });
     EXPECT_FALSE(removed);
-    EXPECT_NE(map.Find(1), nullptr);
+    EXPECT_TRUE(map.Find(1).has_value());
     EXPECT_EQ(map.Size(), 1);
 }
 
@@ -99,7 +99,7 @@ TEST(ShardedMapTest, Clear)
 
     map.Clear();
     EXPECT_EQ(map.Size(), 0);
-    EXPECT_EQ(map.Find(1), nullptr);
+    EXPECT_FALSE(map.Find(1).has_value());
 }
 
 TEST(ShardedMapTest, ForEach)
@@ -132,8 +132,8 @@ TEST(ShardedMapTest, SingleShard)
     map.Insert(1, "one");
     map.Insert(2, "two");
     EXPECT_EQ(map.Size(), 2);
-    EXPECT_NE(map.Find(1), nullptr);
-    EXPECT_NE(map.Find(2), nullptr);
+    EXPECT_TRUE(map.Find(1).has_value());
+    EXPECT_TRUE(map.Find(2).has_value());
 }
 
 TEST(ShardedMapTest, ConcurrentInsertFind)
@@ -141,18 +141,20 @@ TEST(ShardedMapTest, ConcurrentInsertFind)
     ShardedMap<int, std::string> map(32);
     std::atomic<int> errors{0};
 
-    auto writer = [&](int start, int count) {
+    auto writer = [&](int start, int count)
+    {
         for (int i = start; i < start + count; ++i)
         {
             map.Insert(i, "val_" + std::to_string(i));
         }
     };
 
-    auto reader = [&](int start, int count) {
+    auto reader = [&](int start, int count)
+    {
         for (int i = start; i < start + count; ++i)
         {
-            const auto *v = map.Find(i);
-            if (v == nullptr && map.Find(i) == nullptr)
+            auto v = map.Find(i);
+            if (!v.has_value() && !map.Find(i).has_value())
             {
                 errors.fetch_add(1);
             }

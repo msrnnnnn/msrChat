@@ -1,7 +1,17 @@
+#pragma once
+/**
+ * @file SQLiteMgr.h
+ * @brief SQLite 数据库管理层 —— 连接池、消息持久化、用户认证
+ * @details 包含 SQLiteConnection 连接封装、SQLiteConnectionPool 连接池、
+ *          SQLiteConnectionGuard RAII 连接守卫、ScopedStmt 语句生命周期管理，
+ *          以及顶层的 SQLiteMgr 业务操作接口。
+ *          所有数据库操作通过连接池获取连接，支持多线程并发访问。
+ */
 #ifndef SQLITE_MGR_H
 #define SQLITE_MGR_H
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -12,17 +22,65 @@
 #include <thread>
 #include <vector>
 
-struct ChatMessage
+/**
+ * @brief sqlite3_column_text 空安全包装 —— NULL 返回空字符串
+ */
+inline std::string SafeColumnText(sqlite3_stmt *stmt, int col)
 {
-    int64_t id;
-    int from_uid;
-    int to_uid;
-    std::string content;
-    int64_t timestamp;
-    int status;
-    std::string client_msg_id;
+    const char *text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, col));
+    return text ? std::string(text) : std::string();
+}
+
+/**
+ * @brief 撤回通知记录 —— 通知目标用户某条消息已被撤回
+ */
+struct RecallNotifyEntry
+{
+    int64_t id = 0;
+    int uid = 0;
+    int64_t msg_timestamp = 0;
+    int recall_uid = 0;
+    int64_t recall_ts = 0;
+    int recalled_to = 0;
 };
 
+/**
+ * @brief 编辑通知记录 —— 通知目标用户某条消息已被编辑
+ */
+struct EditNotifyEntry
+{
+    int64_t id = 0;
+    int uid = 0;
+    int64_t msg_timestamp = 0;
+    int from_uid = 0;
+    std::string new_content;
+    int64_t edit_ts = 0;
+};
+
+/**
+ * @brief 聊天消息数据库记录
+ */
+struct ChatMessage
+{
+    int64_t id = 0;
+    int from_uid = 0;
+    int to_uid = 0;
+    std::string content;
+    int64_t timestamp = 0;
+    int status = 0;
+    std::string client_msg_id;
+    // === Phase 7 新增 ===
+    int type = 0;         ///< 0=text, 1=image
+    std::string image_id; ///< UUID（type=1 时）
+    bool recalled = false;
+    int64_t recalled_at = 0;
+    bool edited = false;
+    int64_t edited_at = 0;
+};
+
+/**
+ * @brief 用户数据库记录
+ */
 struct User
 {
     int uid;
@@ -33,6 +91,19 @@ struct User
     int64_t created_at;
 };
 
+/**
+ * @brief Token 数据库记录
+ */
+struct TokenRecord
+{
+    int uid = 0;
+    std::string token;
+    int64_t created_at = 0;
+};
+
+/**
+ * @brief 认证操作结果
+ */
 struct AuthResult
 {
     int error = 0;
@@ -41,13 +112,27 @@ struct AuthResult
     std::string username;
 };
 
+/**
+ * @brief SQLite 数据库连接封装 —— 线程内绑定，记录使用状态
+ */
 class SQLiteConnection
 {
 public:
-    explicit SQLiteConnection(sqlite3 *db) : _db(db), _in_use(false) {}
-    sqlite3 *Get() const { return _db; }
-    bool IsInUse() const { return _in_use; }
-    void SetInUse(bool in_use) { _in_use = in_use; }
+    explicit SQLiteConnection(sqlite3 *db) : _db(db), _in_use(false)
+    {
+    }
+    sqlite3 *Get() const
+    {
+        return _db;
+    }
+    bool IsInUse() const
+    {
+        return _in_use;
+    }
+    void SetInUse(bool in_use)
+    {
+        _in_use = in_use;
+    }
     void Reset()
     {
     }
@@ -57,6 +142,12 @@ private:
     bool _in_use;
 };
 
+/**
+ * @brief SQLite 连接池 —— 管理多个 SQLiteConnection，支持阻塞式获取/归还
+ * @details 使用 std::queue 管理空闲连接，条件变量实现等待通知。
+ *          Acquire() 在无可用连接时阻塞等待，Release() 归还后唤醒等待者。
+ *          Shutdown() 关闭所有连接并唤醒所有等待线程。
+ */
 class SQLiteConnectionPool
 {
     friend class SQLiteMgr;
@@ -69,7 +160,10 @@ public:
     void Release(std::shared_ptr<SQLiteConnection> conn);
     void Shutdown();
 
-    bool IsInitialized() const { return _initialized.load(); }
+    bool IsInitialized() const
+    {
+        return _initialized.load();
+    }
 
 private:
     bool InitializeConnection(sqlite3 **db);
@@ -85,11 +179,15 @@ private:
     std::atomic<bool> _initialized{false};
 };
 
+/**
+ * @brief SQLite 连接 RAII 守卫 —— 构造时获取连接，析构时自动归还
+ * @details 提供 Get() 获取原始 sqlite3* 指针，支持布尔判断连接是否有效。
+ *          移动语义：移动后源对象释放所有权，避免重复归还。
+ */
 class SQLiteConnectionGuard
 {
 public:
-    explicit SQLiteConnectionGuard(std::shared_ptr<SQLiteConnectionPool> pool)
-        : _pool(pool), _conn(nullptr)
+    explicit SQLiteConnectionGuard(std::shared_ptr<SQLiteConnectionPool> pool) : _pool(pool), _conn(nullptr)
     {
         if (_pool)
         {
@@ -146,10 +244,16 @@ private:
     std::shared_ptr<SQLiteConnection> _conn;
 };
 
+/**
+ * @brief SQLite Statement RAII 封装 —— 构造时 prepare，析构时自动 finalize
+ * @details 支持移动语义，提供 operator-> 和隐式转换 sqlite3_stmt* 方便绑定参数。
+ */
 class ScopedStmt
 {
 public:
-    ScopedStmt() : _stmt(nullptr), _db(nullptr) {}
+    ScopedStmt() : _stmt(nullptr), _db(nullptr)
+    {
+    }
 
     ScopedStmt(sqlite3 *db, const char *sql) : _stmt(nullptr), _db(db)
     {
@@ -197,52 +301,58 @@ public:
         return *this;
     }
 
-    bool isValid() const { return _stmt != nullptr; }
-    sqlite3_stmt *get() const { return _stmt; }
-    sqlite3_stmt *operator->() const { return _stmt; }
-    operator sqlite3_stmt *() const { return _stmt; }
-    explicit operator bool() const { return isValid(); }
+    bool isValid() const
+    {
+        return _stmt != nullptr;
+    }
+    sqlite3_stmt *get() const
+    {
+        return _stmt;
+    }
+    sqlite3_stmt *operator->() const
+    {
+        return _stmt;
+    }
+    operator sqlite3_stmt *() const
+    {
+        return _stmt;
+    }
+    explicit operator bool() const
+    {
+        return isValid();
+    }
 
 private:
     sqlite3_stmt *_stmt;
     sqlite3 *_db;
 };
 
+// Forward declarations for Repository classes (Phase 5D)
+class AuthRepository;
+class MessageRepository;
+class SchemaManager;
+
+/**
+ * @brief SQLite 业务管理器（单例） —— 连接池 + Repository 访问器
+ * @details Phase 5D 重构后，业务方法已拆分到 AuthRepository / MessageRepository。
+ *          SQLiteMgr 保留为连接池管理 + Repository 工厂门面。
+ *          通过 Auth() 和 Messages() 访问器获取 Repository 引用。
+ */
 class SQLiteMgr
 {
 public:
     static SQLiteMgr &Instance();
 
     bool Init(const std::string &db_path, int pool_size = 8);
-    std::shared_ptr<SQLiteConnectionPool> GetPool() const { return _pool; }
+    std::shared_ptr<SQLiteConnectionPool> GetPool() const
+    {
+        return _pool;
+    }
     void Shutdown();
 
-    bool SaveMessage(const ChatMessage &msg);
-    std::vector<ChatMessage> GetMessages(int uid1, int uid2, int64_t before_time, int limit = 50);
-    std::vector<ChatMessage> SearchMessages(int uid1, int uid2, const std::string &keyword, int limit = 50);
-
-    bool SaveUser(const User &user);
-    std::optional<User> GetUserByUsername(const std::string &username);
-    std::optional<User> GetUserByUid(int uid);
-    bool UpdateUserAvatar(int uid, const std::string &avatar_path);
-
-    bool SaveOfflineMessage(const ChatMessage &msg);
-    std::vector<ChatMessage> GetOfflineMessages(int uid, int limit, int64_t after_id = 0);
-    int64_t GetOfflineMessageCount(int uid);
-    bool ClearOfflineMessages(int uid);
-
-    AuthResult RegisterUser(const std::string &username, const std::string &password_hash, const std::string &email);
-    AuthResult LoginUser(const std::string &username, const std::string &password_hash);
-    bool SendVerifyCode(const std::string &email, int &out_code);
-    int CheckVerifyCode(const std::string &email, const std::string &code);
-    int ResetPassword(
-        const std::string &username, const std::string &email, const std::string &code,
-        const std::string &new_password_hash);
-
-    bool SaveToken(int uid, const std::string &token);
-    bool RemoveTokenFromDB(int uid);
-    std::optional<std::string> GetTokenFromDB(int uid);
-    std::vector<std::pair<int, std::string>> GetAllTokens();
+    /// Phase 5D — Repository 访问器
+    AuthRepository &Auth();
+    MessageRepository &Messages();
 
     SQLiteMgr(const SQLiteMgr &) = delete;
     SQLiteMgr &operator=(const SQLiteMgr &) = delete;
@@ -251,11 +361,9 @@ private:
     SQLiteMgr() = default;
     ~SQLiteMgr();
 
-    bool CreateTables(sqlite3 *db);
-    std::optional<User> GetUserByUsername_unlocked(sqlite3 *db, const std::string &username);
-    int CheckVerifyCode_unlocked(sqlite3 *db, const std::string &email, const std::string &code);
-
     std::shared_ptr<SQLiteConnectionPool> _pool;
+    std::unique_ptr<AuthRepository> _auth_repo;
+    std::unique_ptr<MessageRepository> _msg_repo;
     std::atomic<bool> _initialized{false};
 };
 

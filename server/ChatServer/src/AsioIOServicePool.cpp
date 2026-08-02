@@ -4,15 +4,12 @@
  * @details 负责创建 io_context 列表、工作守护对象和工作线程。
  */
 #include "AsioIOServicePool.h"
-#include <algorithm>
-#include <iostream>
 
 /**
  * @brief 构造函数
  * @param size 线程池大小
  */
-AsioIOServicePool::AsioIOServicePool(std::size_t size)
-    : nextIOService_(0)
+AsioIOServicePool::AsioIOServicePool(std::size_t size) : _nextIOService(0)
 {
     if (size == 0)
     {
@@ -21,9 +18,9 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size)
     }
     for (std::size_t i = 0; i < size; ++i)
     {
-        ioServices_.emplace_back(std::make_shared<IOService>());
-        works_.emplace_back(boost::asio::make_work_guard(ioServices_[i]->get_executor()));
-        threads_.emplace_back([this, i]() { ioServices_[i]->run(); });
+        _ioServices.emplace_back(std::make_shared<IOService>());
+        _works.emplace_back(boost::asio::make_work_guard(_ioServices[i]->get_executor()));
+        _threads.emplace_back([this, i]() { _ioServices[i]->run(); });
     }
 }
 
@@ -41,8 +38,9 @@ AsioIOServicePool::~AsioIOServicePool()
  */
 boost::asio::io_context &AsioIOServicePool::GetIOService()
 {
-    std::size_t index = nextIOService_.fetch_add(1, std::memory_order_relaxed);
-    return *(ioServices_[index % ioServices_.size()]);
+    // 原子递增实现轮询负载均衡，relaxed 排序即可（仅需原子性）
+    std::size_t index = _nextIOService.fetch_add(1, std::memory_order_relaxed);
+    return *(_ioServices[index % _ioServices.size()]);
 }
 
 /**
@@ -50,11 +48,14 @@ boost::asio::io_context &AsioIOServicePool::GetIOService()
  */
 void AsioIOServicePool::Stop()
 {
-    for (auto &work : works_)
+    // 先释放 work guard，让 io_context::run() 可以自然退出
+    for (auto &work : _works)
         work.reset();
-    for (auto &service : ioServices_)
+    // 再显式停止，唤醒所有阻塞在 run() 上的线程
+    for (auto &service : _ioServices)
         service->stop();
-    for (auto &t : threads_)
+    // 等待所有工作线程结束
+    for (auto &t : _threads)
     {
         if (t.joinable())
             t.join();

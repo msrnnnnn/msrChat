@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file MessageTask.h
  * @brief 消息任务封装
@@ -19,16 +20,13 @@ struct MessageTask
     std::weak_ptr<CSession> session;
     uint16_t msg_id;
     std::string body_data;
-    int64_t timestamp;
 
-    MessageTask()
-        : msg_id(0), timestamp(0)
+    MessageTask() : msg_id(0)
     {
     }
 
     MessageTask(std::weak_ptr<CSession> sess, uint16_t id, std::string data)
-        : session(sess), msg_id(id), body_data(std::move(data)),
-          timestamp(std::chrono::steady_clock::now().time_since_epoch().count())
+        : session(sess), msg_id(id), body_data(std::move(data))
     {
     }
 
@@ -36,10 +34,7 @@ struct MessageTask
     MessageTask &operator=(const MessageTask &) = delete;
 
     MessageTask(MessageTask &&other) noexcept
-        : session(std::move(other.session)),
-          msg_id(other.msg_id),
-          body_data(std::move(other.body_data)),
-          timestamp(other.timestamp)
+        : session(std::move(other.session)), msg_id(other.msg_id), body_data(std::move(other.body_data))
     {
     }
 
@@ -50,16 +45,22 @@ struct MessageTask
             session = std::move(other.session);
             msg_id = other.msg_id;
             body_data = std::move(other.body_data);
-            timestamp = other.timestamp;
         }
         return *this;
     }
 
+    /**
+     * @brief 检查任务是否有效（会话未断开且 msg_id 非零）
+     */
     bool IsValid() const
     {
         return !session.expired() && msg_id != 0;
     }
 
+    /**
+     * @brief 尝试锁定会话 shared_ptr（仅当会话仍存活时成功）
+     * @return 会话 shared_ptr，若已失效则返回 nullptr
+     */
     std::shared_ptr<CSession> LockSession() const
     {
         return session.lock();

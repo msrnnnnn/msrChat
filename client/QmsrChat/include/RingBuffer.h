@@ -1,3 +1,10 @@
+#pragma once
+/**
+ * @file    RingBuffer.h
+ * @brief   环形缓冲区
+ * @details 线程不安全的环形缓冲区，支持动态扩容。
+ *          写入空间不足时自动翻倍扩容，上限为 kMaxCapacity (4 MiB)。
+ */
 #ifndef RINGBUFFER_H
 #define RINGBUFFER_H
 
@@ -7,6 +14,11 @@
 #include <cstring>
 #include <memory>
 
+/**
+ * @brief 环形缓冲区（线程不安全）
+ * @details 基于循环数组的字节流缓冲区，支持动态扩容、随机窥探和消费标记。
+ *          禁止拷贝，支持移动构造。
+ */
 class RingBuffer
 {
 public:
@@ -14,10 +26,7 @@ public:
     static constexpr std::size_t kMaxCapacity = 4 * 1024 * 1024;
 
     explicit RingBuffer(std::size_t capacity = kDefaultCapacity)
-        : _capacity(capacity),
-          _buffer(std::make_unique<char[]>(capacity)),
-          _read_pos(0),
-          _write_pos(0)
+        : _capacity(capacity), _buffer(std::make_unique<char[]>(capacity)), _read_pos(0), _write_pos(0)
     {
     }
 
@@ -27,9 +36,7 @@ public:
     RingBuffer &operator=(const RingBuffer &) = delete;
 
     RingBuffer(RingBuffer &&other) noexcept
-        : _capacity(other._capacity),
-          _buffer(std::move(other._buffer)),
-          _read_pos(other._read_pos),
+        : _capacity(other._capacity), _buffer(std::move(other._buffer)), _read_pos(other._read_pos),
           _write_pos(other._write_pos)
     {
         other._capacity = 0;
@@ -89,16 +96,7 @@ public:
             return false;
         }
 
-        char *new_buffer = new char[new_capacity];
-        std::size_t available = Available();
-        Read(new_buffer, available);
-
-        _buffer.reset(new_buffer);
-        _capacity = new_capacity;
-        _read_pos = 0;
-        _write_pos = available;
-
-        return true;
+        return ReallocateTo(new_capacity);
     }
 
     std::size_t SpaceRemaining() const
@@ -229,8 +227,16 @@ private:
             new_capacity = kMaxCapacity;
         }
 
+        return ReallocateTo(new_capacity);
+    }
+
+    // 将环形缓冲区数据线性化到新缓冲区，用于 Reserve/Expand
+    bool ReallocateTo(std::size_t new_capacity)
+    {
         char *new_buffer = new char[new_capacity];
         std::size_t available = Available();
+        // 使用 Read 将环形数据线性化到新缓冲区，Read 会修改 _read_pos，
+        // 但下面立即重置为 0，所以副作用无影响
         Read(new_buffer, available);
 
         _buffer.reset(new_buffer);

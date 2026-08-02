@@ -1,17 +1,67 @@
+/**
+ * @file    FileSendMgr.cpp
+ * @brief   文件发送管理器实现
+ * @details 管理文件分片发送任务，支持断点续传。使用 QMutex 保护 _tasks 映射表，
+ *          每次发送 64KB 分片，通过 protobuf 序列化后经 TcpMgr 长连接发送。
+ */
 #include "FileSendMgr.h"
 #include "TcpMgr.h"
 #include "Message.pb.h"
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QFileInfo>
+#include <QThreadPool>
 
+namespace
+{
+class SendMd5Runnable : public QRunnable
+{
+public:
+    SendMd5Runnable(int64_t task_id, const QString &filepath) : _task_id(task_id), _filepath(filepath)
+    {
+        setAutoDelete(true);
+    }
+
+    void run() override
+    {
+        QFile file(_filepath);
+        if (!file.open(QIODevice::ReadOnly))
+        {
+            QMetaObject::invokeMethod(&FileSendMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
+                                      Q_ARG(int64_t, _task_id), Q_ARG(QString, QString()));
+            return;
+        }
+        QCryptographicHash hash(QCryptographicHash::Md5);
+        hash.addData(&file);
+        QString md5 = QString::fromLatin1(hash.result().toHex());
+        QMetaObject::invokeMethod(&FileSendMgr::Instance(), "OnMd5Computed", Qt::QueuedConnection,
+                                  Q_ARG(int64_t, _task_id), Q_ARG(QString, md5));
+    }
+
+private:
+    int64_t _task_id;
+    QString _filepath;
+};
+}
+
+/**
+ * @brief 获取单例实例（Meyers' Singleton）
+ */
 FileSendMgr &FileSendMgr::Instance()
 {
     static FileSendMgr instance;
     return instance;
 }
 
-FileSendMgr::FileSendMgr() {}
-FileSendMgr::~FileSendMgr() {}
+/**
+ * @brief 构造与析构（单例，无特殊初始化/清理逻辑）
+ */
+FileSendMgr::FileSendMgr()
+{
+}
+FileSendMgr::~FileSendMgr()
+{
+}
 
 /**
  * @brief 启动文件发送任务
@@ -23,7 +73,9 @@ FileSendMgr::~FileSendMgr() {}
 void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath)
 {
     qDebug() << "[FileSendMgr] StartSend called, task_id:" << task_id << "to_uid:" << to_uid << "filepath:" << filepath;
+    // RAII 加锁，保护 _tasks 映射表
     QMutexLocker locker(&_mutex);
+    // 防止重复启动同一任务
     if (_tasks.find(task_id) != _tasks.end())
     {
         qDebug() << "Send task already exists:" << task_id;
@@ -34,6 +86,7 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     newTask.task_id = task_id;
     newTask.to_uid = to_uid;
     newTask.filepath = filepath;
+    // unique_ptr 管理 QFile 生命周期，RAII 确保文件句柄最终被释放
     newTask.file = std::make_unique<QFile>(filepath);
     if (!newTask.file->open(QIODevice::ReadOnly))
     {
@@ -43,16 +96,18 @@ void FileSendMgr::StartSend(int64_t task_id, int to_uid, const QString &filepath
     newTask.total_size = newTask.file->size();
     newTask.sent_size = 0;
     newTask.active = true;
-    _tasks.insert_or_assign(task_id, std::move(newTask));
 
     qDebug() << "Start send task:" << task_id << "file:" << filepath << "size:" << newTask.total_size;
+    _tasks.insert_or_assign(task_id, std::move(newTask));
+
+    QThreadPool::globalInstance()->start(new SendMd5Runnable(task_id, filepath));
 }
 
 /**
- * @brief 接收方就绪回调（断点续传支持）
+ * @brief 接收方就绪回调（FileRsp 触发）
  * @param task_id 任务 ID
- * @param offset 已接收偏移量
- * @details 收到 FileRsp 后调用，根据 offset 定位文件指针并继续发送
+ * @param offset 已接收偏移量（断点续传时 > 0）
+ * @details 首次发送或断点续传：seek 到 offset，然后填满发送窗口
  */
 void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
 {
@@ -60,12 +115,12 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
     QMutexLocker locker(&_mutex);
     auto it = _tasks.find(task_id);
     if (it == _tasks.end() || !it->second.active)
-    {
         return;
-    }
 
     FileSendTask &task = it->second;
-    if (offset > 0 && offset < task.total_size)
+
+    // 断点续传：接收方已有部分数据，seek 到对应位置
+    if (offset > task.sent_size && offset < task.total_size)
     {
         if (!task.file->seek(offset))
         {
@@ -76,28 +131,81 @@ void FileSendMgr::OnRecvReady(int64_t task_id, int64_t offset)
         task.sent_size = offset;
     }
 
-    SendNextChunk(task);
+    // 填满发送窗口（首次调用 in_flight=0，直接发满）
+    while (task.active && task.in_flight < task.window_size && task.sent_size < task.total_size)
+    {
+        SendNextChunk(task);
+    }
 
     if (!task.active)
-    {
         _tasks.erase(it);
+}
+
+/**
+ * @brief 分片确认回调（FileAck 触发）
+ * @param task_id 任务 ID
+ * @param received 接收端已确认的累计偏移量
+ * @details 滑动窗口流控：释放一个 in_flight 槽位，继续发送；传输完成时通知 UI
+ */
+void FileSendMgr::OnChunkAck(int64_t task_id, int64_t received)
+{
+    QMutexLocker locker(&_mutex);
+    auto it = _tasks.find(task_id);
+    if (it == _tasks.end() || !it->second.active)
+        return;
+
+    FileSendTask &task = it->second;
+
+    // 接收端确认全部数据已收到 → 传输完成
+    if (received >= task.total_size)
+    {
+        task.file->close();
+        emit sigSendComplete(task_id, true, {});
+        _tasks.erase(it);
+        return;
     }
+
+    // 释放一个 in_flight 槽位，继续发送
+    if (task.in_flight > 0)
+        task.in_flight--;
+
+    while (task.active && task.in_flight < task.window_size && task.sent_size < task.total_size)
+    {
+        SendNextChunk(task);
+    }
+
+    if (!task.active)
+        _tasks.erase(it);
 }
 
 /**
  * @brief 取消文件发送任务
  * @param task_id 任务 ID
- * @details 关闭文件句柄并从任务列表移除
+ * @param reason 取消原因
  */
-void FileSendMgr::CancelSend(int64_t task_id)
+void FileSendMgr::CancelSend(int64_t task_id, const QString &reason)
 {
     QMutexLocker locker(&_mutex);
     auto it = _tasks.find(task_id);
     if (it != _tasks.end())
     {
         it->second.file->close();
+        emit sigSendComplete(task_id, false, reason.isEmpty() ? QStringLiteral("cancelled") : reason);
         _tasks.erase(it);
     }
+}
+
+void FileSendMgr::OnMd5Computed(int64_t task_id, const QString &md5)
+{
+    QMutexLocker locker(&_mutex);
+    auto it = _tasks.find(task_id);
+    if (it == _tasks.end())
+        return;
+
+    FileSendTask &task = it->second;
+    task.md5 = md5;
+    task.md5_ready = true;
+    emit sigMd5Ready(task_id, md5);
 }
 
 /**
@@ -143,10 +251,13 @@ void FileSendMgr::SendNextChunk(FileSendTask &task)
         return;
     }
 
-    TcpMgr::Instance()->slot_send_data(
-        RequestType::MSG_FILE_CHUNK, QByteArray(serialized.data(), static_cast<int>(serialized.size())));
+    // 通过 TcpMgr 长连接发送 protobuf 序列化后的分片数据
+    TcpMgr::Instance()->slotSendData(RequestType::MSG_FILE_CHUNK,
+                                     QByteArray(serialized.data(), static_cast<int>(serialized.size())));
     task.sent_size += data.size();
+    task.in_flight++;
 
+    // 发射进度信号，供 UI 层更新进度条
     int progress = static_cast<int>((task.sent_size * 100) / task.total_size);
     emit sigSendProgress(task.task_id, progress, task.sent_size, task.total_size);
 }

@@ -9,6 +9,17 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
+DO_CLEAN=false
+
+# 解析参数
+for arg in "$@"; do
+    case $arg in
+        --clean)
+            DO_CLEAN=true
+            shift
+            ;;
+    esac
+done
 
 echo "=========================================="
 echo "QmsrChat Linux Build Script"
@@ -22,7 +33,7 @@ cd "${SCRIPT_DIR}"
 
 # 创建构建目录
 BUILD_DIR="${SCRIPT_DIR}/build"
-if [ -d "${BUILD_DIR}" ]; then
+if [ "$DO_CLEAN" = true ] && [ -d "${BUILD_DIR}" ]; then
     echo "清理旧的构建目录..."
     rm -rf "${BUILD_DIR}"
 fi

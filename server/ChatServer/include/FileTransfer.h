@@ -1,3 +1,10 @@
+#pragma once
+/**
+ * @file FileTransfer.h
+ * @brief 文件传输任务管理与路由
+ * @details 管理 P2P 文件传输任务的生命周期，支持对象池复用，
+ *          使用互斥锁保护任务映射表，原子变量管理进度与状态。
+ */
 #ifndef FILE_TRANSFER_H
 #define FILE_TRANSFER_H
 
@@ -13,8 +20,12 @@
 #include <shared_mutex>
 #include <string>
 
-constexpr size_t LARGE_FILE_THRESHOLD = 1024 * 1024;
-
+/**
+ * @class FileTransferTask
+ * @brief 单个文件传输任务的状态与进度
+ * @details 使用原子变量存储传输进度和状态，支持跨线程读取。
+ *          可通过 ObjectPool 复用，降低频繁创建/销毁开销。
+ */
 class FileTransferTask
 {
 public:
@@ -22,29 +33,17 @@ public:
     {
         PENDING = 0,
         TRANSFERRING = 1,
-        COMPLETED = 2,
-        FAILED = 3,
-        PAUSED = 4
+        COMPLETED = 2
     };
 
     FileTransferTask()
-        : _task_id(0),
-          _from_uid(0),
-          _to_uid(0),
-          _total_size(0),
-          _transferred_size(0),
-          _status(Status::PENDING)
+        : _task_id(0), _from_uid(0), _to_uid(0), _total_size(0), _transferred_size(0), _status(Status::PENDING)
     {
     }
 
     FileTransferTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size)
-        : _task_id(task_id),
-          _from_uid(from_uid),
-          _to_uid(to_uid),
-          _filename(filename),
-          _total_size(total_size),
-          _transferred_size(0),
-          _status(Status::PENDING)
+        : _task_id(task_id), _from_uid(from_uid), _to_uid(to_uid), _filename(filename), _total_size(total_size),
+          _transferred_size(0), _status(Status::PENDING)
     {
     }
 
@@ -67,9 +66,14 @@ public:
         _total_size = 0;
         _transferred_size.store(0, std::memory_order_relaxed);
         _status.store(Status::PENDING, std::memory_order_relaxed);
+        _is_image = false;
+        _image_id.clear();
+        _target_offline = false;
+        _md5.clear();
     }
 
-    void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size) noexcept
+    void Init(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size,
+              const std::string &md5 = "") noexcept
     {
         _task_id = task_id;
         _from_uid = from_uid;
@@ -78,6 +82,10 @@ public:
         _total_size = total_size;
         _transferred_size.store(0, std::memory_order_relaxed);
         _status.store(Status::PENDING, std::memory_order_relaxed);
+        _is_image = false;
+        _image_id.clear();
+        _target_offline = false;
+        _md5 = md5;
     }
 
     int64_t GetTaskId() const
@@ -100,18 +108,41 @@ public:
     {
         return _total_size;
     }
-    int64_t GetTransferredSize() const
+
+    void SetIsImage(bool is_image)
     {
-        return _transferred_size.load();
+        _is_image = is_image;
     }
-    Status GetStatus() const
+    bool IsImage() const
     {
-        return _status.load();
+        return _is_image;
+    }
+    const std::string &GetImageId() const
+    {
+        return _image_id;
+    }
+    void SetImageId(const std::string &id)
+    {
+        _image_id = id;
     }
 
-    void UpdateProgress(int64_t size);
-    bool IsCompleted() const;
-    void SetStatus(Status status);
+    void SetTargetOffline(bool offline)
+    {
+        _target_offline = offline;
+    }
+    bool IsTargetOffline() const
+    {
+        return _target_offline;
+    }
+
+    void SetMd5(const std::string &md5)
+    {
+        _md5 = md5;
+    }
+    const std::string &GetMd5() const
+    {
+        return _md5;
+    }
 
 private:
     int64_t _task_id = 0;
@@ -122,11 +153,25 @@ private:
     std::atomic<int64_t> _transferred_size{0};
     std::atomic<Status> _status{Status::PENDING};
     ObjectPool<FileTransferTask> *_pool = nullptr;
+    std::atomic<bool> _is_image{false};
+    std::string _image_id;
+    std::atomic<bool> _target_offline{false};
+    std::string _md5;
 };
 
+/**
+ * @class FileTransfer
+ * @brief 文件传输任务路由管理器（单例）
+ * @details 管理所有进行中的文件传输任务。
+ *          使用 std::map + std::mutex 保护任务表，原子变量分配任务 ID。
+ *          支持通过会话 UID 批量移除任务（用于会话断开清理）。
+ */
 class FileTransfer
 {
 public:
+    /**
+     * @brief 获取单例实例
+     */
     static FileTransfer &Instance();
 
     static ObjectPool<FileTransferTask> &TaskPool()
@@ -135,17 +180,35 @@ public:
         return pool;
     }
 
-    int64_t CreateTask(boost::asio::io_context &ioc, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
-    // 由外部指定 task_id 创建路由记录（用于 P2P 转发）
-    void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size);
+    /**
+     * @brief 创建并注册文件传输任务（由外部指定 task_id）
+     * @param task_id 任务 ID（来自客户端请求）
+     * @param from_uid 发送方 UID
+     * @param to_uid 接收方 UID
+     * @param filename 文件名
+     * @param total_size 文件总大小
+     * @param md5 文件MD5校验值（可选）
+     */
+    void AddTask(int64_t task_id, int from_uid, int to_uid, const std::string &filename, int64_t total_size,
+                 const std::string &md5 = "");
+
+    /**
+     * @brief 按 task_id 查询传输任务
+     * @param task_id 任务 ID
+     * @return 任务对象指针，不存在时返回 nullptr
+     */
     std::shared_ptr<FileTransferTask> GetTask(int64_t task_id);
+
+    /**
+     * @brief 按 task_id 移除传输任务
+     */
     void RemoveTask(int64_t task_id);
+
+    /**
+     * @brief 移除指定用户的所有传输任务（用于会话断开清理）
+     * @param uid 用户 UID
+     */
     void RemoveTaskBySession(int uid);
-
-    bool SendFileChunked(int fd, std::function<bool(const char *, size_t)> send_callback, int64_t offset, int64_t size);
-
-    std::string CalculateMD5(const std::string &filepath);
-    std::string CalculateChunkMD5(const char *data, size_t len);
 
     FileTransfer(const FileTransfer &) = delete;
     FileTransfer &operator=(const FileTransfer &) = delete;
@@ -156,7 +219,6 @@ private:
 
     std::map<int64_t, std::shared_ptr<FileTransferTask>> _tasks;
     std::mutex _task_mutex;
-    std::atomic<int64_t> _task_id_allocator{1};
 };
 
 #endif

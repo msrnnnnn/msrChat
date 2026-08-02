@@ -1,106 +1,36 @@
 cmake_minimum_required(VERSION 3.16)
 project(QmsrChat VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-# 锁定 UI 文件的真实物理搜索路径
-set(CMAKE_AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ui")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # =============================================================
-# Platform Detection and Compiler-Specific Settings
-# TODO: scope add_compile_options/definitions to target via target_compile_options/definitions
+# 1. 依赖查找
 # =============================================================
-if(WIN32)
-    message(STATUS "Building on Windows (MSVC/MinGW)")
-    add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
-
-    if(MSVC)
-        add_compile_options(/W3 /utf-8)
-        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(/Od /Zi /MDd /fsanitize=address)
-        else()
-            add_compile_options(/O2 /Oi /GL)
-        endif()
-    else()
-        add_compile_options(-fno-omit-frame-pointer)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            add_compile_options(-g -O0)
-        else()
-            add_compile_options(-O3)
-        endif()
-    endif()
-
-elseif(UNIX AND NOT APPLE)
-    message(STATUS "Building on Linux (GCC/Clang)")
-    add_compile_options(
-        -fno-omit-frame-pointer
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(
-            -g3
-            -O0
-            -fsanitize=address
-        )
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-    else()
-        add_compile_options(-O3 -march=native)
-    endif()
-    find_package(Threads REQUIRED)
-    link_libraries(Threads::Threads)
-    add_compile_definitions(STD_FILESYSTEM_EXPERIMENTAL=0)
-
-elseif(APPLE)
-    message(STATUS "Building on macOS")
-    add_compile_options(
-        -fno-omit-frame-pointer
-        -Wall
-    )
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(-g -O0)
-    else()
-        add_compile_options(-O3)
-    endif()
-endif()
-
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
-
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Quick Sql QuickWidgets QuickControls2 QuickLayouts)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Core Quick Qml Sql QuickWidgets QuickControls2 QuickLayouts)
-
-find_package(spdlog CONFIG REQUIRED)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Network Quick Sql QuickControls2 QuickLayouts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Network Core Quick Qml Sql QuickControls2 QuickLayouts Test)
 find_package(Protobuf REQUIRED)
 
-set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/proto/Message.proto")
+# =============================================================
+# 2. Proto 编译（共享 proto/ 目录）
+# =============================================================
+set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../proto/Message.proto")
 protobuf_generate_cpp(PROTO_SOURCES PROTO_HEADERS ${PROTO_FILE})
 
 # =============================================================
-# 源文件清单 (抛弃一切幻想，全部使用客观绝对路径)
+# 3. 源文件清单
 # =============================================================
 set(PROJECT_SOURCES
         src/main.cpp
         ${PROTO_SOURCES}
 
-        # UI 相关 (锁定在 ui 子目录)
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/mainwindow.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/logindialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/registerdialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/resetdialog.ui
-        ${CMAKE_CURRENT_SOURCE_DIR}/ui/chatdialog.ui
+        # UI 相关
         resources.qrc
 
         # 头文件
-        include/MainWindow.h
-        include/LoginDialog.h
-        include/RegisterDialog.h
-        include/ResetDialog.h
-        include/ChatDialog.h
         include/Global.h
         include/UserMgr.h
         include/TcpMgr.h
@@ -108,44 +38,58 @@ set(PROJECT_SOURCES
         include/TcpWorker.h
         include/FileRecvMgr.h
         include/FileSendMgr.h
-        include/singleton.h
-        include/Logger.h
-        include/DPIHelper.h
+        include/Singleton.h
         include/Utils.h
-        include/TimerBtn.h
-        include/ClickedLabel.h
         include/ChatListModel.h
+        include/ImageDownloadMgr.h
         include/DbService.h
         include/DbWorker.h
         include/RingBuffer.h
         include/ChatController.h
-        include/AuthUiHelpers.h
+        include/MessageActions.h
+        include/FileCoordinator.h
         include/ProtocolStructs.h
+        include/AuthController.h
 
         # QML 视图 (严格锁定在根目录)
+        ${CMAKE_CURRENT_SOURCE_DIR}/CardTopAccent.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthBanner.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthCardHeader.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/PasswordField.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/ChatView.qml
         ${CMAKE_CURRENT_SOURCE_DIR}/MessageBubble.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImageBubble.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImageViewer.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageActionMenu.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/EditMessageDialog.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageDelegate.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ChatHeader.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/MessageInputArea.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ImagePreviewBar.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/FileProgressPanel.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/EmptyState.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/AuthWindow.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ChatWindow.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/LoginView.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/RegisterView.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/ResetView.qml
 
         # 实现文件
-        src/MainWindow.cpp
-        src/LoginDialog.cpp
-        src/RegisterDialog.cpp
-        src/ResetDialog.cpp
-        src/ChatDialog.cpp
-        src/Logger.cpp
         src/UserMgr.cpp
         src/TcpMgr.cpp
         src/TcpProtocolParser.cpp
         src/TcpWorker.cpp
         src/FileRecvMgr.cpp
         src/FileSendMgr.cpp
-        src/TimerBtn.cpp
-        src/ClickedLabel.cpp
         src/ChatListModel.cpp
+        src/ImageDownloadMgr.cpp
         src/DbService.cpp
         src/DbWorker.cpp
         src/ChatController.cpp
+        src/MessageActions.cpp
+        src/FileCoordinator.cpp
         src/Utils.cpp
+        src/AuthController.cpp
 )
 
 # Windows 平台：添加可执行文件图标
@@ -153,6 +97,9 @@ if(WIN32)
     list(APPEND PROJECT_SOURCES resources/win32/app.rc)
 endif()
 
+# =============================================================
+# 4. 创建可执行文件
+# =============================================================
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QmsrChat
         MANUAL_FINALIZATION
@@ -170,18 +117,56 @@ else()
     endif()
 endif()
 
+# =============================================================
+# 5. Target 作用域编译选项（Phase 6: 替代全局 add_compile_options）
+# =============================================================
+target_compile_definitions(QmsrChat PRIVATE _WIN32_WINNT=0x0601 WINVER=0x0601)
+
+if(WIN32 AND MSVC)
+    target_compile_options(QmsrChat PRIVATE /W3 /utf-8)
+    target_compile_definitions(QmsrChat PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE /Od /Zi /MDd /fsanitize=address)
+    else()
+        target_compile_options(QmsrChat PRIVATE /O2 /Oi /GL)
+    endif()
+elseif(WIN32)
+    # MinGW
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g -O0)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3)
+    endif()
+elseif(UNIX AND NOT APPLE)
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer -Wall -Wextra -Wpedantic)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g3 -O0 -fsanitize=address)
+        target_link_options(QmsrChat PRIVATE -fsanitize=address)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3 -march=native)
+    endif()
+elseif(APPLE)
+    target_compile_options(QmsrChat PRIVATE -fno-omit-frame-pointer -Wall)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(QmsrChat PRIVATE -g -O0)
+    else()
+        target_compile_options(QmsrChat PRIVATE -O3)
+    endif()
+endif()
+
+# =============================================================
+# 6. 链接库
+# =============================================================
 target_link_libraries(QmsrChat PRIVATE
-    Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Quick
     Qt${QT_VERSION_MAJOR}::Qml
     Qt${QT_VERSION_MAJOR}::Sql
-    Qt${QT_VERSION_MAJOR}::QuickWidgets
     Qt${QT_VERSION_MAJOR}::QuickControls2
     Qt${QT_VERSION_MAJOR}::QuickLayouts
     protobuf::libprotobuf
-    spdlog::spdlog
 )
 
 target_include_directories(QmsrChat PRIVATE
@@ -227,18 +212,48 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 
 # =============================================================
-# Google Test (Unit Tests)
+# 7. Google Test (Unit Tests) — 可选构建
 # =============================================================
-add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
+option(BUILD_TESTS "Build unit tests (requires Google Test)" OFF)
 
-enable_testing()
+if(BUILD_TESTS)
+    include(FetchContent)
+    FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG v1.15.2
+    )
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
-add_executable(QmsrChatTests
-    tests/test_RingBuffer.cpp
-)
+    enable_testing()
 
-target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(QmsrChatTests PRIVATE gtest gtest_main)
+    add_executable(QmsrChatTests
+        tests/test_RingBuffer.cpp
+        tests/test_ChatListModel.cpp
+        tests/test_ImageDownloadMgr.cpp
+        src/ChatListModel.cpp
+        include/ChatListModel.h
+        src/ImageDownloadMgr.cpp
+        include/ImageDownloadMgr.h
+        src/DbWorker.cpp
+        include/DbWorker.h
+        src/DbService.cpp
+        include/DbService.h
+    )
 
-include(GoogleTest)
-gtest_discover_tests(QmsrChatTests)
+    set_target_properties(QmsrChatTests PROPERTIES AUTOMOC ON)
+
+    target_include_directories(QmsrChatTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(QmsrChatTests PRIVATE
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Sql
+        Qt${QT_VERSION_MAJOR}::Test
+        gtest
+        gtest_main
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(QmsrChatTests DISCOVERY_MODE PRE_TEST)
+endif()

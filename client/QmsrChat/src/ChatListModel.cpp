@@ -1,18 +1,34 @@
+/**
+ * @file    ChatListModel.cpp
+ * @brief   聊天消息列表模型实现（QAbstractListModel 子类，供 QML ListView 使用）
+ */
 #include "ChatListModel.h"
+#include "DbWorker.h"
 #include <QDateTime>
 #include <QDebug>
 #include <climits>
 
-ChatListModel::ChatListModel(QObject *parent)
-    : QAbstractListModel(parent),
-      _current_uid(0)
+/**
+ * @brief 构造函数
+ * @param parent 父 QObject
+ */
+ChatListModel::ChatListModel(QObject *parent) : QAbstractListModel(parent), _current_uid(0)
 {
 }
 
+/**
+ * @brief 析构函数
+ */
 ChatListModel::~ChatListModel()
 {
 }
 
+/**
+ * @brief 获取模型行数（QAbstractListModel 接口）
+ * @param parent 父索引（列表模型忽略）
+ * @return 消息总数
+ * @details 加锁读取 _messages，保证跨线程安全
+ */
 int ChatListModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
@@ -24,6 +40,13 @@ int ChatListModel::rowCount(const QModelIndex &parent) const
     return _messages.size();
 }
 
+/**
+ * @brief 获取指定索引的数据（QAbstractListModel 接口）
+ * @param index 模型索引
+ * @param role 数据角色（对应 roleNames() 定义的属性名）
+ * @return 对应角色的 QVariant 值
+ * @details 加锁读取，跨线程安全。IsSelfRole 通过对比 from_uid 与 _current_uid 判断
+ */
 QVariant ChatListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid())
@@ -57,11 +80,29 @@ QVariant ChatListModel::data(const QModelIndex &index, int role) const
             return msg.from_uid == _current_uid;
         case DisplayTimeRole:
             return FormatTime(msg.timestamp);
+        case TypeRole:
+            return msg.type;
+        case ImageIdRole:
+            return msg.image_id;
+        case ImagePathRole:
+            return msg.image_path;
+        case ImageWidthRole:
+            return msg.image_width;
+        case ImageHeightRole:
+            return msg.image_height;
+        case EditedRole:
+            return msg.edited;
+        case RecalledRole:
+            return msg.recalled;
         default:
             return QVariant();
     }
 }
 
+/**
+ * @brief 返回 QML 角色名映射（QAbstractListModel 接口）
+ * @return role int → QML 属性名字符串 的哈希表
+ */
 QHash<int, QByteArray> ChatListModel::roleNames() const
 {
     QHash<int, QByteArray> roles;
@@ -72,14 +113,33 @@ QHash<int, QByteArray> ChatListModel::roleNames() const
     roles[StatusRole] = "status";
     roles[IsSelfRole] = "isSelf";
     roles[DisplayTimeRole] = "displayTime";
+    roles[TypeRole] = "messageType";
+    roles[ImageIdRole] = "imageId";
+    roles[ImagePathRole] = "imagePath";
+    roles[ImageWidthRole] = "imageWidth";
+    roles[ImageHeightRole] = "imageHeight";
+    roles[EditedRole] = "edited";
+    roles[RecalledRole] = "recalled";
     return roles;
 }
 
+/**
+ * @brief 添加一条消息到模型
+ * @param msg 消息结构体
+ * @details 按时间戳二分插入保持有序
+ */
 void ChatListModel::AddMessage(const ChatMessage &msg)
 {
     InsertMessageSorted(msg);
 }
 
+/**
+ * @brief 插入或更新消息（幂等 upsert）
+ * @param msg 消息结构体
+ * @details 优先通过 client_msg_id 哈希索引查找（O(1)），
+ *          其次通过 server_msg_id 线性扫描（O(n)），
+ *          找到则原地更新，未找到则二分插入
+ */
 void ChatListModel::UpsertMessage(const ChatMessage &msg)
 {
     int changedRow = -1;
@@ -134,12 +194,18 @@ void ChatListModel::UpsertMessage(const ChatMessage &msg)
     InsertMessageSorted(msg);
 }
 
+/**
+ * @brief 按时间戳二分查找插入位置并插入
+ * @param msg 消息结构体
+ * @details 插入后重建 _clientIdIndex 哈希索引，发射 scrollToBottomRequested 信号
+ */
 void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
 {
     ChatMessage copy = msg;
 
     int insertRow = 0;
     {
+        QMutexLocker lock(&_mutex);
         int lo = 0, hi = _messages.size();
         while (lo < hi)
         {
@@ -152,71 +218,25 @@ void ChatListModel::InsertMessageSorted(const ChatMessage &msg)
         insertRow = lo;
     }
 
+    // beginInsertRows 不能在锁内调用：QML 视图在信号处理中可能回调 data()/rowCount()，
+    // 如果此时持有锁会死锁。解锁后 insertRow 可能已过时，但聊天消息插入频率远低于锁竞争频率，
+    // 极端并发下最差情况是插入位置偏移几条，不影响数据完整性。
     beginInsertRows(QModelIndex(), insertRow, insertRow);
-    _messages.insert(insertRow, copy);
-    RebuildIndex();
+    {
+        QMutexLocker lock(&_mutex);
+        _messages.insert(insertRow, copy);
+        RebuildIndex();
+    }
     endInsertRows();
 
-    emit messageAdded(copy);
     emit scrollToBottomRequested();
 }
 
-void ChatListModel::AddMessages(const QVector<ChatMessage> &messages)
-{
-    if (messages.isEmpty())
-    {
-        return;
-    }
-
-    int startRow = rowCount();
-    int endRow = startRow + messages.size() - 1;
-
-    beginInsertRows(QModelIndex(), startRow, endRow);
-
-    {
-        QMutexLocker locker(&_mutex);
-        for (const ChatMessage &msg : messages)
-        {
-            ChatMessage copy = msg;
-            _messages.append(copy);
-        }
-        RebuildIndex();
-    }
-
-    endInsertRows();
-
-    emit messagesLoaded(messages.size());
-    emit scrollToBottomRequested();
-}
-
-void ChatListModel::InsertHistoricalMessages(const QVector<ChatMessage> &messages)
-{
-    if (messages.isEmpty())
-    {
-        return;
-    }
-
-    int startRow = 0;
-    int endRow = messages.size() - 1;
-
-    beginInsertRows(QModelIndex(), startRow, endRow);
-
-    {
-        QMutexLocker locker(&_mutex);
-        for (int i = messages.size() - 1; i >= 0; --i)
-        {
-            ChatMessage copy = messages[i];
-            _messages.prepend(copy);
-        }
-        RebuildIndex();
-    }
-
-    endInsertRows();
-
-    emit messagesLoaded(messages.size());
-    emit scrollToTopRequested();
-}
-
+/**
+ * @brief 在列表头部批量插入历史消息
+ * @param messages 消息列表（时间升序）
+ * @details 倒序遍历 prepend 保证插入后时间顺序正确，走 beginInsertRows/endInsertRows 通知 QML
+ */
 void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
 {
     if (messages.isEmpty())
@@ -227,6 +247,7 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     int startRow = 0;
     int endRow = messages.size() - 1;
 
+    _prepending = true;
     beginInsertRows(QModelIndex(), startRow, endRow);
 
     {
@@ -240,20 +261,15 @@ void ChatListModel::PrependMessages(const QVector<ChatMessage> &messages)
     }
 
     endInsertRows();
+    _prepending = false;
 }
 
-void ChatListModel::SetMessages(const QVector<ChatMessage> &messages)
-{
-    beginResetModel();
-    {
-        QMutexLocker locker(&_mutex);
-        _messages = messages;
-        RebuildIndex();
-    }
-    endResetModel();
-    emit scrollToBottomRequested();
-}
-
+/**
+ * @brief 更新消息状态并通知 QML
+ * @param client_msg_id 客户端消息 ID
+ * @param status 新状态（0=发送中，1=已送达，2=已存储，-1=失败）
+ * @details 通过 _clientIdIndex 哈希索引 O(1) 查找，发射 dataChanged 仅通知 StatusRole
+ */
 void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status)
 {
     int changedRow = -1;
@@ -261,8 +277,8 @@ void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status
     {
         QMutexLocker locker(&_mutex);
         auto it = _clientIdIndex.find(client_msg_id);
-        if (it != _clientIdIndex.end() && it.value() >= 0 && it.value() < _messages.size()
-            && _messages[it.value()].client_msg_id == client_msg_id)
+        if (it != _clientIdIndex.end() && it.value() >= 0 && it.value() < _messages.size() &&
+            _messages[it.value()].client_msg_id == client_msg_id)
         {
             _messages[it.value()].status = status;
             changedRow = it.value();
@@ -276,6 +292,23 @@ void ChatListModel::UpdateMessageStatus(const QString &client_msg_id, int status
     }
 }
 
+void ChatListModel::UpdateMessageClientId(qint64 timestamp, const QString &new_client_msg_id)
+{
+    QMutexLocker lock(&_mutex);
+    auto it = _timestampIndex.find(timestamp);
+    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size())
+    {
+        QString old_id = _messages[it.value()].client_msg_id;
+        _messages[it.value()].client_msg_id = new_client_msg_id;
+        _clientIdIndex.remove(old_id);
+        _clientIdIndex[new_client_msg_id] = it.value();
+    }
+}
+
+/**
+ * @brief 清空所有消息
+ * @details 走 beginResetModel/endResetModel 通知 QML 整体刷新
+ */
 void ChatListModel::ClearMessages()
 {
     beginResetModel();
@@ -289,12 +322,23 @@ void ChatListModel::ClearMessages()
     endResetModel();
 }
 
+/**
+ * @brief 设置当前登录用户 UID
+ * @param uid 用户 ID
+ * @details 用于 IsSelfRole 判断消息是否来自自己
+ */
 void ChatListModel::SetCurrentUid(int uid)
 {
     QMutexLocker locker(&_mutex);
     _current_uid = uid;
 }
 
+/**
+ * @brief 获取指定位置的消息（加锁拷贝）
+ * @param index 消息在列表中的位置
+ * @param out 输出参数，存储找到的消息
+ * @return 是否获取成功
+ */
 bool ChatListModel::TryGetMessageAt(int index, ChatMessage &out) const
 {
     QMutexLocker locker(&_mutex);
@@ -308,23 +352,22 @@ bool ChatListModel::TryGetMessageAt(int index, ChatMessage &out) const
     return true;
 }
 
+/**
+ * @brief 获取所有消息的拷贝
+ * @return 消息列表（时间升序）
+ * @details 返回拷贝而非引用，避免调用方持有锁期间意外阻塞
+ */
 QVector<ChatMessage> ChatListModel::GetAllMessages() const
 {
     QMutexLocker locker(&_mutex);
     return _messages;
 }
 
-QVector<ChatMessage> ChatListModel::GetMessagesAtomic(int start, int count) const
-{
-    QMutexLocker locker(&_mutex);
-    QVector<ChatMessage> result;
-    int end = qMin(start + count, _messages.size());
-    for (int i = start; i < end; ++i) {
-        result.append(_messages[i]);
-    }
-    return result;
-}
-
+/**
+ * @brief 获取最早消息的时间戳
+ * @return 时间戳（列表为空返回 LLONG_MAX）
+ * @details 用于 loadMoreHistory 计算 before_time 分页参数
+ */
 qint64 ChatListModel::GetEarliestTimestamp() const
 {
     QMutexLocker locker(&_mutex);
@@ -335,18 +378,31 @@ qint64 ChatListModel::GetEarliestTimestamp() const
     return _messages.first().timestamp;
 }
 
+/**
+ * @brief 重建 client_msg_id → 行号 的哈希索引
+ * @details 在 InsertMessageSorted 及 PrependMessages 后调用，
+ *          保证 UpsertMessage 和 UpdateMessageStatus 的 O(1) 查找有效
+ */
 void ChatListModel::RebuildIndex()
 {
     _clientIdIndex.clear();
+    _timestampIndex.clear();
     for (int i = 0; i < _messages.size(); ++i)
     {
         if (!_messages[i].client_msg_id.isEmpty())
         {
             _clientIdIndex[_messages[i].client_msg_id] = i;
         }
+        _timestampIndex[_messages[i].timestamp] = i;
     }
 }
 
+/**
+ * @brief 格式化时间戳为显示字符串
+ * @param timestamp 毫秒级时间戳
+ * @return 格式化的时间字符串
+ * @details 今天 → hh:mm:ss，昨天 → "昨天 hh:mm:ss"，今年 → MM-dd hh:mm:ss，跨年 → yyyy-MM-dd hh:mm:ss
+ */
 QString ChatListModel::FormatTime(qint64 timestamp) const
 {
     QDateTime dateTime = QDateTime::fromMSecsSinceEpoch(timestamp);
@@ -368,4 +424,149 @@ QString ChatListModel::FormatTime(qint64 timestamp) const
     {
         return dateTime.toString("yyyy-MM-dd hh:mm:ss");
     }
+}
+
+/**
+ * @brief 按时间戳原地修改消息
+ * @param ts 消息时间戳
+ * @param mutator 修改函数（lambda），接收 ChatMessage& 引用
+ * @details 加锁遍历并应用修改后解锁，再发射 dataChanged（避免持锁 emit）
+ */
+void ChatListModel::UpdateMessageByTimestamp(qint64 ts, const std::function<void(ChatMessage &)> &mutator)
+{
+    QMutexLocker lock(&_mutex);
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].timestamp == ts)
+        {
+            mutator(_messages[i]);
+            lock.unlock();
+            QModelIndex idx = index(i);
+            emit dataChanged(idx, idx);
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 更新图片的本地路径
+ * @param image_id 图片 UUID
+ * @param local_path 本地文件路径
+ * @details 文件下载完成后调用，通知 QML 更新 ImagePathRole
+ */
+void ChatListModel::UpdateImagePath(const QString &image_id, const QString &local_path)
+{
+    QMutexLocker lock(&_mutex);
+    for (int i = 0; i < _messages.size(); ++i)
+    {
+        if (_messages[i].image_id == image_id)
+        {
+            _messages[i].image_path = local_path;
+            lock.unlock();
+            QModelIndex idx = index(i);
+            emit dataChanged(idx, idx, {ImagePathRole});
+            return;
+        }
+    }
+}
+
+/**
+ * @brief 标记消息为已撤回
+ * @param ts 消息时间戳
+ * @param current_uid 当前用户 ID（用于 DB 作用域）
+ * @details 先异步写 DB 再改内存，防止刷新后 DB 中 recalled=0 导致消息"复活"
+ */
+void ChatListModel::MarkRecalled(qint64 ts, int current_uid)
+{
+    // 先写 DB（异步），再改内存。修复"假撤回"bug：刷新界面后 DB 仍是 recalled=0 导致图片复活
+    DbThreadManager::Instance().MarkMessageRecalled(ts, current_uid);
+    UpdateMessageByTimestamp(ts,
+                             [](ChatMessage &m)
+                             {
+                                 m.recalled = true;
+                                 m.recalled_at = QDateTime::currentMSecsSinceEpoch();
+                             });
+}
+
+/**
+ * @brief 标记消息为已编辑
+ * @param ts 消息时间戳
+ * @param new_content 编辑后内容
+ * @param edit_ts 编辑时间
+ */
+void ChatListModel::MarkEdited(qint64 ts, const QString &new_content, qint64 edit_ts)
+{
+    UpdateMessageByTimestamp(ts,
+                             [&](ChatMessage &m)
+                             {
+                                 m.content = new_content;
+                                 m.edited = true;
+                                 m.edited_at = edit_ts;
+                             });
+}
+
+// === Phase 6 ===
+
+/**
+ * @brief 按时间戳删除单条消息（仅本地）
+ * @details 走 beginRemoveRows / endRemoveRows 让 QML ListView 正确更新。
+ *          不通知对端（删除作用域：本地）。
+ */
+void ChatListModel::RemoveMessageByTimestamp(qint64 ts)
+{
+    int removeRow = -1;
+    {
+        QMutexLocker lock(&_mutex);
+        for (int i = 0; i < _messages.size(); ++i)
+        {
+            if (_messages[i].timestamp == ts)
+            {
+                removeRow = i;
+                break;
+            }
+        }
+    }
+
+    if (removeRow >= 0)
+    {
+        beginRemoveRows(QModelIndex(), removeRow, removeRow);
+        {
+            QMutexLocker lock(&_mutex);
+            _messages.removeAt(removeRow);
+            RebuildIndex();
+        }
+        endRemoveRows();
+    }
+}
+
+/**
+ * @brief 按时间戳查找消息
+ * @param ts 消息时间戳（毫秒）
+ * @param out 找到时填充
+ * @return true 找到；false 未找到
+ */
+bool ChatListModel::GetMessageByTimestamp(qint64 ts, ChatMessage &out) const
+{
+    QMutexLocker lock(&_mutex);
+    auto it = _timestampIndex.find(ts);
+    if (it != _timestampIndex.end() && it.value() >= 0 && it.value() < _messages.size() &&
+        _messages[it.value()].timestamp == ts)
+    {
+        out = _messages[it.value()];
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief 按时间戳获取消息内容（便捷方法）
+ * @param ts 消息时间戳
+ * @return 消息内容字符串，未找到返回空
+ */
+QString ChatListModel::GetContentByTimestamp(qint64 ts) const
+{
+    ChatMessage m;
+    if (GetMessageByTimestamp(ts, m))
+        return m.content;
+    return QString();
 }

@@ -7,12 +7,17 @@
 #include "MessageDispatcher.h"
 #include <spdlog/spdlog.h>
 
-LogicSystem::LogicSystem()
-    : _thread_pool(DEFAULT_THREAD_NUM)
+/**
+ * @brief 构造函数，初始化工作线程池
+ */
+LogicSystem::LogicSystem() : _thread_pool(DEFAULT_THREAD_NUM)
 {
     spdlog::info("[LogicSystem] Initialized with {} worker threads", DEFAULT_THREAD_NUM);
 }
 
+/**
+ * @brief 析构函数，确保线程池安全退出
+ */
 LogicSystem::~LogicSystem()
 {
     Shutdown();
@@ -21,7 +26,7 @@ LogicSystem::~LogicSystem()
 /**
  * @brief 投递消息任务到处理队列
  * @param task 消息任务（含会话、消息 ID、数据）
- * @details 队列满时丢弃任务防止内存溢出
+ * @details 队列满时返回 ERR_BUSY 给客户端
  */
 void LogicSystem::PostTask(MessageTask task)
 {
@@ -37,9 +42,21 @@ void LogicSystem::PostTask(MessageTask task)
         return;
     }
 
+    auto session = task.LockSession();
+    if (!session)
+    {
+        spdlog::warn("[LogicSystem] Session expired before enqueue");
+        return;
+    }
+
     auto self = this;
     auto shared_task = std::make_shared<MessageTask>(std::move(task));
-    _thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); });
+    if (!_thread_pool.Enqueue([self, shared_task]() { self->ProcessTask(std::move(*shared_task)); }))
+    {
+        spdlog::warn("[LogicSystem] Queue full, rejecting msg_id={} for session={}", shared_task->msg_id,
+                     session->GetUuid());
+        session->ContinueReading();
+    }
 }
 
 /**
@@ -68,20 +85,14 @@ void LogicSystem::ProcessTask(MessageTask task)
     if (!handled)
     {
         spdlog::warn("[LogicSystem] No handler found for msg_id {}", task.msg_id);
-        session->Send(task.body_data, task.msg_id);
         session->ContinueReading();
     }
 }
 
 /**
- * @brief 设置 ASIO io_context 指针
- * @param ioc io_context 指针
+ * @brief 关闭逻辑处理系统
+ * @details 原子标记防止重复关闭，设置标志后线程池停止接受新任务并等待已入队任务完成
  */
-void LogicSystem::SetIOContext(boost::asio::io_context *ioc)
-{
-    _ioc = ioc;
-}
-
 void LogicSystem::Shutdown()
 {
     bool expected = false;
@@ -94,14 +105,4 @@ void LogicSystem::Shutdown()
     spdlog::info("[LogicSystem] Shutting down...");
     _thread_pool.Shutdown();
     spdlog::info("[LogicSystem] Shutdown complete");
-}
-
-bool LogicSystem::IsShuttingDown() const
-{
-    return _shutting_down.load();
-}
-
-size_t LogicSystem::GetQueueSize() const
-{
-    return _thread_pool.GetTaskCount();
 }

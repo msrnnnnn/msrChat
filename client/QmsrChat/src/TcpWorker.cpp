@@ -11,7 +11,7 @@
 #include <cstring>
 
 // 心跳与重连配置常量
-constexpr int HEARTBEAT_INTERVAL_MS = 15000;
+constexpr int HEARTBEAT_INTERVAL_MS = 30000;
 constexpr int PONG_CHECK_INTERVAL_MS = 5000;
 constexpr int PONG_TIMEOUT_MS = 45000;
 constexpr int MAX_RECONNECT_INTERVAL_MS = 60000;
@@ -19,30 +19,25 @@ constexpr int INITIAL_RECONNECT_INTERVAL_MS = 3000;
 constexpr size_t RECV_BUFFER_SIZE = 2 * 1024 * 1024;
 
 TcpWorker::TcpWorker(QObject *parent)
-    : QObject(parent),
-      _socket(nullptr),
-      _host(""),
-      _port(0),
-      _pending_connect(std::nullopt),
-      _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)),
-      _head_parsed(false),
-      _message_id(0),
-      _message_len(0),
-      _heartbeat_timer(nullptr),
-      _pong_check_timer(nullptr),
-      _reconnect_timer(nullptr),
-      _reconnect_interval(INITIAL_RECONNECT_INTERVAL_MS),
-      _last_pong_time(0),
-      _state(ConnectionState::Idle)
+    : QObject(parent), _socket(nullptr), _host(""), _port(0), _pending_connect(std::nullopt),
+      _recv_buffer(RingBuffer(RECV_BUFFER_SIZE)), _head_parsed(false), _message_id(0), _message_len(0),
+      _heartbeat_timer(nullptr), _pong_check_timer(nullptr), _reconnect_timer(nullptr),
+      _reconnect_interval(INITIAL_RECONNECT_INTERVAL_MS), _last_pong_time(0), _state(ConnectionState::Idle)
 {
 }
 
 TcpWorker::~TcpWorker()
 {
-    // slot_stop() 已统一由 TcpMgr::~TcpMgr() 通过 BlockingQueuedConnection 调用
-    // 此处不再重复调用，防止 socket/timers 在 Qt 全局清理阶段被二次操作
+    // 防御性清理：若 TcpMgr 未能通过 BlockingQueuedConnection 调用 slot_stop()
+    // （如异常关机路径），此处兜底停止 timer 和 socket
+    slot_stop();
 }
 
+/**
+ * @brief 在工作线程中初始化 socket 和定时器
+ * @details 创建 QTcpSocket、心跳/重连定时器，绑定信号槽。
+ *          若有延迟连接请求（_pending_connect），在此处补发。
+ */
 void TcpWorker::slot_init()
 {
     if (_socket)
@@ -66,25 +61,43 @@ void TcpWorker::slot_init()
 
     if (_pending_connect.has_value())
     {
+        // 延迟连接：slot_init 之前收到的连接请求，在此补发
         ServerInfo si;
         {
             QMutexLocker locker(&_pending_connect_mutex);
             si = *_pending_connect;
             _pending_connect.reset();
         }
-        slot_tcp_connect(si);
+        slotTcpConnect(si);
     }
 }
 
+/**
+ * @brief 停止工作线程，清理所有资源
+ * @details 设置 Stopping 状态以防止重连触发，停止并断开所有定时器，
+ *          断开并 abort socket，最后重置接收缓冲区。
+ */
 void TcpWorker::slot_stop()
 {
     QMutexLocker locker(&_pending_connect_mutex);
     _state.store(ConnectionState::Stopping);
     _pending_connect.reset();
 
-    if (_heartbeat_timer) { _heartbeat_timer->stop(); _heartbeat_timer->disconnect(); }
-    if (_pong_check_timer) { _pong_check_timer->stop(); _pong_check_timer->disconnect(); }
-    if (_reconnect_timer) { _reconnect_timer->stop(); _reconnect_timer->disconnect(); }
+    if (_heartbeat_timer)
+    {
+        _heartbeat_timer->stop();
+        _heartbeat_timer->disconnect();
+    }
+    if (_pong_check_timer)
+    {
+        _pong_check_timer->stop();
+        _pong_check_timer->disconnect();
+    }
+    if (_reconnect_timer)
+    {
+        _reconnect_timer->stop();
+        _reconnect_timer->disconnect();
+    }
 
     if (_socket)
     {
@@ -94,7 +107,13 @@ void TcpWorker::slot_stop()
     reset_buffer();
 }
 
-void TcpWorker::slot_tcp_connect(ServerInfo si)
+/**
+ * @brief 发起 TCP 连接
+ * @param si 服务器连接信息（主机、端口）
+ * @details 若 socket 尚未初始化（slot_init 未调用），将连接参数缓存到 _pending_connect，
+ *          等待 slot_init 时补发。已初始化则直接连接。
+ */
+void TcpWorker::slotTcpConnect(ServerInfo si)
 {
     QMutexLocker locker(&_pending_connect_mutex);
     if (!_socket)
@@ -113,6 +132,8 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
         port = _port;
     }
 
+    qDebug() << "[TcpWorker] Connecting to" << host << ":" << port;
+
     _reconnect_interval = INITIAL_RECONNECT_INTERVAL_MS;
     _last_pong_time = 0;
     stop_timers();
@@ -123,7 +144,14 @@ void TcpWorker::slot_tcp_connect(ServerInfo si)
     _socket->connectToHost(host, port);
 }
 
-void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
+/**
+ * @brief 发送数据到 socket
+ * @param reqId 请求类型 ID
+ * @param data 负载数据
+ * @details 将数据打包为 [2字节ID|4字节长度|负载] 的大端格式后写入 socket。
+ *          发送前检查 socket 是否存在且连接状态正常。
+ */
+void TcpWorker::slotSendData(RequestType reqId, const QByteArray &data)
 {
     if (!_socket)
     {
@@ -132,7 +160,8 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
     }
     if (!can_send())
     {
-        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load()) << "reqId:" << static_cast<int>(reqId);
+        qWarning() << "Tcp send rejected: connection state is not Connected, state:" << static_cast<int>(_state.load())
+                   << "reqId:" << static_cast<int>(reqId);
         return;
     }
 
@@ -154,8 +183,14 @@ void TcpWorker::slot_send_data(RequestType reqId, const QByteArray &data)
     qDebug() << "Tcp Send: ID=" << id << "(" << static_cast<int>(reqId) << ") Len=" << len;
 }
 
+/**
+ * @brief socket 连接成功回调
+ * @details 更新连接状态为 Connected，重置重连退避间隔和心跳时间戳，
+ *          启动心跳和 Pong 检测定时器。若之前处于重连状态则发出重连成功信号。
+ */
 void TcpWorker::slot_connected()
 {
+    qDebug() << "[TcpWorker] slot_connected fired! state before:" << static_cast<int>(_state.load());
     const auto current_state = _state.load();
     const bool was_reconnecting = current_state == ConnectionState::Reconnecting;
 
@@ -172,12 +207,19 @@ void TcpWorker::slot_connected()
 
     if (was_reconnecting)
     {
-        emit sig_reconnected();
+        emit sigReconnected();
     }
 
-    emit sig_con_success(true);
+    emit sigConSuccess(true);
 }
 
+/**
+ * @brief socket 可读回调，解析 TCP 粘包/拆包
+ * @details 协议格式：[2字节大端ID|4字节大端长度|负载]。
+ *          使用环形缓冲区缓存数据，循环解析直到数据不足时退出。
+ *          包含安全校验：数据量超限、消息长度超限、空消息均会断开连接。
+ *          心跳回应（MSG_HELLO）在此层拦截，刷新 _last_pong_time。
+ */
 void TcpWorker::slot_ready_read()
 {
     if (!_socket)
@@ -259,7 +301,7 @@ void TcpWorker::slot_ready_read()
             else
             {
                 qDebug() << "Recv message ID=" << _message_id << " forwarded to TcpMgr for parsing";
-                emit sig_packet_received(_message_id, messageBody);
+                emit sigPacketReceived(_message_id, messageBody);
             }
 
             _head_parsed = false;
@@ -267,9 +309,14 @@ void TcpWorker::slot_ready_read()
     }
 }
 
+/**
+ * @brief socket 错误回调
+ * @param error 错误类型（未使用）
+ * @details Stopping 状态下忽略错误，否则停止定时器、通知上层断开、触发重连。
+ */
 void TcpWorker::slot_error(QAbstractSocket::SocketError error)
 {
-    Q_UNUSED(error)
+    qWarning() << "[TcpWorker] slot_error:" << error << _socket->errorString() << "state:" << static_cast<int>(_state.load());
 
     if (_state.load() == ConnectionState::Stopping)
     {
@@ -277,27 +324,42 @@ void TcpWorker::slot_error(QAbstractSocket::SocketError error)
     }
 
     stop_timers();
-    emit sig_con_success(false);
+    emit sigConSuccess(false);
     schedule_reconnect();
 }
 
+/**
+ * @brief socket 断开连接回调
+ * @details 与 slot_error 处理逻辑一致：Stopping 状态忽略，否则触发重连流程。
+ */
 void TcpWorker::slot_disconnected()
 {
+    qWarning() << "[TcpWorker] slot_disconnected, state:" << static_cast<int>(_state.load());
     if (_state.load() == ConnectionState::Stopping)
     {
         return;
     }
 
     stop_timers();
-    emit sig_con_success(false);
+    emit sigConSuccess(false);
     schedule_reconnect();
 }
 
+/**
+ * @brief 发送心跳 Ping 包（MSG_HELLO + "{}"）
+ * @note "{}" 是 2 字节 JSON 对象，QByteArray 构造时不会额外添加 null 终止符
+ *       （QByteArray(const char*) 依赖 strlen 确定长度，"{}" 长度为 2）
+ */
 void TcpWorker::slot_send_ping()
 {
-    slot_send_data(RequestType::MSG_HELLO, "{}");
+    slotSendData(RequestType::MSG_HELLO, "{}");
 }
 
+/**
+ * @brief 检测 Pong 超时
+ * @details 若距离最近一次 Pong 响应超过 PONG_TIMEOUT_MS（45s），
+ *          认为连接已断，主动断开 socket 以触发重连。
+ */
 void TcpWorker::slot_pong_check()
 {
     qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -312,6 +374,10 @@ void TcpWorker::slot_pong_check()
     }
 }
 
+/**
+ * @brief 重连定时器到期，尝试重新连接
+ * @details 仅在 Reconnecting 状态下有效。重置缓冲区后发起 connectToHost。
+ */
 void TcpWorker::slot_reconnect_timeout()
 {
     if (!_socket || _state != ConnectionState::Reconnecting)
@@ -341,6 +407,11 @@ void TcpWorker::slot_reconnect_timeout()
     }
 }
 
+/**
+ * @brief 从环形缓冲区读取指定长度的数据
+ * @param len 读取长度
+ * @return QByteArray 读取到的数据
+ */
 QByteArray TcpWorker::readBytes(qsizetype len)
 {
     QByteArray result;
@@ -354,8 +425,15 @@ QByteArray TcpWorker::readBytes(qsizetype len)
     return result;
 }
 
+/**
+ * @brief 调度自动重连（指数退避）
+ * @details 重连间隔从 INITIAL_RECONNECT_INTERVAL_MS（3s）开始，每次翻倍，
+ *          最大不超过 MAX_RECONNECT_INTERVAL_MS（60s）。
+ *          连接成功后由 slot_connected 重置退避间隔。
+ */
 void TcpWorker::schedule_reconnect()
 {
+    // Stopping 状态下不重连
     if (!_socket || _state.load() == ConnectionState::Stopping)
     {
         return;
@@ -384,9 +462,13 @@ void TcpWorker::schedule_reconnect()
 
     _state.store(ConnectionState::Reconnecting);
     _reconnect_timer->start(_reconnect_interval);
+    // 指数退避：每次翻倍，上限 60s
     _reconnect_interval = (std::min)(_reconnect_interval * 2, MAX_RECONNECT_INTERVAL_MS);
 }
 
+/**
+ * @brief 重置接收缓冲区和解析状态
+ */
 void TcpWorker::reset_buffer()
 {
     _recv_buffer.Clear();
@@ -395,6 +477,9 @@ void TcpWorker::reset_buffer()
     _message_len = 0;
 }
 
+/**
+ * @brief 停止所有定时器（心跳、Pong检测、重连）
+ */
 void TcpWorker::stop_timers()
 {
     if (_heartbeat_timer)
@@ -411,7 +496,13 @@ void TcpWorker::stop_timers()
     }
 }
 
+/**
+ * @brief 检查是否允许发送数据
+ * @return true 可发送, false 不可发送
+ * @note 同时检查连接状态与 socket 底层状态，防止在未完全建立连接时发送数据。
+ */
 bool TcpWorker::can_send() const
 {
-    return _state.load() == ConnectionState::Connected && _socket && _socket->state() == QAbstractSocket::ConnectedState;
+    return _state.load() == ConnectionState::Connected && _socket &&
+           _socket->state() == QAbstractSocket::ConnectedState;
 }

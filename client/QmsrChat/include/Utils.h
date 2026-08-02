@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file Utils.h
  * @brief 通用工具类
@@ -8,27 +9,15 @@
 #define UTILS_H
 
 #include <QString>
-#include <QWidget>
 
 class Utils
 {
 public:
-    Utils(const Utils &) = delete;
-    Utils &operator=(const Utils &) = delete;
-
     static QString hashPassword(const QString &input);
-    static void repolish(QWidget *w);
-
-    static Utils &instance()
-    {
-        static Utils inst;
-        return inst;
-    }
+    static QString hmacSha256(const QString &key, const QString &message);
 
 private:
     Utils() = default;
-    ~Utils() = default;
-
     static const QString &salt();
 };
 

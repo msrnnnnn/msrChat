@@ -12,16 +12,13 @@
 #include "SessionManager.h"
 #include "MessageTask.h"
 #include "SQLiteMgr.h"
+#include "MessageRepository.h"
 #include "const.h"
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
-#include <fcntl.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
 
 /**
  * @brief 构造函数
@@ -30,10 +27,8 @@
  * @details 初始化 UUID、接收节点池、读超时定时器
  */
 CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server)
-    : _socket(ioc),
-      _read_deadline(ioc),
-      _strand(boost::asio::make_strand(ioc)),
-      _expiry_time(std::chrono::steady_clock::now() + kReadTimeout),
+    : _socket(ioc), _read_deadline(ioc), _write_deadline(ioc), _strand(boost::asio::make_strand(ioc)),
+      _expiry_time(std::chrono::steady_clock::now() + kReadTimeout), _last_write_time(std::chrono::steady_clock::now()),
       _server(server)
 {
     _uuid = std::to_string(CServer::s_session_id_allocator.fetch_add(1));
@@ -42,6 +37,9 @@ CSession::CSession(boost::asio::io_context &ioc, std::shared_ptr<CServer> server
     _recv_msg_node = RecvNodePool().Acquire();
 }
 
+/**
+ * @brief 析构函数
+ */
 CSession::~CSession()
 {
     spdlog::info("~CSession: {}", _uuid);
@@ -56,9 +54,11 @@ void CSession::Close()
     bool expected = false;
     if (!_closed.compare_exchange_strong(expected, true))
     {
+        spdlog::warn("[CSession] Close() called but already closed: uuid={}", _uuid);
         return;
     }
-    if (_user_uid != 0)
+    spdlog::warn("[CSession] Close() called: uuid={}", _uuid);
+    if (_user_uid > 0)
     {
         FileTransfer::Instance().RemoveTaskBySession(_user_uid);
         auto server = _server.lock();
@@ -70,6 +70,7 @@ void CSession::Close()
     }
     boost::system::error_code ec;
     _read_deadline.cancel(ec);
+    _write_deadline.cancel(ec);
     _socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
     _socket.close(ec);
 }
@@ -81,50 +82,92 @@ void CSession::Close()
 void CSession::Start()
 {
     auto self = shared_from_this();
-    boost::asio::dispatch(
-        _strand,
-        [this, self]()
-        {
-            ResetReadDeadline();
-            ScheduleReadDeadlineCheck();
-            AsyncReadHead();
-        });
+    boost::asio::dispatch(_strand,
+                          [this, self]()
+                          {
+                              ResetReadDeadline();
+                              ScheduleReadDeadlineCheck();
+                              ScheduleWriteDeadlineCheck();
+                              AsyncReadHead();
+                          });
 }
 
+/**
+ * @brief 重置读超时时间点
+ * @details 每次成功接收到数据后刷新超时
+ */
 void CSession::ResetReadDeadline()
 {
     _expiry_time = std::chrono::steady_clock::now() + kReadTimeout;
 }
 
+/**
+ * @brief 调度读超时检查
+ * @details 周期性异步检查，超时则终止会话；未超时则递归调度下一次检查
+ */
 void CSession::ScheduleReadDeadlineCheck()
 {
     _read_deadline.expires_after(kReadCheckInterval);
     auto self = shared_from_this();
     _read_deadline.async_wait(
-        boost::asio::bind_executor(
-            _strand,
-            [this, self](const boost::system::error_code &ec)
-            {
-                if (ec)
-                {
-                    return;
-                }
+        boost::asio::bind_executor(_strand,
+                                   [this, self](const boost::system::error_code &ec)
+                                   {
+                                       if (ec)
+                                       {
+                                           return;
+                                       }
 
-                if (_closed.load())
-                {
-                    return;
-                }
+                                       if (_closed.load())
+                                       {
+                                           return;
+                                       }
 
-                const auto now = std::chrono::steady_clock::now();
-                if (now >= _expiry_time)
-                {
-                    spdlog::warn("[CSession] read timeout, closing session {}", _uuid);
-                    TerminateSession("Read timeout");
-                    return;
-                }
+                                       const auto now = std::chrono::steady_clock::now();
+                                       if (now >= _expiry_time)
+                                       {
+                                           spdlog::warn("[CSession] read timeout, closing session {}", _uuid);
+                                           TerminateSession("Read timeout");
+                                           return;
+                                       }
 
-                ScheduleReadDeadlineCheck();
-            }));
+                                       ScheduleReadDeadlineCheck();
+                                   }));
+}
+
+/**
+ * @brief 7C.2: 调度写超时检查
+ * @details 如果队列有数据且长时间未成功写入，关闭连接
+ */
+void CSession::ScheduleWriteDeadlineCheck()
+{
+    _write_deadline.expires_after(kReadCheckInterval);
+    auto self = shared_from_this();
+    _write_deadline.async_wait(
+        boost::asio::bind_executor(_strand,
+                                   [this, self](const boost::system::error_code &ec)
+                                   {
+                                       if (ec)
+                                       {
+                                           return;
+                                       }
+                                       if (_closed.load())
+                                       {
+                                           return;
+                                       }
+                                       // 仅在队列非空时检查写超时
+                                       if (!_send_queue.empty())
+                                       {
+                                           const auto now = std::chrono::steady_clock::now();
+                                           if (now - _last_write_time >= kWriteTimeout)
+                                           {
+                                               spdlog::warn("[CSession] write timeout, closing session {}", _uuid);
+                                               TerminateSession("Write timeout");
+                                               return;
+                                           }
+                                       }
+                                       ScheduleWriteDeadlineCheck();
+                                   }));
 }
 
 /**
@@ -133,6 +176,11 @@ void CSession::ScheduleReadDeadlineCheck()
  */
 void CSession::AsyncReadHead()
 {
+    if (_closed.load())
+    {
+        _read_active.store(false);
+        return;
+    }
     auto self = shared_from_this();
     auto head_node = _recv_head_node;
     boost::asio::async_read(
@@ -155,6 +203,12 @@ void CSession::AsyncReadHead()
                 msg_id = boost::asio::detail::socket_ops::network_to_host_short(msg_id);
                 memcpy(&msg_len, head_node->_data + HEAD_ID_LEN, HEAD_DATA_LEN);
                 msg_len = boost::asio::detail::socket_ops::network_to_host_long(msg_len);
+
+                spdlog::info("[CSession] Parsed header: msg_id={}, msg_len={}, raw_bytes=[{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}]",
+                    msg_id, msg_len,
+                    (unsigned char)head_node->_data[0], (unsigned char)head_node->_data[1],
+                    (unsigned char)head_node->_data[2], (unsigned char)head_node->_data[3],
+                    (unsigned char)head_node->_data[4], (unsigned char)head_node->_data[5]);
 
                 if (msg_len == 0)
                 {
@@ -181,29 +235,29 @@ void CSession::AsyncReadBody(int total_len)
 {
     auto self = shared_from_this();
     auto recv_msg_node = _recv_msg_node;
-    boost::asio::async_read(
-        _socket, boost::asio::buffer(recv_msg_node->_data, total_len),
-        boost::asio::bind_executor(
-            _strand,
-            [this, self, recv_msg_node,
-             total_len](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
-            {
-                if (ec)
-                {
-                    CleanupSession(ec);
-                    return;
-                }
-                ResetReadDeadline();
-                recv_msg_node->_data[total_len] = '\0';
+    boost::asio::async_read(_socket, boost::asio::buffer(recv_msg_node->_data, total_len),
+                            boost::asio::bind_executor(
+                                _strand,
+                                [this, self, recv_msg_node, total_len](const boost::system::error_code &ec,
+                                                                       [[maybe_unused]] std::size_t bytes)
+                                {
+                                    if (ec)
+                                    {
+                                        CleanupSession(ec);
+                                        return;
+                                    }
+                                    ResetReadDeadline();
+                                    recv_msg_node->_data[total_len] = '\0';
 
-                uint16_t msg_id = recv_msg_node->_msg_id;
-                std::string body_data(recv_msg_node->_data, total_len);
+                                    uint16_t msg_id = recv_msg_node->_msg_id;
+                                    std::string body_data(recv_msg_node->_data, total_len);
 
-                spdlog::debug("[CSession] Received msg_id {}, body_len={}, pushing to LogicSystem", msg_id, total_len);
+                                    spdlog::debug("[CSession] Received msg_id {}, body_len={}, pushing to LogicSystem",
+                                                  msg_id, total_len);
 
-                MessageTask task(shared_from_this(), msg_id, std::move(body_data));
-                LogicSystem::getInstance().PostTask(std::move(task));
-            }));
+                                    MessageTask task(shared_from_this(), msg_id, std::move(body_data));
+                                    LogicSystem::getInstance().PostTask(std::move(task));
+                                }));
 }
 
 /**
@@ -226,17 +280,19 @@ void CSession::OnLoginValidated(int uid, bool valid)
     {
         spdlog::warn("[CSession] Token invalid for uid {}", uid);
         response["error"] = 1;
-        response["message"] = "token invalid";
+        response["message"] = "令牌无效";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
+        // 登录失败后保持连接，允许客户端重试登录（不断开 TCP）。
+        // TODO: 可添加重试次数限制，超过后关闭连接防止恶意重试。
         ContinueReading();
         return;
     }
 
-    if (_user_uid != 0)
+    if (_user_uid > 0)
     {
         response["error"] = 1;
-        response["message"] = "already login";
+        response["message"] = "已登录";
         response["uid"] = _user_uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
         ContinueReading();
@@ -250,7 +306,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
         _user_uid = uid;
 
         response["error"] = 0;
-        response["message"] = "login success";
+        response["message"] = "登录成功";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
         server->SendOfflineMessages(uid, shared_from_this());
@@ -258,7 +314,7 @@ void CSession::OnLoginValidated(int uid, bool valid)
     else
     {
         response["error"] = 1;
-        response["message"] = "server shutting down";
+        response["message"] = "服务器关闭中";
         response["uid"] = uid;
         Send(response.dump(), MSG_CHAT_LOGIN);
     }
@@ -271,29 +327,39 @@ void CSession::OnLoginValidated(int uid, bool valid)
  * @param msg_id 消息类型 ID
  * @details 使用 Strand 保证发送顺序，队列满时自动抑制
  */
-void CSession::Send(const std::string &msg, short msg_id)
+void CSession::Send(const std::string &msg, uint16_t msg_id)
 {
     auto send_node = SendNodePool().Acquire();
     send_node->Reset(msg, static_cast<uint16_t>(msg_id));
     auto self = shared_from_this();
-    boost::asio::dispatch(
-        _strand,
-        [this, self, send_node]()
-        {
-            if (_closed.load())
-            {
-                return;
-            }
-            _send_queue.push_back(send_node);
-            if (_is_writing)
-            {
-                return;
-            }
-            _is_writing = true;
-            AsyncWriteMsg();
-        });
+    boost::asio::dispatch(_strand,
+                          [this, self, send_node]()
+                          {
+                              if (_closed.load())
+                              {
+                                  return;
+                              }
+                              if (_send_queue.size() >= MAX_SEND_QUEUE)
+                              {
+                                  spdlog::warn("[CSession] Send queue full ({}), dropping msg_id={}",
+                                               _send_queue.size(), send_node->_msg_id);
+                                  return;
+                              }
+                              _send_queue.push_back(send_node);
+                              if (_is_writing)
+                              {
+                                  return;
+                              }
+                              _is_writing = true;
+                              AsyncWriteMsg();
+                          });
 }
 
+/**
+ * @brief 异步写入队列中的下一条消息
+ * @details 从发送队列取头部节点，通过 strand 保证单线程写操作；
+ *          写完一条后检查队列是否还有数据，有则继续递归调用
+ */
 void CSession::AsyncWriteMsg()
 {
     if (_send_queue.empty())
@@ -303,26 +369,26 @@ void CSession::AsyncWriteMsg()
     }
     auto send_node = _send_queue.front();
     auto self = shared_from_this();
-    boost::asio::async_write(
-        _socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
-        boost::asio::bind_executor(
-            _strand,
-            [this, self, send_node](const boost::system::error_code &ec, [[maybe_unused]] std::size_t bytes)
-            {
-                if (ec)
-                {
-                    CleanupSession(ec);
-                    return;
-                }
+    boost::asio::async_write(_socket, boost::asio::buffer(send_node->_data, send_node->_total_len + 6),
+                             boost::asio::bind_executor(_strand,
+                                                        [this, self, send_node](const boost::system::error_code &ec,
+                                                                                [[maybe_unused]] std::size_t bytes)
+                                                        {
+                                                            if (ec)
+                                                            {
+                                                                CleanupSession(ec);
+                                                                return;
+                                                            }
 
-                _send_queue.pop_front();
-                if (_send_queue.empty())
-                {
-                    _is_writing = false;
-                    return;
-                }
-                AsyncWriteMsg();
-            }));
+                                                            _last_write_time = std::chrono::steady_clock::now();
+                                                            _send_queue.pop_front();
+                                                            if (_send_queue.empty())
+                                                            {
+                                                                _is_writing = false;
+                                                                return;
+                                                            }
+                                                            AsyncWriteMsg();
+                                                        }));
 }
 
 /**
@@ -337,34 +403,43 @@ void CSession::SendNextOfflinePage()
         return;
     }
 
-    auto messages = SQLiteMgr::Instance().GetOfflineMessages(
-        _offline_send_state.uid, OFFLINE_PAGE_SIZE,
-        _offline_send_state.last_sent_id);
+    auto messages = SQLiteMgr::Instance().Messages().GetOfflineMessages(_offline_send_state.uid, OFFLINE_PAGE_SIZE,
+                                                                        _offline_send_state.last_sent_id);
 
     if (messages.empty())
     {
-        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        SQLiteMgr::Instance().Messages().ClearOfflineMessages(_offline_send_state.uid);
         _offline_send_state.sending = false;
         return;
     }
 
     for (const auto &msg : messages)
     {
-        qmsrchat::ServerChatMsg chatMsg;
-        chatMsg.set_from_uid(msg.from_uid);
-        chatMsg.set_to_uid(msg.to_uid);
-        chatMsg.set_content(msg.content);
-        if (!msg.client_msg_id.empty())
+        if (msg.type == 1)
         {
-            chatMsg.set_client_msg_id(msg.client_msg_id);
+            // 图片离线消息：content 存的是序列化后的 ImageMsg protobuf binary
+            Send(msg.content, MSG_CHAT_IMAGE);
+            spdlog::debug("[CSession] SendNextOfflinePage: sent image msg id={} image_id={}", msg.id, msg.image_id);
         }
-        chatMsg.set_server_msg_id(msg.id);
-        chatMsg.set_timestamp(msg.timestamp);
-
-        std::string serialized;
-        if (chatMsg.SerializeToString(&serialized))
+        else
         {
-            Send(serialized, MSG_CHAT_TEXT);
+            // 文本离线消息：保持原有逻辑
+            qmsrchat::ServerChatMsg chatMsg;
+            chatMsg.set_from_uid(msg.from_uid);
+            chatMsg.set_to_uid(msg.to_uid);
+            chatMsg.set_content(msg.content);
+            if (!msg.client_msg_id.empty())
+            {
+                chatMsg.set_client_msg_id(msg.client_msg_id);
+            }
+            chatMsg.set_server_msg_id(msg.id);
+            chatMsg.set_timestamp(msg.timestamp);
+
+            std::string serialized;
+            if (chatMsg.SerializeToString(&serialized))
+            {
+                Send(serialized, MSG_CHAT_TEXT);
+            }
         }
     }
 
@@ -378,7 +453,7 @@ void CSession::SendNextOfflinePage()
 
     if (_offline_send_state.sent_count >= _offline_send_state.total_count)
     {
-        SQLiteMgr::Instance().ClearOfflineMessages(_offline_send_state.uid);
+        SQLiteMgr::Instance().Messages().ClearOfflineMessages(_offline_send_state.uid);
         _offline_send_state.sending = false;
     }
 }
@@ -396,8 +471,15 @@ void CSession::ContinueOfflineSend()
     }
 }
 
+/**
+ * @brief 清理会话资源
+ * @param ec 触发清理的 Boost 错误码
+ * @details 处理断开或错误，先从 SessionManager 移除映射再关闭 socket，
+ *          最后按 UUID 清理由 DoAccept 注册的占位条目
+ */
 void CSession::CleanupSession(const boost::system::error_code &ec)
 {
+    spdlog::warn("[CSession] CleanupSession called: uuid={}, ec={}, message='{}'", _uuid, ec.value(), ec.message());
     if (ec)
     {
         if (ec == boost::asio::error::eof)
@@ -409,15 +491,6 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
             spdlog::error("[CSession] {}: {}", _uuid, ec.message());
         }
     }
-    if (_user_uid != 0)
-    {
-        auto server = _server.lock();
-        if (server)
-        {
-            SessionManager::Instance().RemoveSession(_user_uid);
-        }
-        _user_uid = 0;
-    }
     Close();
     auto server = _server.lock();
     if (server)
@@ -426,8 +499,14 @@ void CSession::CleanupSession(const boost::system::error_code &ec)
     }
 }
 
+/**
+ * @brief 终止会话
+ * @param error_msg 终止原因描述
+ * @details 与 CleanupSession 不同，此方法不区分错误码，强制关闭并移除映射
+ */
 void CSession::TerminateSession(const std::string &error_msg)
 {
+    spdlog::warn("[CSession] TerminateSession called: uuid={}, reason='{}'", _uuid, error_msg);
     if (!error_msg.empty())
     {
         spdlog::error("[CSession] {}: {}", _uuid, error_msg);

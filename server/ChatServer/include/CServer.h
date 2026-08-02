@@ -1,3 +1,4 @@
+#pragma once
 /**
  * @file CServer.h
  * @brief 聊天服务 TCP 入口类
@@ -8,9 +9,11 @@
 
 #include "ThreadPool.h"
 #include <boost/asio.hpp>
+#include <cstdint>
 #include <memory>
 #include <string>
 
+struct ChatMessage;
 class CSession;
 
 class CServer : public std::enable_shared_from_this<CServer>
@@ -18,18 +21,71 @@ class CServer : public std::enable_shared_from_this<CServer>
 public:
     static inline std::atomic<uint64_t> s_session_id_allocator{1};
 
-    CServer(boost::asio::io_context &io_context, short port);
+    CServer(boost::asio::io_context &io_context, uint16_t port);
     ~CServer();
 
+    /**
+     * @brief 启动服务端，开始监听连接
+     */
     void Start();
 
+    /**
+     * @brief 转发原始消息到在线目标用户
+     * @param target_uid 目标用户 UID
+     * @param msg_id 消息类型 ID
+     * @param body_data 序列化后的消息体（protobuf）
+     * @return 是否成功转发
+     */
     bool ForwardRawMessage(int target_uid, uint16_t msg_id, const std::string &body_data);
+
+    /**
+     * @brief 将消息存入离线队列（原始数据形式）
+     * @param target_uid 目标用户 UID
+     * @param msg_data 序列化后的消息数据
+     * @return 是否存储成功
+     */
     bool StoreOfflineMessage(int target_uid, const std::string &msg_data);
-    void SendOfflineMessages(int uid, std::shared_ptr<CSession> session);
+
+    /**
+     * @brief 将 ChatMessage 存入离线队列
+     * @param msg 聊天消息结构体（含图片等完整信息）
+     * @return 是否存储成功
+     */
+    bool StoreOfflineMessage(const ChatMessage &msg);
+
+    /**
+     * @brief 向已登录的会话推送离线消息
+     * @param uid 用户 UID
+     * @param session 目标会话
+     */
+    void SendOfflineMessages(int uid, const std::shared_ptr<CSession> &session);
+
+    /**
+     * @brief 向已登录的会话推送未送达的撤回通知
+     * @param uid 用户 UID
+     * @param session 目标会话
+     */
+    void FlushRecallNotifies(int uid, const std::shared_ptr<CSession> &session);
+
+    /**
+     * @brief 向已登录的会话推送未送达的编辑通知
+     * @param uid 用户 UID
+     * @param session 目标会话
+     */
+    void FlushEditNotifies(int uid, const std::shared_ptr<CSession> &session);
 
     ThreadPool &GetThreadPool()
     {
         return _thread_pool;
+    }
+
+    /**
+     * @brief 设置最大连接数上限
+     * @param max_connections 最大连接数（0 表示不限制）
+     */
+    void SetMaxConnections(size_t max_connections)
+    {
+        _max_connections = max_connections;
     }
 
     void Stop();
@@ -41,6 +97,7 @@ private:
     boost::asio::ip::tcp::acceptor _acceptor;
     ThreadPool _thread_pool;
     std::atomic<bool> _stopped{false};
+    size_t _max_connections{0}; ///< 最大连接数上限，0 表示不限制
 };
 
 #endif // CSERVER_H
